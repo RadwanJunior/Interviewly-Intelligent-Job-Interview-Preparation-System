@@ -1,6 +1,6 @@
 # Outline
 
-# JIPS-Intelligent-Job-Interview-Preparation-System
+# Interviewly: Intelligent Job Interview Preparation System
 
 Nowadays many interviewees can have a very long and exhausting interview preparation process leading to underpreparing at times. 
 
