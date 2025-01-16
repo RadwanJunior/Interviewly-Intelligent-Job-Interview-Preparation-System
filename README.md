@@ -16,6 +16,6 @@ The solution will help user better prepare given their related personal experien
 
  Team members and their roles
 
-Adham Radwan
-Marwan Mashaly
-Mohamad Bayaa
+- Adham Radwan
+- Marwan Mashaly
+- Mohamad Bayaa
