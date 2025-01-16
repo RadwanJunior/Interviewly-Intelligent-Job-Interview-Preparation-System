@@ -4,8 +4,7 @@
 
 Nowadays many interviewees can have a very long and exhausting interview preparation process leading to underpreparing at times. 
 
-## Objective (benefit to customer, key things to accomplish,
-criteria for success)
+## Objective (benefit to customer, key things to accomplish, criteria for success)
 
 JIPS aims to develop an intelligent system that helps users prepare effectively for specific job interviews within a given timeline. 
 
