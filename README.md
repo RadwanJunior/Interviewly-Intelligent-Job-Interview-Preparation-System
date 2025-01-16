@@ -18,3 +18,9 @@ The solution will help user better prepare given their related personal experien
 - Adham Radwan: aradw009@uottawa.ca | 300224504
 - Marwan Mashaly: mmash102@uottawa.ca | 300228296
 - Mohamad Bayaa: mbaya053@gmail.ca | 300251448
+
+## Client Info
+
+Name: Ibrahim Bayaa
+Email: ibayaa@gmail.com
+Affiliation: PM Consultant Interested in using the product
