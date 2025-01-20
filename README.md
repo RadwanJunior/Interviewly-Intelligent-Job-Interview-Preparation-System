@@ -2,11 +2,11 @@
 
 # Interviewly: Intelligent Job Interview Preparation System
 
-Nowadays many interviewees can have a very long and exhausting interview preparation process leading to underpreparing at times. 
+Nowadays many interviewees can have a very long and exhausting interview preparation process leading to under-preparing at times. 
 
 ## Objective (benefit to customer, key things to accomplish, criteria for success)
 
-JIPS aims to develop an intelligent system that helps users prepare effectively for specific job interviews within a given timeline. 
+Interviewly aims to develop an intelligent system that helps users prepare effectively for specific job interviews within a given timeline. 
 
 ## Expected/anticipated architecture
 The system leverages advanced AI techniques, including Retrieval-Augmented Generation (RAG) and generative AI, to provide personalized and comprehensive interview preparation materials. 
