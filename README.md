@@ -2,6 +2,9 @@
 
 Nowadays, many interviewees experience a very long and exhausting interview preparation process, which can lead to under-preparing at times. That's why we are developing Interviewly, an AI-driven interview Preparation Tool designed to empower job seekers by providing a personalized and comprehensive interview preparation experience.
 
+# Jira
+https://interviewly.atlassian.net
+
 ## Team members and their roles
 
 * Adham Radwan: aradw009@uottawa.ca | 300224504
