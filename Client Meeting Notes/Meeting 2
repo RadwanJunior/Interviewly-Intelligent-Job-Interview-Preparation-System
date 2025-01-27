@@ -1,8 +1,16 @@
 Jira Rundown
 01/27/2025
-Meeting minutes:
+Meeting minutes:30 min
 
 Notes:
-
+- Went through wiki to discuss architecutre 
+- Explained epics at a high level and went thorugh building process
+- Wrote some initial epics and user stories with stakeholder
 
 Feedback:
+- Convert modules section in wiki into epics 
+- Focus on functionality to create user stories
+- The smaller the user story the better. Allows to focus on trasks
+- Approach by creating epics then think of user stories
+- Try making user stories independant
+- Usually working on epic together is better since u can present functionality quicker
