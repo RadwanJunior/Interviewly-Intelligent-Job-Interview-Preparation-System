@@ -39,7 +39,7 @@ const Signup = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-secondary/10 to-white">
       <Helmet>
-        <title>Sign Up - Interviewly</title>
+        <title>Sign up - Interviewly</title>
         <meta name="description" content="Create an account on Interviewly to start your interview preparation journey." />
       </Helmet>
       

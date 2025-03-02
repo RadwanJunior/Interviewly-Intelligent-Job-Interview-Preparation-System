@@ -29,7 +29,7 @@ const LogIn = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-secondary/10 to-white">
       <Helmet>
-        <title>Login - Interviewly</title>
+        <title>Log in - Interviewly</title>
         <meta name="description" content="Login to your Interviewly account to continue your interview preparation." />
       </Helmet>
       
