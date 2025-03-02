@@ -32,20 +32,22 @@ const Navbar = () => {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             <Link
-              to="#features"
+              to="/features"
               className="text-foreground/80 hover:text-primary transition-colors"
             >
               Features
             </Link>
             <Link
-              to="#how-it-works"
+              to="/how-it-works"
               className="text-foreground/80 hover:text-primary transition-colors"
             >
               How it Works
             </Link>
+            <Link to="/login">
             <button className="px-6 py-2 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors">
               Log in
             </button>
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -66,20 +68,22 @@ const Navbar = () => {
           <div className="md:hidden absolute top-full left-0 right-0 bg-white shadow-lg animate-fade-in">
             <div className="container mx-auto px-4 py-4 flex flex-col space-y-4">
               <Link
-                to="#features"
+                to="/features"
                 className="text-foreground/80 hover:text-primary transition-colors"
               >
                 Features
               </Link>
               <Link
-                to="#how-it-works"
+                to="/how-it-works"
                 className="text-foreground/80 hover:text-primary transition-colors"
               >
                 How it Works
               </Link>
+              <Link to="/login">
               <button className="px-6 py-2 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors">
-                Sign In
+                Log in
               </button>
+              </Link>
             </div>
           </div>
         )}
