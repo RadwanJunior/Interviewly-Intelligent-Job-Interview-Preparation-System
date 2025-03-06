@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { el } from "react-day-picker/locale";
+import { supabase } from "@/lib/supabase";
 
 const Profile = () => {
   // This would be replaced with actual authentication check
@@ -21,12 +23,22 @@ const Profile = () => {
   const { toast } = useToast();
 
   // Simulate logout
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setIsLoggedIn(false);
-    toast({
-      title: "Logged out",
-      description: "You have been logged out successfully.",
-    });
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Error logging out:", error.message);
+      toast({
+        title: "Error",
+        description: "An error occurred while logging out.",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Logged out",
+        description: "You have been logged out successfully.",
+      });
+    }
   };
 
   const handleSaveProfile = () => {
