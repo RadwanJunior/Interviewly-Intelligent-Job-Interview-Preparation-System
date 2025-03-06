@@ -2,12 +2,14 @@
 import { useState, useEffect } from "react";
 import { Menu, X, User } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // This would be replaced with actual authentication check
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // For demo purposes
+  const { user } = useAuth();
+  console.log(user);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -44,7 +46,7 @@ const Navbar = () => {
               className="text-foreground/80 hover:text-primary transition-colors">
               How it Works
             </Link>
-            {isLoggedIn ? (
+            {user ? (
               <Link
                 href="/profile"
                 className="flex items-center space-x-2 px-6 py-2 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors">
@@ -86,7 +88,7 @@ const Navbar = () => {
                 className="text-foreground/80 hover:text-primary transition-colors">
                 How it Works
               </Link>
-              {isLoggedIn ? (
+              {user ? (
                 <Link
                   href="/profile"
                   className="text-foreground/80 hover:text-primary transition-colors flex items-center space-x-2">
