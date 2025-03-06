@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Head from "next/head";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -8,24 +9,53 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { supabase } from "@/lib/supabase";
+
 const LogIn = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const handleSubmit = (e: React.FormEvent) => {
+  const router = useRouter();
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+  const isFormValid = Object.values(formData).every(
+    (value) => value.trim() !== ""
+  );
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!isFormValid)
+      return toast({
+        title: "Error",
+        description: "All fields are required",
+        variant: "destructive",
+      });
 
     setIsLoading(true);
-
-    // This would be replaced with actual authentication logic
-    setTimeout(() => {
-      toast({
-        title: "Login successful",
-        description: "You have been logged in successfully.",
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
       });
+      if (error) throw error;
+
+      toast({ title: "Success", description: "Login successful!" });
+      router.push("/dashboard");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          (error as Error).message || "Login failed, please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-secondary/10 to-white">
@@ -56,9 +86,9 @@ const LogIn = () => {
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
                 required
               />
             </div>
@@ -69,8 +99,8 @@ const LogIn = () => {
                 id="password"
                 type="password"
                 placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={formData.password}
+                onChange={handleChange}
                 required
               />
             </div>
