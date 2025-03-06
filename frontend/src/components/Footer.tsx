@@ -1,5 +1,4 @@
-
-import { Link } from "react-router-dom";
+import Link from "next/link";
 
 const Footer = () => {
   return (
@@ -7,18 +6,26 @@ const Footer = () => {
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
-            <Link to="/" className="text-primary font-heading font-bold text-xl">
+            <Link
+              href="/"
+              className="text-primary font-heading font-bold text-xl">
               Interviewly
             </Link>
           </div>
           <div className="flex space-x-6">
-            <Link to="#" className="text-gray-600 hover:text-primary transition-colors">
+            <Link
+              href="#"
+              className="text-gray-600 hover:text-primary transition-colors">
               Privacy Policy
             </Link>
-            <Link to="#" className="text-gray-600 hover:text-primary transition-colors">
+            <Link
+              href="#"
+              className="text-gray-600 hover:text-primary transition-colors">
               Terms of Service
             </Link>
-            <Link to="#" className="text-gray-600 hover:text-primary transition-colors">
+            <Link
+              href="#"
+              className="text-gray-600 hover:text-primary transition-colors">
               Contact
             </Link>
           </div>
