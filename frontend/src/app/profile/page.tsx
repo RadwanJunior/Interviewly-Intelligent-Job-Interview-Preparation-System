@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { el } from "react-day-picker/locale";
 import { supabase } from "@/lib/supabase";
 
 const Profile = () => {
