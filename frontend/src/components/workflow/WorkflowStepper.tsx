@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { cn } from "@/lib/utils";
-import { Check, Circle } from "lucide-react";
+import { Check } from "lucide-react";
 import { useWorkflow } from "@/context/WorkflowContext";
 
 type WorkflowStepperProps = {
@@ -19,12 +19,12 @@ const WorkflowStepper = ({ className }: WorkflowStepperProps) => {
           <div className="flex flex-col items-center">
             <button
               onClick={() => {
-                // Only allow navigation to completed stages or the current stage + 1
-                if (stage.isCompleted || index <= currentStageIndex + 1) {
+                // Only allow navigation to completed stages or the current stage
+                if (stage.isCompleted || index <= currentStageIndex) {
                   goToStage(index);
                 }
               }}
-              disabled={!stage.isCompleted && index > currentStageIndex + 1}
+              disabled={!stage.isCompleted && index > currentStageIndex}
               className={cn(
                 "w-10 h-10 rounded-full flex items-center justify-center transition-all",
                 stage.isCompleted
@@ -32,7 +32,7 @@ const WorkflowStepper = ({ className }: WorkflowStepperProps) => {
                   : stage.isActive
                   ? "border-2 border-primary text-primary"
                   : "border-2 border-muted text-muted-foreground",
-                !stage.isCompleted && index > currentStageIndex + 1 
+                !stage.isCompleted && index > currentStageIndex 
                   ? "opacity-50 cursor-not-allowed"
                   : "cursor-pointer hover:ring-2 hover:ring-primary/30"
               )}
