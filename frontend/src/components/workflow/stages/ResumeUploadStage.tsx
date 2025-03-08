@@ -46,17 +46,7 @@ const ResumeUploadStage = () => {
 
   const nextStep = () => {
     completeCurrentStage();
-    
-    // Scroll to the next section smoothly
-    const nextSection = document.getElementById("stage-resume-preview");
-    if (nextSection) {
-      nextSection.scrollIntoView({ behavior: "smooth" });
-    }
-    
-    // Then update the active stage
-    setTimeout(() => {
-      goToNextStage();
-    }, 300);
+    goToNextStage();
   };
 
   return (
@@ -76,15 +66,18 @@ const ResumeUploadStage = () => {
             <p className="text-sm text-gray-500 mb-4">
               Upload your resume in .docx or .pdf format
             </p>
-            <div className="relative">
+            <div className="relative w-full max-w-[200px]">
               <input
                 type="file"
                 id="resume-upload"
-                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                className="absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer"
                 accept=".pdf,.docx"
                 onChange={handleFileChange}
               />
-              <Button variant="outline" className="relative">
+              <Button 
+                variant="outline" 
+                className="relative w-full hover:bg-accent hover:text-accent-foreground transition-all duration-200"
+              >
                 <Upload className="mr-2 h-4 w-4" />
                 Select File
               </Button>
@@ -109,6 +102,7 @@ const ResumeUploadStage = () => {
             <Button 
               variant={resumeData.hasExisting ? "default" : "outline"}
               onClick={handleUseExisting}
+              className={resumeData.hasExisting ? "" : "hover:bg-accent hover:text-accent-foreground transition-all duration-200"}
             >
               {resumeData.hasExisting ? (
                 <>

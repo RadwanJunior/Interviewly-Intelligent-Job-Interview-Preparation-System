@@ -23,10 +23,18 @@ const ResumePreviewStage = () => {
 
   const confirmResume = () => {
     completeCurrentStage();
-    toast.success("Resume confirmed! Ready for the next step.");
-    // In a real app, we would save the data to a backend here
-    // For now we just mark this stage as complete
-    // If there was a next stage, we'd call goToNextStage() here
+    toast.success("Resume confirmed!");
+    
+    // Scroll to the next section smoothly
+    const nextSection = document.getElementById("stage-job-details");
+    if (nextSection) {
+      nextSection.scrollIntoView({ behavior: "smooth" });
+    }
+    
+    // Then update the active stage
+    setTimeout(() => {
+      goToNextStage();
+    }, 300);
   };
 
   const goBack = () => {
@@ -77,7 +85,8 @@ const ResumePreviewStage = () => {
           </Button>
           <Button onClick={confirmResume}>
             <Check className="mr-2 h-4 w-4" />
-            Confirm Resume
+            Confirm & Continue
+            <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
       </div>
