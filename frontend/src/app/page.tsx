@@ -1,7 +1,5 @@
 import { ArrowRight, Upload, Video, MessageSquare, Award } from "lucide-react";
 import Head from "next/head";
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
 
 const Index = () => {
   return (
@@ -13,8 +11,6 @@ const Index = () => {
           content="Practice with personalized interview questions based on your resume and dream job. Get instant feedback to improve your performance."
         />
       </Head>
-
-      <Navbar />
 
       {/* Hero Section */}
       <section className="pt-32 pb-20 px-4 relative">
@@ -118,8 +114,6 @@ const Index = () => {
           </div>
         </div>
       </section>
-
-      <Footer />
     </div>
   );
 };

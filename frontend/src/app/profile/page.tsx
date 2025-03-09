@@ -6,9 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import { supabase } from "@/lib/supabase";
+import { logout } from "@/lib/api"; // Import the API.logout function
 
 const Profile = () => {
   // This would be replaced with actual authentication check
@@ -24,18 +22,18 @@ const Profile = () => {
   // Simulate logout
   const handleLogout = async () => {
     setIsLoggedIn(false);
-    const { error } = await supabase.auth.signOut();
-    if (error) {
+    try {
+      await logout();
+      toast({
+        title: "Logged out",
+        description: "You have been logged out successfully.",
+      });
+    } catch (error: any) {
       console.error("Error logging out:", error.message);
       toast({
         title: "Error",
         description: "An error occurred while logging out.",
         variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Logged out",
-        description: "You have been logged out successfully.",
       });
     }
   };
@@ -61,8 +59,6 @@ const Profile = () => {
           content="View and manage your Interviewly profile."
         />
       </Head>
-
-      <Navbar />
 
       <div className="container mx-auto px-4 py-32">
         <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-8 animate-fade-up">
@@ -160,8 +156,6 @@ const Profile = () => {
           </div>
         </div>
       </div>
-
-      <Footer />
     </div>
   );
 };
