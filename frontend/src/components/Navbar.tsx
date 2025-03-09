@@ -1,15 +1,18 @@
 "use client";
+import React from "react";
 import { useState, useEffect } from "react";
 import { Menu, X, User } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 
-const Navbar = () => {
+const Navbar = React.memo(() => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // This would be replaced with actual authentication check
   const { user } = useAuth();
-  console.log(user);
+  // console.log(user);
+
+  console.log("Navbar re-rendered");
 
   useEffect(() => {
     const handleScroll = () => {
@@ -108,6 +111,6 @@ const Navbar = () => {
       </div>
     </nav>
   );
-};
+});
 
 export default Navbar;
