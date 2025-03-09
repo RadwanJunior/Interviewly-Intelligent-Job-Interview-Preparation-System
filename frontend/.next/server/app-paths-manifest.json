@@ -6,4 +6,5 @@
   "/page": "app/page.js",
   "/auth/signup/page": "app/auth/signup/page.js",
   "/auth/confirm-email/page": "app/auth/confirm-email/page.js"
+
 }
