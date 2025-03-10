@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import auth
+from routes import auth, audio
+
 
 app = FastAPI()
 
@@ -16,6 +17,7 @@ app.add_middleware(
 
 # Include authentication routes from auth.py
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(audio.router, prefix="/audio", tags=["audio"])
 
 @app.get("/")
 def read_root():
