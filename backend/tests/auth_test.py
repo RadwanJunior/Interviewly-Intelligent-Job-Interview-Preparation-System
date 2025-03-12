@@ -1,9 +1,5 @@
 
 from app.services.supabase_service import SupabaseService
-
-
-# Dependencies:
-# pip install pytest-mock
 import pytest
 
 class TestSupabaseService:
@@ -33,3 +29,8 @@ class TestSupabaseService:
         # Assert
         mock_sign_up.assert_called_once_with({"email": "invalid-email", "password": "password123"})
         assert result == {"error": {"message": error_message}}
+
+# Run the tests using pytest
+
+if __name__ == "__main__":
+    pytest.main()

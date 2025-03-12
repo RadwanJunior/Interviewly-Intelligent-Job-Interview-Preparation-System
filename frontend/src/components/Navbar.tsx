@@ -5,7 +5,7 @@ import { Menu, X, User } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 
-const Navbar = React.memo(() => {
+const Navbar = React.memo(function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // This would be replaced with actual authentication check
