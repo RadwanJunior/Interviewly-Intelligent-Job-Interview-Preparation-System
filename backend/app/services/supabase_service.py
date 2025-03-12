@@ -1,6 +1,7 @@
 import os
 from supabase import create_client, Client
 from dotenv import load_dotenv
+from fastapi import UploadFile
 
 load_dotenv()
 
@@ -68,5 +69,42 @@ class SupabaseService:
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
+        
+    @staticmethod
+    def get_user_from_token(access_token: str):
+        """Fetches user details using an access token."""
+        try:
+            user = supabase_client.auth.get_user(access_token)
+            if user:
+                return user
+            return None
+        except Exception as e:
+            return None
+    
+    @staticmethod
+    async def upload_resume(user_id: str, file: UploadFile):
+        """Uploads a resume to Supabase Storage under the 'resumes' bucket."""
+        file_path = f"{user_id}/{file.filename}"
+        file_bytes = await file.read()
+        
+        response = supabase_client.storage.from_("resumes").upload(file_path, file_bytes, {"content-type": file.content_type})
+        if response.error:
+            return {"error": response.error.message}
+        
+        return {"message": "File uploaded successfully", "file_path": file_path}
+
+    @staticmethod
+    def list_resumes(user_id: str):
+        """Lists all resumes stored for a given user."""
+        response = supabase_client.storage.from_("resumes").list(user_id)
+        if response.error:
+            return {"error": response.error.message}
+        
+        return response.data
+
+    @staticmethod
+    def get_resume_url(file_path: str):
+        """Generates a public URL for a stored resume."""
+        return supabase_client.storage.from_("resumes").get_public_url(file_path)
 
 supabase_service = SupabaseService()
