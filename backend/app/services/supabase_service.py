@@ -1,12 +1,14 @@
 import os
+import logging
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from fastapi import UploadFile
+import traceback
 
 load_dotenv()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
+SUPABASE_URL = "https://jdtuplcyczhtpljofwjg.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpkdHVwbGN5Y3podHBsam9md2pnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc5OTY5NDAsImV4cCI6MjA1MzU3Mjk0MH0._QXBx2r3JWwO67IV9-9n8WESaGjk2wv_J6BTpAJunEI"
 
 supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -80,31 +82,29 @@ class SupabaseService:
             return None
         except Exception as e:
             return None
-    
-    @staticmethod
-    async def upload_resume(user_id: str, file: UploadFile):
-        """Uploads a resume to Supabase Storage under the 'resumes' bucket."""
-        file_path = f"{user_id}/{file.filename}"
-        file_bytes = await file.read()
-        
-        response = supabase_client.storage.from_("resumes").upload(file_path, file_bytes, {"content-type": file.content_type})
-        if response.error:
-            return {"error": response.error.message}
-        
-        return {"message": "File uploaded successfully", "file_path": file_path}
 
     @staticmethod
-    def list_resumes(user_id: str):
-        """Lists all resumes stored for a given user."""
-        response = supabase_client.storage.from_("resumes").list(user_id)
-        if response.error:
-            return {"error": response.error.message}
-        
-        return response.data
+    def upload_file(file: UploadFile, path: str, file_options: dict):
+        """Uploads a file to a specified path in the Supabase storage bucket."""
+        try:
+            # Read the file content
+            file_content = file.file.read()  # Use the 'file' object from FastAPI's UploadFile
 
-    @staticmethod
-    def get_resume_url(file_path: str):
-        """Generates a public URL for a stored resume."""
-        return supabase_client.storage.from_("resumes").get_public_url(file_path)
+            # Upload the file to Supabase storage
+            response = supabase_client.storage.from_("resumes").upload(
+                path=path,  # Use the path where the file will be stored
+                file=file_content,
+                options=file_options  # Pass options as 'options' not 'file_options'
+            )
+
+            # Check if the upload was successful
+            if response.get("data"):
+                # Return the file URL (you may need to generate the URL manually or from the response data)
+                return {"message": "File uploaded successfully", "file_url": f"{SUPABASE_URL}/storage/v1/object/public/{path}"}
+            else:
+                return {"error": {"message": "File upload failed", "details": response.get("error")}}
+
+        except Exception as e:
+            return {"error": {"message": str(e)}}
 
 supabase_service = SupabaseService()
