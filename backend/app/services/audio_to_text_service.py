@@ -46,21 +46,27 @@ def get_transcription_result(job_id: str):
     with BatchClient(settings) as client:
         try:
             while True:
-                job_status = client.get_job_status(job_id)
-                if job_status['status'] == 'done':
+                job_status = client.check_job_status(job_id)
+                print(job_status)
+                # Extract the status from the nested 'job' object
+                status = job_status['job']['status']
+                
+                if status == 'done':
                     transcript = client.get_job_result(job_id, transcription_format='txt')
                     print(transcript)
                     return transcript
-                elif job_status['status'] == 'failed':
-                    print(f'Job {job_id} failed: {job_status["message"]}')
+                elif status == 'failed':
+                    print(f'Job {job_id} failed: {job_status["job"].get("message", "Unknown error")}')
                     return None
                 else:
-                    print(f'Job {job_id} is {job_status["status"]}, checking again in 10 seconds...')
+                    print(f'Job {job_id} is {status}, checking again in 10 seconds...')
                     time.sleep(10)
         except HTTPStatusError as e:
             print(f'Error checking job status: {e}')
             raise e
 
 # Example usage:
-# job_id = transcribe_audio("path/to/your/audio.wav")
+# job_id = transcribe_audio("backend/tests/test_audio.m4a")
 # transcript = get_transcription_result(job_id)
+
+# print(transcript)

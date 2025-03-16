@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { uploadAudio } from "@/lib/api";
 
 // Mock questions - in a real app, these would come from an API based on resume and job details
 const MOCK_QUESTIONS = [
@@ -32,21 +33,22 @@ const Interview = () => {
   //   const navigate = useNavigate();
   //   const location = useLocation();
   const { toast } = useToast();
+
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [recordings, setRecordings] = useState<
-    Array<{ blob: Blob | null; url: string | null }>
+    Array<{ blob: Blob | null; url: string | null; jobId?: string | null }>
   >(MOCK_QUESTIONS.map(() => ({ blob: null, url: null })));
   const [recordingTime, setRecordingTime] = useState(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const timerRef = useRef<number | null>(null);
-  const audioChunksRef = useRef<BlobPart[]>([]);
   const [activeCall, setActiveCall] = useState(true);
 
-  // Calculate progress percentage
-  const progress = ((currentQuestion + 1) / MOCK_QUESTIONS.length) * 100;
+  // Refs
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<BlobPart[]>([]);
+  const timerRef = useRef<number | null>(null);
 
-  // Calculate time remaining (for timer progress)
+  // Calculate progress
+  const progress = ((currentQuestion + 1) / MOCK_QUESTIONS.length) * 100;
   const timeRemaining = MAX_RECORDING_TIME - recordingTime;
   const timeRemainingPercentage = (timeRemaining / MAX_RECORDING_TIME) * 100;
 
@@ -63,16 +65,47 @@ const Interview = () => {
         }
       };
 
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, {
           type: "audio/webm",
         });
         const audioUrl = URL.createObjectURL(audioBlob);
 
-        // Update recordings array with new recording
-        const newRecordings = [...recordings];
-        newRecordings[currentQuestion] = { blob: audioBlob, url: audioUrl };
-        setRecordings(newRecordings);
+        // Upload the recording
+        try {
+          const filename = `question_${currentQuestion + 1}.webm`;
+          const response = await uploadAudio(audioBlob, filename);
+
+          // Update recordings array with new recording and job ID
+          const newRecordings = [...recordings];
+          newRecordings[currentQuestion] = {
+            blob: audioBlob,
+            url: audioUrl,
+            jobId: response.job_id,
+          };
+          setRecordings(newRecordings);
+
+          toast({
+            title: "Answer uploaded",
+            description: "Your answer is being processed.",
+          });
+        } catch (error) {
+          console.error("Error uploading recording:", error);
+          toast({
+            title: "Upload Error",
+            description: "Failed to upload your recording. Please try again.",
+            variant: "destructive",
+          });
+
+          // Still save recording locally
+          const newRecordings = [...recordings];
+          newRecordings[currentQuestion] = {
+            blob: audioBlob,
+            url: audioUrl,
+            jobId: null,
+          };
+          setRecordings(newRecordings);
+        }
 
         // Reset recording time
         setRecordingTime(0);

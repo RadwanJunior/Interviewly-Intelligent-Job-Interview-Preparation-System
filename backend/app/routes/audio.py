@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
-from app.services.audio_to_text_service import transcribe_audio, get_transcription_result
+from services.audio_to_text_service import transcribe_audio, get_transcription_result
 
 router = APIRouter()
 
@@ -22,9 +22,8 @@ async def upload_audio(file: UploadFile = File(...), background_tasks: Backgroun
 
 def process_audio(job_id: str, file_path: str):
     transcript = get_transcription_result(job_id)
-    print(transcript)
     feedback = analyze_transcript(transcript)
-    results_store[job_id] = {"transcript": transcript, "feedback": feedback}
+    results_store[job_id] = {"transcript": transcript, "feedback": feedback} # should be saved to a database keep it in memory for now
 
 @router.get("/result/{job_id}")
 async def get_result(job_id: str):

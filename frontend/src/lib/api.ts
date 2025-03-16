@@ -44,3 +44,20 @@ export async function refreshToken() {
 export async function logout() {
   await api.post("/auth/logout");
 }
+
+export async function uploadAudio(audioBlob: Blob, filename: string) {
+  const formData = new FormData();
+  formData.append("file", audioBlob, filename);
+
+  const response = await api.post("/audio/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+  return response.data;
+}
+
+export async function getAudioResult(jobId: string) {
+  const response = await api.get(`/audio/result/${jobId}`);
+  return response.data;
+}
