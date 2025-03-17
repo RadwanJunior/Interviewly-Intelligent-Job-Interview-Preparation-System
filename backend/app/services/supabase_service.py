@@ -1,6 +1,7 @@
 import os
 from supabase import create_client, Client
 from dotenv import load_dotenv
+from fastapi import UploadFile, HTTPException, Request
 
 load_dotenv()
 
@@ -26,6 +27,7 @@ class SupabaseService:
         """Logs in a user and returns session tokens."""
         try:
             response = supabase_client.auth.sign_in_with_password({"email": email, "password": password})
+            print(response)
             if response and response.session:
                 return {
                     "access_token": response.session.access_token,
@@ -68,5 +70,86 @@ class SupabaseService:
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    def get_profile(user_id: str):
+        """Retrieves a profile record from the profiles table."""
+        try:
+            response = supabase_client.from_("profiles").select("*").eq("id", user_id).single()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    def get_current_user(request: Request):
+        """
+        Retrieves the current user by extracting the token from Authorization headers.
+        """
+        token = request.cookies.get("access_token")
+        print("token: ", token)
 
+        if not token:
+            return None
+        try:
+            response = supabase_client.auth.get_user(token)
+            print("response: ", response.user)
+            return response.user
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    @staticmethod
+    def get_file_url(file_path: str, bucket_name: str = "public"):
+        """Generates a public URL for a file in Supabase Storage."""
+        try:
+            response = supabase_client.storage.from_(bucket_name).get_public_url(file_path)
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    async def upload_file(user_id: str, file: UploadFile, bucket_name: str = "public"):
+        """Uploads a file to Supabase Storage."""
+        try:
+            file_content = await file.read()
+            response = supabase_client.storage.from_(bucket_name).upload(f"{user_id}/{file.filename}", file_content)
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    def delete_file(file_path: str, bucket_name: str = "public"):
+        """Deletes a file from Supabase Storage."""
+        try:
+            response = supabase_client.storage.from_(bucket_name).remove([file_path])
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+
+    @staticmethod
+    def create_resume(user_id: str, file_url: str, extracted_text: str) -> dict:
+        """
+        Inserts a new resume record into the 'resumes' table.
+        """
+        try:
+            response = supabase_client.table("resumes").insert({
+                "user_id": user_id,
+                "file_url": file_url,
+                "extracted_text": extracted_text
+            }).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+
+    @staticmethod
+    def update_resume(resume_id: str, extracted_text: str) -> dict:
+        """
+        Updates the extracted text of an existing resume record.
+        """
+        try:
+            response = supabase_client.table("resumes").update({
+                "extracted_text": extracted_text
+            }).eq("id", resume_id).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+        
 supabase_service = SupabaseService()
