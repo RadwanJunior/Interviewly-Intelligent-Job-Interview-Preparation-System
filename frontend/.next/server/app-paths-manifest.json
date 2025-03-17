@@ -1,10 +1,8 @@
 {
-  "/profile/page": "app/profile/page.js",
   "/auth/login/page": "app/auth/login/page.js",
   "/favicon.ico/route": "app/favicon.ico/route.js",
   "/_not-found/page": "app/_not-found/page.js",
-  "/page": "app/page.js",
-  "/auth/signup/page": "app/auth/signup/page.js",
-  "/auth/confirm-email/page": "app/auth/confirm-email/page.js"
-
+  "/Workflow/page": "app/Workflow/page.js",
+  "/profile/page": "app/profile/page.js",
+  "/page": "app/page.js"
 }

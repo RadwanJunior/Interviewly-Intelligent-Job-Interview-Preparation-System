@@ -44,3 +44,33 @@ export async function refreshToken() {
 export async function logout() {
   await api.post("/auth/logout");
 }
+
+export async function uploadResume(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await api.post("/resumes/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+  return response.data;
+}
+
+export async function updateResume(resumeId: string, updatedText: string) {
+  // Pass updated text in the payload. Adjust the key if your backend expects a different field name.
+  const response = await api.put(`/resumes/${resumeId}`, {
+    updated_text: updatedText,
+  });
+  return response.data;
+}
+
+export async function getResume(resumeId: string) {
+  const response = await api.get(`/resumes/${resumeId}`);
+  return response.data;
+}
+
+export async function getResumeFromUser(userId: string) {
+  const response = await api.get(`/resumes/user/${userId}`);
+  return response.data;
+}
