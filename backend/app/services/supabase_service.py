@@ -151,5 +151,27 @@ class SupabaseService:
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    def get_resume_table(user_id: str) -> dict:
+        """
+        Retrieves all resume records for a user from the 'resumes' table.
+        """
+        try:
+            response = supabase_client.table("resumes").select("*").eq("user_id", user_id).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    def get_resume_storage(user_id: str, bucket_name: str = "resumes") -> dict:
+        """
+        Retrieves all files stored in Supabase Storage for a user.
+        """
+        try:
+            response = supabase_client.storage.from_(bucket_name).list(user_id)
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
         
 supabase_service = SupabaseService()

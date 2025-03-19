@@ -16,7 +16,7 @@ app.add_middleware(
 
 # Include authentication routes from auth.py
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(resume.resume_router)
+app.include_router(resume.resume_router, prefix="/resumes" ,tags=["resumes"])
 
 
 @app.get("/")
