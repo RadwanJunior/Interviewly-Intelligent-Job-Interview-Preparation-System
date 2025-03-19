@@ -86,8 +86,6 @@ class SupabaseService:
         Retrieves the current user by extracting the token from Authorization headers.
         """
         token = request.cookies.get("access_token")
-        print("token: ", token)
-
         if not token:
             return None
         try:
@@ -145,11 +143,14 @@ class SupabaseService:
         Updates the extracted text of an existing resume record.
         """
         try:
+            print(f"Updating resume with ID: {resume_id}, extracted_text: {extracted_text}")
             response = supabase_client.table("resumes").update({
                 "extracted_text": extracted_text
             }).eq("id", resume_id).execute()
+            print(f"Supabase response: {response}")
             return response
         except Exception as e:
+            print(f"Error updating resume: {str(e)}")
             return {"error": {"message": str(e)}}
     
     @staticmethod
