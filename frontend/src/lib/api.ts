@@ -57,20 +57,18 @@ export async function uploadResume(file: File) {
   return response.data;
 }
 
-export async function updateResume(resumeId: string, updatedText: string) {
-  // Pass updated text in the payload. Adjust the key if your backend expects a different field name.
-  const response = await api.put(`/resumes/${resumeId}`, {
+export async function getResume() {
+  const response = await api.get("/resumes/");
+  return response.data;
+}
+
+export async function updateResume(updatedText: string) {
+  const response = await api.put("/resumes/", {
     updated_text: updatedText,
   });
   return response.data;
 }
-
-export async function getResume(resumeId: string) {
-  const response = await api.get(`/resumes/${resumeId}`);
-  return response.data;
-}
-
 export async function getResumeFromUser(userId: string) {
-  const response = await api.get(`/resumes/user/${userId}`);
+  const response = await api.get(`/resumes/${userId}`);
   return response.data;
 }

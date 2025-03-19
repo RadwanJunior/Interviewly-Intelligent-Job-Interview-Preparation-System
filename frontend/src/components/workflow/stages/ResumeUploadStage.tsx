@@ -69,12 +69,13 @@ const ResumeUploadStage = () => {
       // If using a new file, call the upload endpoint
       if (resumeData.file && !resumeData.hasExisting) {
         const response = await uploadResume(resumeData.file);
+        console.log("Upload Resume Response:", response);
         if (response.error) {
           toast.error(response.error);
           return;
         }
         // Update context with the parsed text from the backend
-        updateResumeData({ text: response.parsed_text });
+        updateResumeData({ text: response.data[0].extracted_text });
         toast.success("Resume processed successfully");
       }
       // If using existing resume but no text exists, prompt user to choose

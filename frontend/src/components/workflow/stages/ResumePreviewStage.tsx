@@ -1,36 +1,70 @@
 "use client";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowRight, ArrowLeft, Check } from "lucide-react";
+import { ArrowRight, ArrowLeft, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkflow } from "@/context/WorkflowContext";
+import { updateResume, getResume } from "@/lib/api";
 
 const ResumePreviewStage = () => {
-  const { 
-    resumeData, 
-    updateResumeData, 
-    completeCurrentStage, 
-    goToNextStage, 
-    goToPreviousStage 
+  const {
+    resumeData,
+    updateResumeData,
+    completeCurrentStage,
+    goToNextStage,
+    goToPreviousStage,
   } = useWorkflow();
+
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Fetch the extracted text if not already loaded
+  useEffect(() => {
+    const fetchResume = async () => {
+      if (!resumeData.text) {
+        try {
+          const response = await getResume();
+          if (response && response.extracted_text) {
+            updateResumeData({ text: response.extracted_text });
+          } else {
+            toast.error("Failed to load resume text.");
+          }
+        } catch (error: any) {
+          console.error("Error fetching resume:", error);
+          toast.error("Error fetching resume text.");
+        }
+      }
+    };
+
+    fetchResume();
+  }, [resumeData.text, updateResumeData]);
 
   const handleTextUpdate = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     updateResumeData({ text: e.target.value });
   };
 
-  const confirmResume = () => {
-    completeCurrentStage();
-    toast.success("Resume confirmed!");
+  const confirmResume = async () => {
+          setIsSaving(true);
+      try {
+        await updateResume(resumeData.text || "");
+        toast.success("Resume updated successfully!");
+      } catch (error: any) {
+        console.error("Error updating resume:", error);
+        toast.error("Failed to update resume.");
+              } finally {
+        setIsSaving(false);
+      }
     
+    completeCurrentStage();
+
     // Scroll to the next section smoothly
     const nextSection = document.getElementById("stage-job-details");
     if (nextSection) {
       nextSection.scrollIntoView({ behavior: "smooth" });
     }
-    
+
     // Then update the active stage
     setTimeout(() => {
       goToNextStage();
@@ -38,13 +72,10 @@ const ResumePreviewStage = () => {
   };
 
   const goBack = () => {
-    // Scroll to the previous section smoothly
-    const prevSection = document.getElementById("stage-resume-upload");
+        const prevSection = document.getElementById("stage-resume-upload");
     if (prevSection) {
       prevSection.scrollIntoView({ behavior: "smooth" });
     }
-    
-    // Then update the active stage
     setTimeout(() => {
       goToPreviousStage();
     }, 300);
@@ -57,36 +88,47 @@ const ResumePreviewStage = () => {
           Review & Confirm Your Resume
         </CardTitle>
       </CardHeader>
-      
+
       <div className="space-y-6">
+        {resumeData.fileName && (
+          <p className="text-sm text-gray-500">File: {resumeData.fileName}</p>
+        )}
+
         <div>
           <Label htmlFor="resume-text" className="text-lg font-medium">
             Resume Preview
           </Label>
           <p className="text-sm text-gray-500 mb-4">
-            We've extracted the text from your resume. You can edit it if needed.
+            We've extracted the text from your resume. Edit if needed.
           </p>
           <Textarea
             id="resume-text"
-            value={resumeData.text}
+            value={resumeData.text || ""}
             onChange={handleTextUpdate}
             className="min-h-[300px] font-mono text-sm"
+            disabled={isSaving}
           />
         </div>
 
         {/* Navigation buttons */}
         <div className="flex justify-between mt-6">
-          <Button 
-            variant="outline" 
-            onClick={goBack}
-          >
+          <Button variant="outline" onClick={goBack} disabled={isSaving}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
-          <Button onClick={confirmResume}>
-            <Check className="mr-2 h-4 w-4" />
-            Confirm & Continue
-            <ArrowRight className="ml-2 h-4 w-4" />
+          <Button onClick={confirmResume} disabled={isSaving}>
+            {isSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                Confirm & Continue
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </>
+            )}
           </Button>
         </div>
       </div>
