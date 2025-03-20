@@ -1,21 +1,43 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse
-from app.services.job_description_service import process_job_description, JobDescription
+from fastapi import APIRouter, UploadFile, Depends
+from pydantic import BaseModel
+from app.services.supabase_service import SupabaseService
 
-router = APIRouter(prefix="/api/job-description", tags=["job-description"])
+job_router = APIRouter()
 
-@router.post("/upload", response_model=JobDescription)
-async def upload_job_description(file: UploadFile = File(...)):
-    try:
-        if file.content_type not in ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain"]:
-            raise HTTPException(status_code=400, detail="Unsupported file type")
-        
-        result = await process_job_description(file)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@job_router.post("/upload")
+async def upload_job(
+    file: UploadFile, 
+    current_user: dict = Depends(SupabaseService.get_current_user)
+):
+    """
+    Uploads a new resume to Supabase Storage, parses it, 
+    and inserts a record in the 'resumes' table.
+    """
+    print("current_user: ", current_user)
+    #  check if current user is None
+    if not current_user or not getattr(current_user, "id", None):
+        return {"error": "Unauthorized or invalid user"}
 
-@router.put("/{job_id}")
-async def update_job_description(job_id: str, content: str):
-    # TODO: Implement update functionality
-    return JSONResponse(content={"message": "Job description updated", "job_id": job_id})
+    user_id = getattr(current_user, "id", None)
+    # 1. Upload file to Supabase Storage
+    upload_response = await SupabaseService.upload_file(user_id, file, "resumes")
+    print("upload_response: ", upload_response)
+    if not upload_response:
+        return upload_response
+
+    # Reset file pointer after reading it during the upload.
+    file.file.seek(0)
+
+
+    # 3. Construct the public URL or signed URL for the file
+    #    For example, if your file is at "{user_id}/{filename}":
+    file_path = f"{user_id}/{file.filename}"
+    url_response = SupabaseService.get_file_url(file_path)
+    if "error" in url_response:
+        return url_response
+
+    file_url = url_response["URL"] if "URL" in url_response else file_path
+
+    # 4. Insert the record into the 'resumes' table
+    create_response = SupabaseService.create_job_description(user_id, job_title, company_name, location, job_type, description)
+    return create_response

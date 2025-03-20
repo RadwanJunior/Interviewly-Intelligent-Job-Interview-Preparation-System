@@ -1,5 +1,5 @@
 "use client";
-import { WorkflowStage, ResumeData, JobDescriptionData, JobDetailsData } from "./types";
+import { WorkflowStage, ResumeData, JobDetailsData } from "./types";
 
 export const initialStages: WorkflowStage[] = [
   {
@@ -23,13 +23,6 @@ export const initialStages: WorkflowStage[] = [
     isCompleted: false,
     isActive: false,
   },
-  {
-    id: "job-description",
-    title: "Job Description",
-    description: "Upload or paste a job description",
-    isCompleted: false,
-    isActive: false,
-  },
   // New stages can be easily added here
 ];
 
@@ -39,15 +32,10 @@ export const initialResumeData: ResumeData = {
   hasExisting: false,
 };
 
-export const initialJobDescriptionData: JobDescriptionData = {
-  file: null,
-  text: "",
-};
-
 export const initialJobDetailsData: JobDetailsData = {
   companyName: "",
   jobTitle: "",
   location: "",
   jobType: "Full-time",
-  salary: "",
+  description: "",
 };

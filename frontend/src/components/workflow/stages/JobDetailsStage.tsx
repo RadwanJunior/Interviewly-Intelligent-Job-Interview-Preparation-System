@@ -4,6 +4,7 @@ import { CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   Select,
   SelectContent,
@@ -25,7 +26,7 @@ const JobDetailsStage = () => {
   } = useWorkflow();
 
   const handleInputChange = (field: keyof typeof jobDetailsData) => (
-    e: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     updateJobDetailsData({ [field]: e.target.value });
   };
@@ -35,34 +36,30 @@ const JobDetailsStage = () => {
   };
 
   const confirmJobDetails = () => {
-    if (!jobDetailsData.jobTitle || !jobDetailsData.companyName) {
-      toast.error("Please enter at least the job title and company name");
+    if (!jobDetailsData.jobTitle || !jobDetailsData.companyName || !jobDetailsData.description) {
+      toast.error("Please enter job title, company name, and description");
       return;
     }
     
     completeCurrentStage();
     toast.success("Job details confirmed!");
     
-    // Scroll to the next section smoothly
-    const nextSection = document.getElementById("stage-job-description");
+    const nextSection = document.getElementById("stage-resume-preview");
     if (nextSection) {
       nextSection.scrollIntoView({ behavior: "smooth" });
     }
     
-    // Then update the active stage
     setTimeout(() => {
       goToNextStage();
     }, 300);
   };
 
   const goBack = () => {
-    // Scroll to the previous section smoothly
-    const prevSection = document.getElementById("stage-resume-preview");
+    const prevSection = document.getElementById("stage-resume-upload");
     if (prevSection) {
       prevSection.scrollIntoView({ behavior: "smooth" });
     }
     
-    // Then update the active stage
     setTimeout(() => {
       goToPreviousStage();
     }, 300);
@@ -142,20 +139,23 @@ const JobDetailsStage = () => {
           </div>
           
           <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="salary" className="text-base">
-              Expected Salary Range
+            <Label htmlFor="description" className="text-lg font-medium">
+              Job Description *
             </Label>
-            <Input
-              id="salary"
-              placeholder="e.g. $80,000 - $100,000"
-              value={jobDetailsData.salary}
-              onChange={handleInputChange("salary")}
-              className="w-full"
+            <Textarea
+              id="description"
+              placeholder="Paste the full job description here..."
+              value={jobDetailsData.description}
+              onChange={handleInputChange("description")}
+              className="min-h-[300px] font-mono text-sm"
             />
+            <p className="text-sm text-muted-foreground mt-2">
+              Tip: Copy and paste the full job description from the job posting. 
+              This will help us analyze the requirements and provide better interview preparation.
+            </p>
           </div>
         </div>
 
-        {/* Navigation buttons */}
         <div className="flex justify-between mt-6">
           <Button 
             variant="outline" 
@@ -166,7 +166,7 @@ const JobDetailsStage = () => {
           </Button>
           <Button 
             onClick={confirmJobDetails}
-            disabled={!jobDetailsData.jobTitle || !jobDetailsData.companyName}
+            disabled={!jobDetailsData.jobTitle || !jobDetailsData.companyName || !jobDetailsData.description}
           >
             <Check className="mr-2 h-4 w-4" />
             Confirm & Continue
