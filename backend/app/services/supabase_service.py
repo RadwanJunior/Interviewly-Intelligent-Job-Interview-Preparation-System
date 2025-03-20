@@ -9,6 +9,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
 
 supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+expiry = 60 * 60 * 24 * 30  # 30 days in seconds
 
 class SupabaseService:
     @staticmethod
@@ -98,7 +99,9 @@ class SupabaseService:
     def get_file_url(file_path: str, bucket_name: str = "public"):
         """Generates a public URL for a file in Supabase Storage."""
         try:
-            response = supabase_client.storage.from_(bucket_name).get_public_url(file_path)
+            print("file_path: ", file_path)
+            print("bucket_name: ", bucket_name)
+            response = supabase_client.storage.from_(bucket_name).create_signed_url(file_path, expiry, {"download": True})
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
