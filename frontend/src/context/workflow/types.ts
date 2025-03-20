@@ -15,6 +15,7 @@ export type WorkflowStage = {
   export type JobDescriptionData = {
     file: File | null;
     text: string;
+    filename?: string;
   };
   
   export type JobDetailsData = {
@@ -39,4 +40,3 @@ export type WorkflowStage = {
     jobDetailsData: JobDetailsData;
     updateJobDetailsData: (data: Partial<JobDetailsData>) => void;
   };
-  

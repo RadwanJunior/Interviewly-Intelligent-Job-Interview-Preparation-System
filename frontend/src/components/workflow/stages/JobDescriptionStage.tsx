@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowRight, ArrowLeft, Upload, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkflow } from "@/context/WorkflowContext";
+import axios from "axios";
 
 const JobDescriptionStage = () => {
   const { 
@@ -16,19 +17,31 @@ const JobDescriptionStage = () => {
     goToPreviousStage 
   } = useWorkflow();
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       const allowedTypes = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain"];
       
       if (allowedTypes.includes(file.type)) {
-        updateJobDescriptionData({ file });
-        // Simulate text extraction
-        setTimeout(() => {
-          const sampleText = `Job Title: Frontend Developer\n\nAbout Us:\nWe are a fast-growing tech company seeking a talented Frontend Developer to join our team.\n\nResponsibilities:\n- Build responsive web applications\n- Collaborate with backend developers\n- Optimize applications for maximum speed\n\nRequirements:\n- 2+ years experience with JavaScript/TypeScript\n- Experience with React.js\n- Understanding of HTML/CSS\n- Knowledge of UI/UX design principles`;
-          updateJobDescriptionData({ text: sampleText });
-        }, 1000);
-        toast.success("Job description uploaded successfully");
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+          const response = await axios.post("/api/job-description/upload", formData, {
+            headers: {
+              "Content-Type": "multipart/form-data"
+            }
+          });
+          const { filename, parsed_text } = response.data;
+          updateJobDescriptionData({ 
+            file, 
+            text: parsed_text,
+            filename
+          });
+          toast.success("Job description uploaded successfully");
+        } catch (error) {
+          toast.error("Failed to parse the job description");
+        }
       } else {
         toast.error("Please upload a .pdf, .docx, or .txt file");
       }
