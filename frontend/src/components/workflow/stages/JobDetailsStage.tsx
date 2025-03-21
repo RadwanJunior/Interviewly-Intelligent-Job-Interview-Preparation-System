@@ -15,6 +15,7 @@ import {
 import { ArrowRight, ArrowLeft, Check, Building, Briefcase, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkflow } from "@/context/WorkflowContext";
+import { createJobDescription } from "@/lib/api";
 
 const JobDetailsStage = () => {
   const { 
@@ -35,23 +36,35 @@ const JobDetailsStage = () => {
     updateJobDetailsData({ [field]: value });
   };
 
-  const confirmJobDetails = () => {
+  const confirmJobDetails = async () => {
     if (!jobDetailsData.jobTitle || !jobDetailsData.companyName || !jobDetailsData.description) {
       toast.error("Please enter job title, company name, and description");
       return;
     }
-    
-    completeCurrentStage();
-    toast.success("Job details confirmed!");
-    
-    const nextSection = document.getElementById("stage-resume-preview");
-    if (nextSection) {
-      nextSection.scrollIntoView({ behavior: "smooth" });
+
+    try {
+      await createJobDescription(
+        jobDetailsData.userId,
+        jobDetailsData.jobTitle,
+        jobDetailsData.companyName,
+        jobDetailsData.location,
+        jobDetailsData.jobType,
+        jobDetailsData.description
+      );
+      toast.success("Job details confirmed!");
+      completeCurrentStage();
+      
+      const nextSection = document.getElementById("stage-resume-preview");
+      if (nextSection) {
+        nextSection.scrollIntoView({ behavior: "smooth" });
+      }
+      
+      setTimeout(() => {
+        goToNextStage();
+      }, 300);
+    } catch (error) {
+      toast.error("Failed to confirm job details. Please try again.");
     }
-    
-    setTimeout(() => {
-      goToNextStage();
-    }, 300);
   };
 
   const goBack = () => {
