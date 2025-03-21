@@ -1,52 +1,120 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Upload, FileText, ArrowRight, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkflow } from "@/context/WorkflowContext";
+import { uploadResume, getResume } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 const ResumeUploadStage = () => {
-  const { 
-    resumeData,
-    updateResumeData,
-    goToNextStage,
-    completeCurrentStage 
-  } = useWorkflow();
+  const { user } = useAuth();
+  const { resumeData, updateResumeData, goToNextStage, completeCurrentStage } =
+    useWorkflow();
+  const [loading, setLoading] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      const allowedTypes = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
-      
+      const allowedTypes = [
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ];
+
       if (allowedTypes.includes(file.type)) {
-        updateResumeData({ file });
-        // Simulate text extraction
-        setTimeout(() => {
-          // This would be replaced by actual text extraction in a real app
-          const sampleText = `JOHN DOE\n\nProfessional Summary\nExperienced software developer with 5 years of experience in web development...\n\nSkills\n- JavaScript/TypeScript\n- React.js\n- Node.js\n- SQL and NoSQL databases\n\nWork Experience\nSenior Developer at TechCorp (2020-Present)\n- Developed responsive web applications using React\n- Led a team of 3 junior developers\n\nEducation\nBS in Computer Science, University of Technology (2018)`;
-          updateResumeData({ text: sampleText });
-        }, 1000);
-        toast.success("Resume uploaded successfully");
+        // Update context with the file; clear any previous text and resumeId
+        updateResumeData({
+          file,
+          text: "",
+          hasExisting: false,
+          fileName: undefined,
+          resumeId: undefined,
+        });
+        toast.success("File selected successfully");
       } else {
         toast.error("Please upload a .pdf or .docx file");
       }
     }
   };
 
-  const handleUseExisting = () => {
-    updateResumeData({ hasExisting: true });
-    // Simulate loading existing resume
-    setTimeout(() => {
-      const existingResumeText = `JANE SMITH\n\nProfessional Summary\nCreative full-stack developer with 3 years of experience...\n\nSkills\n- React/Redux\n- Express.js\n- MongoDB\n- AWS\n\nWork Experience\nDeveloper at WebSolutions (2019-Present)\n- Built and maintained client websites\n- Optimized database performance\n\nEducation\nMS in Software Engineering, Tech University (2019)`;
-      updateResumeData({ text: existingResumeText });
-      toast.success("Previous resume loaded");
-    }, 800);
+  // For "Use Existing" action, fetch the resume using the session token in the backend.
+  const handleUseExisting = async () => {
+    setLoading(true);
+    try {
+      // Call your API GET /resumes endpoint; no need to pass a user id
+      const response = await getResume();
+      console.log("Get Resume Response:", response);
+      if (response && response.data && response.data.length > 0) {
+        // Assuming response.data is an array with one resume record
+        const latestRes = response.data[0];
+        updateResumeData({
+          fileName: latestRes.file_url.split("/").pop(), // Extract filename from the URL
+          text: latestRes.extracted_text,
+          hasExisting: true,
+          file: null,
+          resumeId: latestRes.id,
+        });
+        toast.success("Existing resume loaded");
+      } else {
+        toast.error("No existing resume found. Please upload one.");
+      }
+    } catch (error: any) {
+      console.error("Error fetching resume:", error);
+      toast.error("Error fetching resume. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const nextStep = () => {
-    completeCurrentStage();
-    goToNextStage();
+  // On nextStep, either upload the new file or use the existing resume details
+  const nextStep = async () => {
+    if (!user) {
+      toast.error("User not logged in");
+      return;
+    }
+    setLoading(true);
+    try {
+      // If a new file was selected, upload it
+      if (resumeData.file && !resumeData.hasExisting) {
+        const response = await uploadResume(resumeData.file);
+        console.log("Upload Resume Response:", response);
+        if (response.error) {
+          toast.error(response.error);
+          setLoading(false);
+          return;
+        }
+        // Assuming API returns response.data as an array with one resume record
+        const uploadedResume = response.data[0];
+        updateResumeData({
+          text: uploadedResume.extracted_text,
+          fileName: resumeData.file.name,
+          hasExisting: false,
+          resumeId: uploadedResume.id,
+        });
+        toast.success("Resume processed successfully");
+      }
+      // If using an existing resume, ensure we have text and fileName already
+      else if (
+        resumeData.hasExisting &&
+        resumeData.text &&
+        resumeData.fileName
+      ) {
+        toast.success("Using existing resume");
+      } else {
+        toast.error("No stored resume found. Please upload your resume first.");
+        setLoading(false);
+        return;
+      }
+
+      completeCurrentStage();
+      goToNextStage();
+    } catch (error: any) {
+      console.error("Error processing resume:", error);
+      toast.error("There was an error processing your resume.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -56,7 +124,7 @@ const ResumeUploadStage = () => {
           Upload Your Resume
         </CardTitle>
       </CardHeader>
-      
+
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {/* Upload new resume */}
@@ -74,36 +142,50 @@ const ResumeUploadStage = () => {
                 accept=".pdf,.docx"
                 onChange={handleFileChange}
               />
-              <Button 
-                variant="outline" 
-                className="relative w-full hover:bg-accent hover:text-accent-foreground transition-all duration-200"
-              >
+              <Button
+                variant="outline"
+                className="relative w-full hover:bg-accent hover:text-accent-foreground transition-all duration-200">
                 <Upload className="mr-2 h-4 w-4" />
                 Select File
               </Button>
             </div>
+            {/* Show selected file name only for new uploads */}
             {resumeData.file && (
               <p className="mt-4 text-sm">
-                Selected: <span className="font-medium">{resumeData.file.name}</span>
+                Selected:{" "}
+                <span className="font-medium">{resumeData.file.name}</span>
               </p>
             )}
           </div>
 
           {/* Use existing resume */}
-          <div 
-            className={`border rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-colors ${resumeData.hasExisting ? 'border-primary bg-primary/5' : 'hover:border-primary'}`}
-            onClick={handleUseExisting}
-          >
+          <div
+            className={`border rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-colors ${
+              resumeData.hasExisting
+                ? "border-primary bg-primary/5"
+                : "hover:border-primary"
+            }`}
+            onClick={handleUseExisting}>
             <FileText className="w-12 h-12 mb-4 text-primary" />
             <h3 className="text-lg font-medium mb-2">Use Existing Resume</h3>
             <p className="text-sm text-gray-500 mb-4">
               We'll use your previously uploaded resume
             </p>
-            <Button 
+            {/* Show existing file name only for existing resumes */}
+            {resumeData.hasExisting && resumeData.fileName && (
+              <p className="mt-2 text-sm text-gray-700">
+                Existing File:{" "}
+                <span className="font-medium">{resumeData.fileName}</span>
+              </p>
+            )}
+            <Button
               variant={resumeData.hasExisting ? "default" : "outline"}
               onClick={handleUseExisting}
-              className={resumeData.hasExisting ? "" : "hover:bg-accent hover:text-accent-foreground transition-all duration-200"}
-            >
+              className={
+                resumeData.hasExisting
+                  ? ""
+                  : "hover:bg-accent hover:text-accent-foreground transition-all duration-200"
+              }>
               {resumeData.hasExisting ? (
                 <>
                   <Check className="mr-2 h-4 w-4" />
@@ -118,10 +200,9 @@ const ResumeUploadStage = () => {
 
         {/* Navigation buttons */}
         <div className="flex justify-end mt-6">
-          <Button 
-            onClick={nextStep} 
-            disabled={!resumeData.file && !resumeData.hasExisting}
-          >
+          <Button
+            onClick={nextStep}
+            disabled={loading || (!resumeData.file && !resumeData.hasExisting)}>
             Next Step
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>

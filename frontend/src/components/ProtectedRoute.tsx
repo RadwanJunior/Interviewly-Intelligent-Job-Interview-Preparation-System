@@ -9,11 +9,17 @@ export default function ProtectedRoute({ children }) {
 
   useEffect(() => {
     if (!loading && !session) {
-      router.push("/"); // Redirect to homepage if not logged in
+      router.push("/auth/login"); // Redirect to homepage if not logged in
     }
   }, [session, loading, router]);
 
-  if (loading) return <p>Loading...</p>; // Or a better loading UI
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="spinner" />
+      </div>
+    );
+  }
 
   return <>{session ? children : null}</>;
 }
