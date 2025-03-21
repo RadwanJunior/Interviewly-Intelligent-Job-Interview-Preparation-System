@@ -44,3 +44,31 @@ export async function refreshToken() {
 export async function logout() {
   await api.post("/auth/logout");
 }
+
+export async function uploadResume(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await api.post("/resumes/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+  return response.data;
+}
+
+export async function getResume() {
+  const response = await api.get("/resumes/");
+  return response.data;
+}
+
+export async function updateResume(updatedText: string) {
+  const response = await api.put("/resumes/", {
+    updated_text: updatedText,
+  });
+  return response.data;
+}
+export async function getResumeFromUser(userId: string) {
+  const response = await api.get(`/resumes/${userId}`);
+  return response.data;
+}

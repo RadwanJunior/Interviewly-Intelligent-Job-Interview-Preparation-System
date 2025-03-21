@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Response, Request, Depends
 from pydantic import BaseModel, EmailStr
 import os
-from services.supabase_service import supabase_service
+from app.services.supabase_service import supabase_service
 
 router = APIRouter()
 
@@ -72,6 +72,8 @@ async def login(response: Response, payload: AuthPayload):
         secure=COOKIE_SECURE,
         samesite="Lax"
     )
+
+    print("session: ", session)
 
     return {"message": "Login successful", "user": session["user"]}
 
