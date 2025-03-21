@@ -12,7 +12,7 @@ class JobDescriptionRequest(BaseModel):
     job_type: str
     description: str
 
-@router.post("/job-description")
+@router.post("/")
 async def create_job_description(request: JobDescriptionRequest):
     response = supabase_service.create_job_description(
         user_id=request.user_id,
