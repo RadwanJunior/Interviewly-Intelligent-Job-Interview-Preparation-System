@@ -185,7 +185,7 @@ class SupabaseService:
                 "user_id": user_id,
                 "title": job_title,
                 "company": company_name,
-                location: location,
+                "location": location,
                 "type": job_type,
                 "description": description
             }).execute()

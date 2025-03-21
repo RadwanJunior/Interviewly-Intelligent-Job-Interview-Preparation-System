@@ -13,6 +13,7 @@ export type WorkflowStage = {
   };
   
   export type JobDetailsData = {
+    userId: string;
     companyName: string;
     jobTitle: string;
     location: string;

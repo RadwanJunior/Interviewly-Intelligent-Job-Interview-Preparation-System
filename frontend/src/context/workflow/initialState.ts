@@ -33,6 +33,7 @@ export const initialResumeData: ResumeData = {
 };
 
 export const initialJobDetailsData: JobDetailsData = {
+  userId: "",
   companyName: "",
   jobTitle: "",
   location: "",
