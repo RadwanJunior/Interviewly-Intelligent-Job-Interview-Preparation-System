@@ -24,7 +24,7 @@ async def create_job_description(
     user_id = getattr(current_user, "id", None)
     # 1. Upload job to Supabase Storage
 
-    response = await supabase_service.create_job_description(
+    response = supabase_service.create_job_description(
         user_id=user_id,
         job_title=request.job_title,
         company_name=request.company_name,

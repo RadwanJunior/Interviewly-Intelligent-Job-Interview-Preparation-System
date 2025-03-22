@@ -74,7 +74,7 @@ export async function getResumeFromUser(userId: string) {
 }
 
 export async function createJobDescription(jobTitle: string, companyName: string, location: string, jobType: string, description: string) {
-  const response = await api.post("/api/job_description", {
+  const response = await api.post("/job_description", {
     job_title: jobTitle,
     company_name: companyName,
     location: location,
