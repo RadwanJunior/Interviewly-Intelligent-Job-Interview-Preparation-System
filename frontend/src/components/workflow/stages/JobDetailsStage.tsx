@@ -44,7 +44,6 @@ const JobDetailsStage = () => {
 
     try {
       await createJobDescription(
-        jobDetailsData.userId,
         jobDetailsData.jobTitle,
         jobDetailsData.companyName,
         jobDetailsData.location,
