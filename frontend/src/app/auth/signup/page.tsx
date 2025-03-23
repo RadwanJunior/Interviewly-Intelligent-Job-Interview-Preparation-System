@@ -1,4 +1,4 @@
-"use client";
+"use client"; // Next.js directive to mark this as a client component
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -6,29 +6,45 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { signup } from "@/lib/api"; // Import the API.signup function
+import { signup } from "@/lib/api"; // API call for signing up the user
 
 export default function SignUp() {
-  const router = useRouter();
-  const { toast } = useToast();
+  const router = useRouter(); // Next.js router for navigation
+  const { toast } = useToast(); // Custom toast notification hook
 
+  // State for form input fields
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     email: "",
     password: "",
   });
+
+  // Loading state for the sign-up button
   const [loading, setLoading] = useState(false);
 
+  /**
+   * Updates the form data state when user types
+   */
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  /**
+   * Simple form validation to ensure no empty fields
+   */
   const isFormValid = Object.values(formData).every(
     (value) => value.trim() !== ""
   );
 
+  /**
+   * Handles form submission
+   * - Validates form
+   * - Calls the signup API function
+   * - Shows toast notifications based on success or failure
+   * - Redirects user to email confirmation screen on success
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid)
@@ -40,18 +56,24 @@ export default function SignUp() {
 
     setLoading(true);
     try {
+      // Call the signup API function
       const response = await signup(
         formData.firstName,
         formData.lastName,
         formData.email,
         formData.password
       );
+
+      // Show success message
       toast({
         title: "Success",
         description: "Account created! Check your email to confirm.",
       });
+
+      // Redirect to email confirmation screen
       router.push("/auth/confirm-email");
     } catch (error: any) {
+      // Display error toast
       toast({
         title: "Error",
         description:
@@ -65,9 +87,13 @@ export default function SignUp() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-6">
+      {/* Signup form container */}
       <div className="w-full max-w-md bg-white p-6 rounded-lg shadow-md">
         <h2 className="text-2xl font-semibold text-center mb-4">Sign Up</h2>
+
+        {/* Signup form */}
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* First Name */}
           <div>
             <Label htmlFor="firstName">First Name</Label>
             <Input
@@ -79,6 +105,8 @@ export default function SignUp() {
               required
             />
           </div>
+
+          {/* Last Name */}
           <div>
             <Label htmlFor="lastName">Last Name</Label>
             <Input
@@ -90,6 +118,8 @@ export default function SignUp() {
               required
             />
           </div>
+
+          {/* Email */}
           <div>
             <Label htmlFor="email">Email</Label>
             <Input
@@ -101,6 +131,8 @@ export default function SignUp() {
               required
             />
           </div>
+
+          {/* Password */}
           <div>
             <Label htmlFor="password">Password</Label>
             <Input
@@ -112,6 +144,8 @@ export default function SignUp() {
               required
             />
           </div>
+
+          {/* Submit Button */}
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Signing Up..." : "Sign Up"}
           </Button>
