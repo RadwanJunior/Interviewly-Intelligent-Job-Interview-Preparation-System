@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Upload, FileText, ArrowRight, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkflow } from "@/context/WorkflowContext";
-import { uploadResume, getResumeFromUser } from "@/lib/api";
+import { uploadResume, getResume } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 
 const ResumeUploadStage = () => {
@@ -23,8 +23,14 @@ const ResumeUploadStage = () => {
       ];
 
       if (allowedTypes.includes(file.type)) {
-        // Update context with the file; clear any previous text
-        updateResumeData({ file, text: "", hasExisting: false });
+        // Update context with the file; clear any previous text and resumeId
+        updateResumeData({
+          file,
+          text: "",
+          hasExisting: false,
+          fileName: undefined,
+          resumeId: undefined,
+        });
         toast.success("File selected successfully");
       } else {
         toast.error("Please upload a .pdf or .docx file");
@@ -32,61 +38,79 @@ const ResumeUploadStage = () => {
     }
   };
 
-  // For "Use Existing" action
+  // For "Use Existing" action, fetch the resume using the session token in the backend.
   const handleUseExisting = async () => {
-    if (!user?.id) {
-      toast.error("User not logged in");
-      return;
-    }
     setLoading(true);
     try {
-      // Pass the user's id so the backend can verify the session
-      const response = await getResumeFromUser(user.id);
-      if (response && response.length > 0) {
+      // Call your API GET /resumes endpoint; no need to pass a user id
+      const response = await getResume();
+      console.log("Get Resume Response:", response);
+      if (response && response.data && response.data.length > 0) {
+        // Assuming response.data is an array with one resume record
+        const latestRes = response.data[0];
         updateResumeData({
-          text: response[0].extracted_text,
+          fileName: latestRes.file_url.split("/").pop(), // Extract filename from the URL
+          text: latestRes.extracted_text,
           hasExisting: true,
           file: null,
+          resumeId: latestRes.id,
         });
         toast.success("Existing resume loaded");
       } else {
-        toast.error("No existing resume. Please upload one.");
+        toast.error("No existing resume found. Please upload one.");
       }
     } catch (error: any) {
+      console.error("Error fetching resume:", error);
       toast.error("Error fetching resume. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  // On nextStep, either upload the new file or use the existing resume details
   const nextStep = async () => {
-    if (!user?.id) {
+    if (!user) {
       toast.error("User not logged in");
       return;
     }
     setLoading(true);
     try {
-      // If using a new file, call the upload endpoint
+      // If a new file was selected, upload it
       if (resumeData.file && !resumeData.hasExisting) {
         const response = await uploadResume(resumeData.file);
         console.log("Upload Resume Response:", response);
         if (response.error) {
           toast.error(response.error);
+          setLoading(false);
           return;
         }
-        // Update context with the parsed text from the backend
-        updateResumeData({ text: response.data[0].extracted_text });
+        // Assuming API returns response.data as an array with one resume record
+        const uploadedResume = response.data[0];
+        updateResumeData({
+          text: uploadedResume.extracted_text,
+          fileName: resumeData.file.name,
+          hasExisting: false,
+          resumeId: uploadedResume.id,
+        });
         toast.success("Resume processed successfully");
       }
-      // If using existing resume but no text exists, prompt user to choose
-      else if (resumeData.hasExisting && !resumeData.text) {
+      // If using an existing resume, ensure we have text and fileName already
+      else if (
+        resumeData.hasExisting &&
+        resumeData.text &&
+        resumeData.fileName
+      ) {
+        toast.success("Using existing resume");
+      } else {
         toast.error("No stored resume found. Please upload your resume first.");
+        setLoading(false);
         return;
       }
 
       completeCurrentStage();
       goToNextStage();
     } catch (error: any) {
+      console.error("Error processing resume:", error);
       toast.error("There was an error processing your resume.");
     } finally {
       setLoading(false);
@@ -125,6 +149,7 @@ const ResumeUploadStage = () => {
                 Select File
               </Button>
             </div>
+            {/* Show selected file name only for new uploads */}
             {resumeData.file && (
               <p className="mt-4 text-sm">
                 Selected:{" "}
@@ -146,6 +171,13 @@ const ResumeUploadStage = () => {
             <p className="text-sm text-gray-500 mb-4">
               We'll use your previously uploaded resume
             </p>
+            {/* Show existing file name only for existing resumes */}
+            {resumeData.hasExisting && resumeData.fileName && (
+              <p className="mt-2 text-sm text-gray-700">
+                Existing File:{" "}
+                <span className="font-medium">{resumeData.fileName}</span>
+              </p>
+            )}
             <Button
               variant={resumeData.hasExisting ? "default" : "outline"}
               onClick={handleUseExisting}

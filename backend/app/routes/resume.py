@@ -53,14 +53,14 @@ async def upload_resume(
     # 3. Construct the public URL or signed URL for the file
     #    For example, if your file is at "{user_id}/{filename}":
     file_path = f"{user_id}/{file.filename}"
-    url_response = SupabaseService.get_file_url(file_path)
+    url_response = SupabaseService.get_file_url(file_path, "resumes")
+    print("url_response: ", url_response)
+    print("url_response type", type(url_response))
     if "error" in url_response:
-        return url_response
-
-    file_url = url_response["URL"] if "URL" in url_response else file_path
+        return {"error": "Failed to get file URL"}
 
     # 4. Insert the record into the 'resumes' table
-    create_response = SupabaseService.create_resume(user_id, file_url, extracted_text)
+    create_response = SupabaseService.create_resume(user_id, url_response, extracted_text)
     return create_response
 
 class UpdateResumeRequest(BaseModel):
