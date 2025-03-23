@@ -1,20 +1,29 @@
+# Import required libraries and modules
 import os
-from supabase import create_client, Client
-from dotenv import load_dotenv
-from fastapi import UploadFile, HTTPException, Request
+from supabase import create_client, Client  # Supabase Python client
+from dotenv import load_dotenv              # To load environment variables from .env
+from fastapi import UploadFile, HTTPException, Request  # FastAPI utilities for request handling
 
+# Load environment variables
 load_dotenv()
 
+# Initialize Supabase connection using environment variables
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
-
 supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-expiry = 60 * 60 * 24 * 30  # 30 days in seconds
+
+# Define expiry time for signed URLs (30 days)
+expiry = 60 * 60 * 24 * 30
 
 class SupabaseService:
+    """
+    A service class providing utility methods to interact with Supabase Authentication,
+    Database tables, and Storage buckets.
+    """
+
     @staticmethod
     def create_user(email: str, password: str):
-        """Creates a new user in Supabase."""
+        """Registers a new user with email and password."""
         try:
             response = supabase_client.auth.sign_up({"email": email, "password": password})
             if response.user:
@@ -41,7 +50,7 @@ class SupabaseService:
 
     @staticmethod
     def refresh_token(refresh_token: str):
-        """Refreshes the access token using a refresh token."""
+        """Refreshes the session using a refresh token."""
         try:
             response = supabase_client.auth.refresh_session(refresh_token)
             if response and response.session:
@@ -56,35 +65,35 @@ class SupabaseService:
 
     @staticmethod
     def logout():
-        """Logs out the user by revoking the session."""
+        """Logs out the current user session."""
         try:
-            response = supabase_client.auth.sign_out()
+            supabase_client.auth.sign_out()
             return {"message": "Logged out successfully"}
         except Exception as e:
             return {"error": {"message": str(e)}}
 
     @staticmethod
     def create_profile(profile_data: dict):
-        """Inserts a new profile record into the profiles table."""
+        """Inserts a new user profile into the 'profiles' table."""
         try:
             response = supabase_client.from_("profiles").insert([profile_data]).execute()
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
-    
+
     @staticmethod
     def get_profile(user_id: str):
-        """Retrieves a profile record from the profiles table."""
+        """Fetches the user profile from the 'profiles' table."""
         try:
             response = supabase_client.from_("profiles").select("*").eq("id", user_id).single()
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
-    
+
     @staticmethod
     def get_current_user(request: Request):
         """
-        Retrieves the current user by extracting the token from Authorization headers.
+        Retrieves the currently logged-in user using the access token from cookies.
         """
         token = request.cookies.get("access_token")
         if not token:
@@ -95,30 +104,39 @@ class SupabaseService:
             return response.user
         except Exception as e:
             return {"error": {"message": str(e)}}
+
     @staticmethod
     def get_file_url(file_path: str, bucket_name: str = "public"):
-        """Generates a public URL for a file in Supabase Storage."""
+        """
+        Generates a signed public URL to download a file from Supabase Storage.
+        """
         try:
             print("file_path: ", file_path)
             print("bucket_name: ", bucket_name)
-            response = supabase_client.storage.from_(bucket_name).create_signed_url(file_path, expiry, {"download": True})
+            response = supabase_client.storage.from_(bucket_name).create_signed_url(
+                file_path, expiry, {"download": True}
+            )
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
-    
+
     @staticmethod
     async def upload_file(user_id: str, file: UploadFile, bucket_name: str = "public"):
-        """Uploads a file to Supabase Storage."""
+        """
+        Uploads a file to a specified Supabase Storage bucket under the user's folder.
+        """
         try:
             file_content = await file.read()
-            response = supabase_client.storage.from_(bucket_name).upload(f"{user_id}/{file.filename}", file_content)
+            response = supabase_client.storage.from_(bucket_name).upload(
+                f"{user_id}/{file.filename}", file_content
+            )
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
-    
+
     @staticmethod
     def delete_file(file_path: str, bucket_name: str = "public"):
-        """Deletes a file from Supabase Storage."""
+        """Deletes a specific file from Supabase Storage."""
         try:
             response = supabase_client.storage.from_(bucket_name).remove([file_path])
             return response
@@ -128,7 +146,7 @@ class SupabaseService:
     @staticmethod
     def create_resume(user_id: str, file_url: str, extracted_text: str) -> dict:
         """
-        Inserts a new resume record into the 'resumes' table.
+        Inserts a new resume record into the 'resumes' table with file URL and extracted text.
         """
         try:
             response = supabase_client.table("resumes").insert({
@@ -143,7 +161,7 @@ class SupabaseService:
     @staticmethod
     def update_resume(resume_id: str, extracted_text: str) -> dict:
         """
-        Updates the extracted text of an existing resume record.
+        Updates an existing resume's extracted text in the 'resumes' table.
         """
         try:
             print(f"Updating resume with ID: {resume_id}, extracted_text: {extracted_text}")
@@ -155,31 +173,30 @@ class SupabaseService:
         except Exception as e:
             print(f"Error updating resume: {str(e)}")
             return {"error": {"message": str(e)}}
-    
+
     @staticmethod
     def get_resume_table(user_id: str) -> dict:
-        """
-        Retrieves all resume records for a user from the 'resumes' table.
-        """
+        """Fetches all resume records associated with a user from the 'resumes' table."""
         try:
             response = supabase_client.table("resumes").select("*").eq("user_id", user_id).execute()
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
-    
+
     @staticmethod
     def get_resume_storage(user_id: str, bucket_name: str = "resumes") -> dict:
         """
-        Retrieves all files stored in Supabase Storage for a user.
+        Lists all resume files stored for the user in the specified Supabase Storage bucket.
         """
         try:
             response = supabase_client.storage.from_(bucket_name).list(user_id)
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
-    
+
     @staticmethod
-    def create_job_description(user_id: str, job_title: str, company_name: str, location: str, job_type: str, description: str) -> dict:
+    def create_job_description(user_id: str, job_title: str, company_name: str,
+                               location: str, job_type: str, description: str) -> dict:
         """
         Inserts a new job description record into the 'job_descriptions' table.
         """
@@ -195,5 +212,6 @@ class SupabaseService:
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
-        
+
+# Instantiate the SupabaseService for use
 supabase_service = SupabaseService()
