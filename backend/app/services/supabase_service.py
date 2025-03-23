@@ -177,5 +177,23 @@ class SupabaseService:
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    def create_job_description(user_id: str, job_title: str, company_name: str, location: str, job_type: str, description: str) -> dict:
+        """
+        Inserts a new job description record into the 'job_descriptions' table.
+        """
+        try:
+            response = supabase_client.table("job_descriptions").insert({
+                "user_id": user_id,
+                "title": job_title,
+                "company": company_name,
+                "location": location,
+                "type": job_type,
+                "description": description
+            }).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
         
 supabase_service = SupabaseService()

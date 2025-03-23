@@ -4,7 +4,6 @@ import { useWorkflow } from "@/context/WorkflowContext";
 import ResumeUploadStage from "./stages/ResumeUploadStage";
 import ResumePreviewStage from "./stages/ResumePreviewStage";
 import JobDetailsStage from "./stages/JobDetailsStage";
-import JobDescriptionStage from "./stages/JobDescriptionStage";
 import { CardContent } from "@/components/ui/card";
 
 // Map stage IDs to their respective components
@@ -12,7 +11,6 @@ const stageComponents: Record<string, React.ComponentType> = {
   "resume-upload": ResumeUploadStage,
   "resume-preview": ResumePreviewStage,
   "job-details": JobDetailsStage,
-  "job-description": JobDescriptionStage,
   // Add new stages here as they are created
 };
 
