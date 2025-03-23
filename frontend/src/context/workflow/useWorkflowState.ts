@@ -4,7 +4,6 @@ import { WorkflowStage, WorkflowContextType } from "./types";
 import { 
   initialStages, 
   initialResumeData, 
-  initialJobDescriptionData, 
   initialJobDetailsData 
 } from "./initialState";
 
@@ -12,7 +11,6 @@ export const useWorkflowState = (): WorkflowContextType => {
   const [stages, setStages] = useState<WorkflowStage[]>(initialStages);
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
   const [resumeData, setResumeData] = useState(initialResumeData);
-  const [jobDescriptionData, setJobDescriptionData] = useState(initialJobDescriptionData);
   const [jobDetailsData, setJobDetailsData] = useState(initialJobDetailsData);
 
   const goToNextStage = () => {
@@ -84,10 +82,6 @@ export const useWorkflowState = (): WorkflowContextType => {
     setResumeData(prev => ({ ...prev, ...data }));
   };
 
-  const updateJobDescriptionData = (data: Partial<typeof jobDescriptionData>) => {
-    setJobDescriptionData(prev => ({ ...prev, ...data }));
-  };
-
   const updateJobDetailsData = (data: Partial<typeof jobDetailsData>) => {
     setJobDetailsData(prev => ({ ...prev, ...data }));
   };
@@ -101,8 +95,6 @@ export const useWorkflowState = (): WorkflowContextType => {
     completeCurrentStage,
     resumeData,
     updateResumeData,
-    jobDescriptionData,
-    updateJobDescriptionData,
     jobDetailsData,
     updateJobDetailsData,
   };
