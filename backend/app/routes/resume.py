@@ -3,7 +3,7 @@ from pydantic import BaseModel
 import os
 import shutil
 from app.services.supabase_service import SupabaseService
-from app.services.resume_parser_service import ResumeParserService
+from app.services.parser_service import ResumeParserService
 from fastapi import Depends, Header   
 
 resume_router = APIRouter()
