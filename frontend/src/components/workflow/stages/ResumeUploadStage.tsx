@@ -44,7 +44,6 @@ const ResumeUploadStage = () => {
     try {
       // Call your API GET /resumes endpoint; no need to pass a user id
       const response = await getResume();
-      console.log("Get Resume Response:", response);
       if (response && response.data && response.data.length > 0) {
         // Assuming response.data is an array with one resume record
         const latestRes = response.data[0];

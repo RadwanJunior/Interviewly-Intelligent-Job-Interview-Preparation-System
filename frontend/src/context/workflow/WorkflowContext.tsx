@@ -5,7 +5,11 @@ import { useWorkflowState } from "./useWorkflowState";
 
 const WorkflowContext = createContext<WorkflowContextType | null>(null);
 
-export const WorkflowProvider = ({ children }: { children: React.ReactNode }) => {
+export const WorkflowProvider = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => {
   const workflowState = useWorkflowState();
 
   return (

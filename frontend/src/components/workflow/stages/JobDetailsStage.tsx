@@ -1,66 +1,81 @@
-"use client"
+"use client";
 import React from "react";
 import { CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowRight, ArrowLeft, Check, Building, Briefcase, MapPin } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowLeft,
+  Check,
+  Building,
+  Briefcase,
+  MapPin,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useWorkflow } from "@/context/WorkflowContext";
 import { createJobDescription } from "@/lib/api";
+import { useRouter } from "next/navigation"; // For Next.js 13+ with app directory
 
 const JobDetailsStage = () => {
-  const { 
-    jobDetailsData, 
-    updateJobDetailsData, 
-    completeCurrentStage, 
-    goToNextStage, 
-    goToPreviousStage 
+  const {
+    jobDetailsData,
+    updateJobDetailsData,
+    completeCurrentStage,
+    goToPreviousStage,
+    // showLoader,
   } = useWorkflow();
+  const router = useRouter(); // Initialize the router
 
-  const handleInputChange = (field: keyof typeof jobDetailsData) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    updateJobDetailsData({ [field]: e.target.value });
-  };
+  const handleInputChange =
+    (field: keyof typeof jobDetailsData) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      updateJobDetailsData({ [field]: e.target.value });
+    };
 
-  const handleSelectChange = (field: keyof typeof jobDetailsData) => (value: string) => {
-    updateJobDetailsData({ [field]: value });
-  };
+  const handleSelectChange =
+    (field: keyof typeof jobDetailsData) => (value: string) => {
+      updateJobDetailsData({ [field]: value });
+    };
 
   const confirmJobDetails = async () => {
-    if (!jobDetailsData.jobTitle || !jobDetailsData.companyName || !jobDetailsData.description) {
+    if (
+      !jobDetailsData.jobTitle ||
+      !jobDetailsData.companyName ||
+      !jobDetailsData.description
+    ) {
       toast.error("Please enter job title, company name, and description");
       return;
     }
 
     try {
-      await createJobDescription(
+      const response = await createJobDescription(
         jobDetailsData.jobTitle,
         jobDetailsData.companyName,
         jobDetailsData.location,
         jobDetailsData.jobType,
         jobDetailsData.description
       );
-      toast.success("Job details confirmed!");
-      completeCurrentStage();
-      
-      const nextSection = document.getElementById("stage-resume-preview");
-      if (nextSection) {
-        nextSection.scrollIntoView({ behavior: "smooth" });
+
+      if (!response) {
+        toast.error("Failed to confirm job details. Please try again.");
+        return;
       }
-      
-      setTimeout(() => {
-        goToNextStage();
-      }, 300);
+
+      toast.success("Job details confirmed!");
+      updateJobDetailsData({ JobDescriptionId: response.data[0].id });
+      console.log("Job Description ID:", response.data[0].id);
+      console.log("Job Details Data:", jobDetailsData);
+      completeCurrentStage();
+      router.push("/prepare");
     } catch (error) {
       toast.error("Failed to confirm job details. Please try again.");
     }
@@ -71,7 +86,7 @@ const JobDetailsStage = () => {
     if (prevSection) {
       prevSection.scrollIntoView({ behavior: "smooth" });
     }
-    
+
     setTimeout(() => {
       goToPreviousStage();
     }, 300);
@@ -84,7 +99,7 @@ const JobDetailsStage = () => {
           Enter Job Details
         </CardTitle>
       </CardHeader>
-      
+
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <div className="space-y-2">
@@ -100,7 +115,7 @@ const JobDetailsStage = () => {
               className="w-full"
             />
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="company-name" className="text-base">
               <Building className="inline-block mr-2 h-4 w-4" />
@@ -133,10 +148,9 @@ const JobDetailsStage = () => {
             <Label htmlFor="job-type" className="text-base">
               Job Type
             </Label>
-            <Select 
+            <Select
               value={jobDetailsData.jobType}
-              onValueChange={handleSelectChange("jobType")}
-            >
+              onValueChange={handleSelectChange("jobType")}>
               <SelectTrigger id="job-type">
                 <SelectValue placeholder="Select job type" />
               </SelectTrigger>
@@ -149,7 +163,7 @@ const JobDetailsStage = () => {
               </SelectContent>
             </Select>
           </div>
-          
+
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="description" className="text-lg font-medium">
               Job Description *
@@ -162,24 +176,25 @@ const JobDetailsStage = () => {
               className="min-h-[300px] font-mono text-sm"
             />
             <p className="text-sm text-muted-foreground mt-2">
-              Tip: Copy and paste the full job description from the job posting. 
-              This will help us analyze the requirements and provide better interview preparation.
+              Tip: Copy and paste the full job description from the job posting.
+              This will help us analyze the requirements and provide better
+              interview preparation.
             </p>
           </div>
         </div>
 
         <div className="flex justify-between mt-6">
-          <Button 
-            variant="outline" 
-            onClick={goBack}
-          >
+          <Button variant="outline" onClick={goBack}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Resume
           </Button>
-          <Button 
+          <Button
             onClick={confirmJobDetails}
-            disabled={!jobDetailsData.jobTitle || !jobDetailsData.companyName || !jobDetailsData.description}
-          >
+            disabled={
+              !jobDetailsData.jobTitle ||
+              !jobDetailsData.companyName ||
+              !jobDetailsData.description
+            }>
             <Check className="mr-2 h-4 w-4" />
             Confirm & Continue
             <ArrowRight className="ml-2 h-4 w-4" />
