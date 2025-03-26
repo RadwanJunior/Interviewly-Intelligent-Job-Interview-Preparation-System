@@ -92,7 +92,7 @@ def update_extracted_text(
     response = SupabaseService.update_resume(resume_id, request.updated_text)
     return response
 
-# gett extracted text of a resume
+# get extracted text of a resume
 @resume_router.get("/")
 def get_extracted_text(current_user: dict = Depends(SupabaseService.get_current_user)):
     """

@@ -1,48 +1,55 @@
-"use client"
-import React from "react";
-import { CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+"use client"; // Indicates that this is a Client Component in Next.js
+
+import React from "react"; 
+import { CardHeader, CardTitle } from "@/components/ui/card"; 
+import { Button } from "@/components/ui/button"; 
+import { Input } from "@/components/ui/input"; 
+import { Label } from "@/components/ui/label"; 
+import { Textarea } from "@/components/ui/textarea"; 
 import { 
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { ArrowRight, ArrowLeft, Check, Building, Briefcase, MapPin } from "lucide-react";
-import { toast } from "sonner";
-import { useWorkflow } from "@/context/WorkflowContext";
-import { createJobDescription } from "@/lib/api";
+} from "@/components/ui/select"; 
+import { ArrowRight, ArrowLeft, Check, Building, Briefcase, MapPin } from "lucide-react"; 
+import { toast } from "sonner"; 
+import { useWorkflow } from "@/context/WorkflowContext"; 
+import { createJobDescription } from "@/lib/api"; 
 
 const JobDetailsStage = () => {
+  // Destructure values and functions from the Workflow context
   const { 
     jobDetailsData, 
-    updateJobDetailsData, 
-    completeCurrentStage, 
-    goToNextStage, 
-    goToPreviousStage 
+    updateJobDetailsData, // Function to update job details
+    completeCurrentStage, // Function to mark the current stage as complete
+    goToNextStage, // Function to navigate to the next stage
+    goToPreviousStage // Function to navigate to the previous stage
   } = useWorkflow();
 
+  // Handle input changes for text fields
   const handleInputChange = (field: keyof typeof jobDetailsData) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    updateJobDetailsData({ [field]: e.target.value });
+    updateJobDetailsData({ [field]: e.target.value }); 
   };
 
+  // Handle select changes for dropdown fields
   const handleSelectChange = (field: keyof typeof jobDetailsData) => (value: string) => {
-    updateJobDetailsData({ [field]: value });
+    updateJobDetailsData({ [field]: value }); 
   };
 
+  // Confirm job details and proceed to the next stage
   const confirmJobDetails = async () => {
+    // Validate required fields
     if (!jobDetailsData.jobTitle || !jobDetailsData.companyName || !jobDetailsData.description) {
-      toast.error("Please enter job title, company name, and description");
+      toast.error("Please enter job title, company name, and description"); // Show error toast
       return;
     }
 
     try {
+      // Call API to create job description
       await createJobDescription(
         jobDetailsData.jobTitle,
         jobDetailsData.companyName,
@@ -50,28 +57,33 @@ const JobDetailsStage = () => {
         jobDetailsData.jobType,
         jobDetailsData.description
       );
-      toast.success("Job details confirmed!");
-      completeCurrentStage();
+      toast.success("Job details confirmed!"); // Show success toast
+      completeCurrentStage(); // Mark the current stage as complete
       
+      // Scroll to the next section smoothly
       const nextSection = document.getElementById("stage-resume-preview");
       if (nextSection) {
         nextSection.scrollIntoView({ behavior: "smooth" });
       }
       
+      // Navigate to the next stage after a short delay
       setTimeout(() => {
         goToNextStage();
       }, 300);
     } catch (error) {
-      toast.error("Failed to confirm job details. Please try again.");
+      toast.error("Failed to confirm job details. Please try again."); // Show error toast
     }
   };
 
+  // Navigate back to the previous stage
   const goBack = () => {
+    // Scroll to the previous section smoothly
     const prevSection = document.getElementById("stage-resume-upload");
     if (prevSection) {
       prevSection.scrollIntoView({ behavior: "smooth" });
     }
     
+    // Navigate to the previous stage after a short delay
     setTimeout(() => {
       goToPreviousStage();
     }, 300);
@@ -79,14 +91,17 @@ const JobDetailsStage = () => {
 
   return (
     <div className="transition-all duration-500 ease-in-out">
+      {/* Card header with title */}
       <CardHeader className="px-0">
         <CardTitle className="text-center text-2xl">
           Enter Job Details
         </CardTitle>
       </CardHeader>
       
+      {/* Form for job details */}
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          {/* Job Title input field */}
           <div className="space-y-2">
             <Label htmlFor="job-title" className="text-base">
               <Briefcase className="inline-block mr-2 h-4 w-4" />
@@ -101,6 +116,7 @@ const JobDetailsStage = () => {
             />
           </div>
           
+          {/* Company Name input field */}
           <div className="space-y-2">
             <Label htmlFor="company-name" className="text-base">
               <Building className="inline-block mr-2 h-4 w-4" />
@@ -115,6 +131,7 @@ const JobDetailsStage = () => {
             />
           </div>
 
+          {/* Location input field */}
           <div className="space-y-2">
             <Label htmlFor="location" className="text-base">
               <MapPin className="inline-block mr-2 h-4 w-4" />
@@ -129,6 +146,7 @@ const JobDetailsStage = () => {
             />
           </div>
 
+          {/* Job Type dropdown field */}
           <div className="space-y-2">
             <Label htmlFor="job-type" className="text-base">
               Job Type
@@ -150,6 +168,7 @@ const JobDetailsStage = () => {
             </Select>
           </div>
           
+          {/* Job Description textarea field */}
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="description" className="text-lg font-medium">
               Job Description *
@@ -168,7 +187,9 @@ const JobDetailsStage = () => {
           </div>
         </div>
 
+        {/* Navigation buttons */}
         <div className="flex justify-between mt-6">
+          {/* Back button */}
           <Button 
             variant="outline" 
             onClick={goBack}
@@ -176,6 +197,7 @@ const JobDetailsStage = () => {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Resume
           </Button>
+          {/* Confirm and Continue button */}
           <Button 
             onClick={confirmJobDetails}
             disabled={!jobDetailsData.jobTitle || !jobDetailsData.companyName || !jobDetailsData.description}
@@ -190,4 +212,4 @@ const JobDetailsStage = () => {
   );
 };
 
-export default JobDetailsStage;
+export default JobDetailsStage; 

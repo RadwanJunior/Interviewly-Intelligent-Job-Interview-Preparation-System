@@ -1,88 +1,4 @@
-// "use client";
-
-// import React, {
-//   createContext,
-//   useContext,
-//   useState,
-//   useEffect,
-//   ReactNode,
-//   useMemo,
-// } from "react";
-// import { supabase } from "@/lib/supabase";
-
-// interface AuthContextType {
-//   session: any | null;
-//   user: any | null;
-//   loading: boolean;
-// }
-
-// const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// export const AuthProvider = ({ children }: { children: ReactNode }) => {
-//   const [session, setSession] = useState<any | null>(null);
-//   const [user, setUser] = useState<any | null>(null);
-//   const [loading, setLoading] = useState(true);
-
-//   useEffect(() => {
-//     const fetchSession = async () => {
-//       setLoading(true);
-//       const { data, error } = await supabase.auth.getSession();
-//       if (error) console.error("Error fetching session:", error);
-
-//       // Only update state if session has changed
-//       setSession((prevSession: { access_token: string | undefined }) =>
-//         prevSession?.access_token !== data.session?.access_token
-//           ? data.session
-//           : prevSession
-//       );
-//       setUser((prevUser: { id: string | undefined }) =>
-//         prevUser?.id !== data.session?.user?.id ? data.session?.user : prevUser
-//       );
-//       setLoading(false);
-//     };
-
-//     fetchSession();
-
-//     const { data: authListener } = supabase.auth.onAuthStateChange(
-//       (_event, newSession) => {
-//         setSession((prevSession: { access_token: string | undefined }) =>
-//           prevSession?.access_token !== newSession?.access_token
-//             ? newSession
-//             : prevSession
-//         );
-//         setUser((prevUser: { id: string | undefined }) =>
-//           prevUser?.id !== newSession?.user?.id ? newSession?.user : prevUser
-//         );
-//       }
-//     );
-
-//     return () => {
-//       authListener.subscription?.unsubscribe();
-//     };
-//   }, []);
-
-//   // Memoize the context value to avoid unnecessary re-renders
-//   const contextValue = useMemo(
-//     () => ({ session, user, loading }),
-//     [session, user, loading]
-//   );
-
-//   console.log("AuthContext re-rendered:", { session, user, loading });
-
-//   return (
-//     <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
-//   );
-// };
-
-// export const useAuth = () => {
-//   const context = useContext(AuthContext);
-//   if (!context) {
-//     throw new Error("useAuth must be used within an AuthProvider");
-//   }
-//   return context;
-// };
-
-"use client";
+"use client"; // Indicates that this is a Client Component in Next.js
 
 import React, {
   createContext,
@@ -91,78 +7,88 @@ import React, {
   useEffect,
   ReactNode,
   useMemo,
-} from "react";
-import { login, logout, refreshToken } from "@/lib/api";
+} from "react"; 
+import { login, logout, refreshToken } from "@/lib/api"; 
 
+// Define the shape of the AuthContext
 interface AuthContextType {
-  user: any | null;
-  loading: boolean;
-  loginUser: (email: string, password: string) => Promise<void>;
-  logoutUser: () => Promise<void>;
+  user: any | null; 
+  loading: boolean; 
+  loginUser: (email: string, password: string) => Promise<void>; 
+  logoutUser: () => Promise<void>; 
 }
 
+// Create the AuthContext with an initial value of `undefined`
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// AuthProvider component to wrap the application and provide authentication state
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any | null>(null); 
+  const [loading, setLoading] = useState(true); 
 
+  // Effect to initialize authentication state (e.g., check for an existing session)
   useEffect(() => {
     const initializeAuth = async () => {
       try {
         setLoading(true);
-        const response = await refreshToken(); // Attempt to refresh session
+        const response = await refreshToken(); 
         if (response.user) {
-          setUser(response.user);
+          setUser(response.user); 
         }
       } catch (error) {
-        console.error("Error refreshing token:", error);
-        setUser(null);
+        console.error("Error refreshing token:", error); 
+        setUser(null); 
       } finally {
-        setLoading(false);
+        setLoading(false); 
       }
     };
 
-    initializeAuth();
-  }, []);
+    initializeAuth(); 
+  }, []); 
 
+  // Function to log in a user
   const loginUser = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const response = await login(email, password);
+      const response = await login(email, password); // Call the login API
       if (response.user) {
-        setUser(response.user);
+        setUser(response.user); 
       }
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("Login error:", error); 
     } finally {
-      setLoading(false);
+      setLoading(false); 
     }
   };
 
+  // Function to log out a user
   const logoutUser = async () => {
     try {
-      await logout();
-      setUser(null);
+      await logout(); // Call the logout API
+      setUser(null); 
     } catch (error) {
-      console.error("Logout error:", error);
+      console.error("Logout error:", error); // Log errors during logout
     }
   };
 
+  // Memoize the context value to optimize performance
   const contextValue = useMemo(
     () => ({ user, loading, loginUser, logoutUser }),
     [user, loading]
   );
 
+  // Provide the authentication context to all child components
   return (
     <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
   );
 };
 
+// Custom hook to access the AuthContext
 export const useAuth = () => {
-  const context = useContext(AuthContext);
+  const context = useContext(AuthContext); // Retrieve the context value
   if (!context) {
+    // Throw an error if the hook is used outside of an AuthProvider
     throw new Error("useAuth must be used within an AuthProvider");
   }
-  return context;
+  return context; // Return the authentication context
 };
