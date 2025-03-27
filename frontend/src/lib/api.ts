@@ -88,3 +88,15 @@ export async function createJobDescription(
   });
   return response.data;
 }
+
+export async function createInterviewSession(data: {
+  job_description_id: string;
+}) {
+  const response = await api.post("/interview/create", data);
+  return response.data;
+}
+
+export async function getInterviewStatus(sessionId: string) {
+  const response = await api.get(`/interview/status/${sessionId}`);
+  return response.data;
+}

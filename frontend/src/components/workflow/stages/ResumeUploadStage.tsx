@@ -48,7 +48,9 @@ const ResumeUploadStage = () => {
         // Assuming response.data is an array with one resume record
         const latestRes = response.data[0];
         updateResumeData({
-          fileName: latestRes.file_url.split("/").pop(), // Extract filename from the URL
+          fileName:
+            latestRes.file_url.match(/[^/]+(\.pdf|\.docx)/)?.[0] ||
+            "Unknown File", // Extract filename ending with .pdf or .docx
           text: latestRes.extracted_text,
           hasExisting: true,
           file: null,
