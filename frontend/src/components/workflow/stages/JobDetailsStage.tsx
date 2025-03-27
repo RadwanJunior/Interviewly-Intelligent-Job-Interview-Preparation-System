@@ -23,7 +23,7 @@ import {
 import { toast } from "sonner";
 import { useWorkflow } from "@/context/WorkflowContext";
 import { createJobDescription } from "@/lib/api";
-import { useRouter } from "next/navigation"; // For Next.js 13+ with app directory
+import { useRouter } from "next/navigation";
 
 const JobDetailsStage = () => {
   const {

@@ -213,15 +213,17 @@ class SupabaseService:
         Inserts a new interview session record into the 'interview_sessions' table.
         """
         try:
-            response = supabase_client.table("interview_sessions").insert({
+            response = supabase_client.table("interviews").insert({
                 "user_id": user_id,
                 "resume_id": resume_id,
                 "job_description_id": job_description_id,
                 "interview_questions": questions,
                 "status": "pending"
             }).execute()
+            print(f"Supabase response: {response}")
             return response
         except Exception as e:
+            print(f"Error creating interview session: {str(e)}")
             return {"error": {"message": str(e)}}
     
     @staticmethod
@@ -251,10 +253,10 @@ class SupabaseService:
     @staticmethod
     def get_latest_interview_session(user_id: str) -> dict:
         """
-        Retrieves the latest interview session record for a user from the 'interview_sessions' table.
+        Retrieves the latest interview session record for a user from the 'interviews' table.
         """
         try:
-            response = supabase_client.table("interview_sessions").select("*").eq("user_id", user_id).order("created_at", ascending=False).limit(1).execute()
+            response = supabase_client.table("interview").select("*").eq("user_id", user_id).order("created_at", ascending=False).limit(1).execute()
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
@@ -313,6 +315,26 @@ class SupabaseService:
         """
         try:
             response = supabase_client.table("interview_questions").insert(question_records).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    @staticmethod
+    def get_interview_question(question_id: str) -> dict:
+        """
+        Retrieves a specific interview question record from the 'interview_questions' table.
+        """
+        try:
+            response = supabase_client.table("interview_questions").select("*").eq("id", question_id).single().execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    @staticmethod
+    def get_interiew_question_table(interview_id: str) -> dict:
+        """
+        Retrieves all interview question records for a given interview from the 'interview_questions' table.
+        """
+        try:
+            response = supabase_client.table("interview_questions").select("*").eq("interview_id", interview_id).execute()
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}

@@ -1,40 +1,73 @@
 "use client";
-import React, { useEffect, useState } from "react";
-import Navigate from "next/link";
+import React, { useEffect, useState, useRef } from "react";
 import Head from "next/head";
-import { CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { CheckCircle, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkflow } from "@/context/WorkflowContext";
+import { createInterviewSession, getInterviewStatus } from "@/lib/api";
+import { useRouter } from "next/navigation";
 
 const PrepareInterview = () => {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(true);
   const [progress, setProgress] = useState(0);
   const { jobDetailsData } = useWorkflow();
+  const router = useRouter();
+  const isRequestInProgress = useRef(false); // Track if the request is already in progress
 
-  // Mock generation progress - in a real app this would be updated from a backend call
+  // On mount, call backend to create the interview session using job_description_id only.
   useEffect(() => {
-    const simulateGeneration = () => {
-      const interval = setInterval(() => {
-        setProgress((prev) => {
-          const newProgress = prev + 5;
-          if (newProgress >= 100) {
-            clearInterval(interval);
-            setIsGenerating(false);
-            return 100;
-          }
-          return newProgress;
-        });
-      }, 600); // Updates every 600ms to simulate generation
+    const startGeneration = async () => {
+      if (isRequestInProgress.current) return; // Prevent multiple requests
+      isRequestInProgress.current = true;
 
-      return () => clearInterval(interval);
+      try {
+        const response = await createInterviewSession({
+          job_description_id: jobDetailsData.JobDescriptionId,
+        });
+
+        if (response.session && response.session.id) {
+          pollStatus(response.session.id);
+        } else {
+          toast({
+            title: "Error",
+            description: "Could not create interview session.",
+            variant: "destructive",
+          });
+        }
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: "Error creating interview session.",
+          variant: "destructive",
+        });
+      } finally {
+        isRequestInProgress.current = false; // Reset the flag
+      }
     };
 
-    simulateGeneration();
-  }, []);
+    const pollStatus = async (sessionId: string) => {
+      const interval = setInterval(async () => {
+        try {
+          const statusResp = await getInterviewStatus(sessionId);
+          if (typeof statusResp.progress === "number") {
+            setProgress(statusResp.progress);
+            if (statusResp.completed) {
+              setIsGenerating(false);
+              clearInterval(interval);
+            }
+          }
+        } catch (error: any) {
+          console.error("Error polling status: ", error);
+        }
+      }, 2000);
+    };
+
+    startGeneration();
+  }, [jobDetailsData, toast]);
 
   const handleStart = () => {
     if (isGenerating) {
@@ -45,9 +78,8 @@ const PrepareInterview = () => {
       });
       return;
     }
-
-    // Start the interview
-    return <Navigate href="/interview" />;
+    // When generation is complete, redirect to the interview page.
+    router.push("/interview");
   };
 
   return (
@@ -75,7 +107,7 @@ const PrepareInterview = () => {
             {/* Generation Status */}
             <div className="mb-8">
               <div className="flex justify-between text-sm text-gray-600 mb-2">
-                <span>Generating questions</span>
+                <span>Generating interview questions</span>
                 <span>{progress}%</span>
               </div>
               <Progress value={progress} className="h-2" />
@@ -110,15 +142,15 @@ const PrepareInterview = () => {
                 </li>
                 <li className="flex items-start">
                   <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
-                  <span>Prepare water or a drink nearby.</span>
+                  <span>Keep water nearby.</span>
                 </li>
                 <li className="flex items-start">
                   <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
-                  <span>You'll have 1.5 minutes for each answer.</span>
+                  <span>You have 1.5 minutes for each answer.</span>
                 </li>
                 <li className="flex items-start">
                   <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
-                  <span>Speak clearly and at a moderate pace.</span>
+                  <span>Speak clearly and at a comfortable pace.</span>
                 </li>
               </ul>
             </div>
@@ -130,7 +162,7 @@ const PrepareInterview = () => {
                 <p className="font-medium">Important:</p>
                 <p>
                   Once you start the interview, you cannot pause it. Make sure
-                  you're ready before proceeding.
+                  you're ready.
                 </p>
               </div>
             </div>
@@ -148,10 +180,6 @@ const PrepareInterview = () => {
               </Button>
             </div>
           </Card>
-        </div>
-        <div>
-          <h1>Prepare Interview</h1>
-          <pre>{JSON.stringify(jobDetailsData, null, 2)}</pre>
         </div>
       </main>
     </div>
