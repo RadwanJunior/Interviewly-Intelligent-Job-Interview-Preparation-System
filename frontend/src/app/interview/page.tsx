@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-// import { useNavigate, useLocation } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Head from "next/head";
 import {
   Mic,
@@ -10,41 +10,97 @@ import {
   Video,
   User,
   MessageSquare,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-
-// Mock questions - in a real app, these would come from an API based on resume and job details
-const MOCK_QUESTIONS = [
-  "Tell me about your experience with React and how you've used it in previous projects.",
-  "Describe a challenging problem you solved in your last role and how you approached it.",
-  "How do you handle tight deadlines and competing priorities?",
-  "What interests you about this specific position and company?",
-  "Where do you see yourself professionally in 5 years?",
-];
+import { getInterviewQuestions } from "@/lib/api";
 
 // Maximum recording time in seconds (1.5 minutes)
 const MAX_RECORDING_TIME = 90;
 
 const Interview = () => {
-  //   const navigate = useNavigate();
-  //   const location = useLocation();
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get("sessionId");
   const { toast } = useToast();
+
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [recordings, setRecordings] = useState<
     Array<{ blob: Blob | null; url: string | null }>
-  >(MOCK_QUESTIONS.map(() => ({ blob: null, url: null })));
+  >([]);
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<number | null>(null);
   const audioChunksRef = useRef<BlobPart[]>([]);
   const [activeCall, setActiveCall] = useState(true);
 
+  // Fetch interview questions when the component mounts
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      if (!sessionId) {
+        setError("No interview session ID provided");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await getInterviewQuestions(sessionId);
+        if (response && Array.isArray(response.questions)) {
+          // If response has a questions property that is an array
+          // Sort questions by order field before mapping to texts
+          const sortedQuestions = [...response.questions].sort(
+            (a, b) => a.order - b.order
+          );
+          const questionTexts = sortedQuestions.map((q) => q.question);
+          setQuestions(questionTexts);
+          setRecordings(questionTexts.map(() => ({ blob: null, url: null })));
+        } else if (response && Array.isArray(response)) {
+          // If response is directly an array of questions
+          // Sort questions by order field before mapping to texts
+          const sortedQuestions = [...response].sort(
+            (a, b) => a.order - b.order
+          );
+          const questionTexts = sortedQuestions.map((q) => q.question);
+          setQuestions(questionTexts);
+          setRecordings(questionTexts.map(() => ({ blob: null, url: null })));
+        } else if (
+          response &&
+          typeof response === "object" &&
+          Object.keys(response).length > 0
+        ) {
+          // If response is an object with numeric keys (like an array-like object)
+          const questionObjects = Object.values(response);
+          // Sort questions by order field before mapping to texts
+          const sortedQuestions = [...questionObjects].sort(
+            (a: any, b: any) => a.order - b.order
+          );
+          const questionTexts = sortedQuestions.map((q: any) => q.question);
+          setQuestions(questionTexts);
+          setRecordings(questionTexts.map(() => ({ blob: null, url: null })));
+        } else {
+          console.log("No valid question format found in:", response);
+          setError("No questions found for this interview");
+        }
+      } catch (err) {
+        console.error("Failed to fetch interview questions:", err);
+        setError("Failed to load interview questions");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuestions();
+  }, [sessionId]);
+
   // Calculate progress percentage
-  const progress = ((currentQuestion + 1) / MOCK_QUESTIONS.length) * 100;
+  const progress =
+    questions.length > 0 ? ((currentQuestion + 1) / questions.length) * 100 : 0;
 
   // Calculate time remaining (for timer progress)
   const timeRemaining = MAX_RECORDING_TIME - recordingTime;
@@ -137,7 +193,7 @@ const Interview = () => {
     }
 
     // Move to next question if not at the end
-    if (currentQuestion < MOCK_QUESTIONS.length - 1) {
+    if (currentQuestion < questions.length - 1) {
       setCurrentQuestion((current) => current + 1);
     } else {
       // Handle completion of all questions
@@ -147,7 +203,7 @@ const Interview = () => {
           "All questions have been answered. Preparing your feedback...",
       });
       // In a real app, navigate to a results/feedback page
-      // navigate('/feedback');
+      // router.push('/feedback');
     }
   };
 
@@ -214,6 +270,28 @@ const Interview = () => {
     return `${mins}:${secs}`;
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="mt-4">Loading your interview questions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="bg-red-50 p-4 rounded-md border border-red-200 max-w-md">
+          <h3 className="text-red-600 font-medium mb-2">Error</h3>
+          <p className="text-red-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
       <Head>
@@ -265,7 +343,7 @@ const Interview = () => {
                   <div className="mt-3 bg-gray-800 p-4 rounded-lg rounded-tl-none">
                     <MessageSquare className="h-5 w-5 text-primary mb-2" />
                     <p className="text-gray-100 text-lg">
-                      {MOCK_QUESTIONS[currentQuestion]}
+                      {questions[currentQuestion]}
                     </p>
                   </div>
                 </div>
@@ -358,7 +436,7 @@ const Interview = () => {
           <div className="mb-6 bg-white rounded-lg p-4 shadow-md">
             <div className="flex justify-between text-sm text-gray-600 mb-2">
               <span>
-                Question {currentQuestion + 1} of {MOCK_QUESTIONS.length}
+                Question {currentQuestion + 1} of {questions.length}
               </span>
               <span>{Math.round(progress)}% Complete</span>
             </div>
@@ -380,9 +458,7 @@ const Interview = () => {
               onClick={handleNext}
               className="flex items-center gap-2 bg-primary hover:bg-primary/90"
               disabled={!activeCall}>
-              {currentQuestion === MOCK_QUESTIONS.length - 1
-                ? "Finish"
-                : "Next"}
+              {currentQuestion === questions.length - 1 ? "Finish" : "Next"}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
