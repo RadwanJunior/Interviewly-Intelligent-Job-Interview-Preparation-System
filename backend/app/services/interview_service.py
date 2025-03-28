@@ -6,22 +6,25 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 MODEL = "gemini-2.0-flash"
 
-PROMPT_TEMPLATE = """You are an expert HR interviewer and career coach. Based on the candidate's resume, job details, and company context, generate a structured list of interview questions that assess:
+PROMPT_TEMPLATE = """You are an expert HR interviewer and career coach. Based on the candidate's resume, job details, and company context, generate a **concise and structured** list of **10-12** interview questions designed for a **30-45 minute** interview.
 
-1. **Behavioral and General Fit Questions** (first): 
-   - Start with common behavioral interview questions such as "Tell me about yourself."
-   - Include questions about teamwork, leadership, problem-solving, and career motivation.
-   - Ensure questions assess soft skills, communication, and company culture fit.
+The interview should be structured as follows:
+- **Behavioral & General Fit Questions (3-4 questions, 10-15 minutes)-First**  
+  - Start with “Tell me about yourself” and other core behavioral questions.  
+  - Assess teamwork, leadership, problem-solving, and career motivation.  
+  - Ensure relevance to company culture and work environment.  
 
-2. **Technical Questions** (second): 
-   - Ask in-depth technical questions based on the job description and candidate’s experience.
-   - Include problem-solving and debugging questions related to key technologies or skills.
+- **Technical Questions (4-5 questions, 15-20 minutes)-second**  
+  - Cover key technical skills related to the job description.  
+  - Avoid redundant questions; prioritize depth over breadth.  
+  - If the job is highly technical, include at least one coding or debugging question.  
 
-3. **Situational & Case-Based Questions** (last): 
-   - Ask scenario-based questions that evaluate decision-making and real-world problem-solving.
-   - Present hypothetical challenges related to the job role and industry.
+- **Situational & Case-Based Questions (3-4 questions, 10-15 minutes)-last**  
+  - Focus on real-world scenarios and decision-making.  
+  - Use hypothetical challenges related to the role and industry.  
+  - Ensure practical application of skills.  
 
-Please output the questions in **JSON format** as an array, where each element is an object with a `"question"` field. Do **not** include additional text, explanations, or code block formatting. **Strictly return only valid JSON.**
+Please **strictly** output the questions in **valid JSON format** as an array, where each element is an object with a `"question"` field. **Do not include additional text, explanations, or formatting.** 
 
 {{
   "resume": "{resume}",
@@ -30,7 +33,6 @@ Please output the questions in **JSON format** as an array, where each element i
   "company_name": "{company_name}",
   "location": "{location}"
 }}
-
 """
 
 class InterviewService:

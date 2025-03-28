@@ -14,14 +14,14 @@ const PrepareInterview = () => {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(true);
   const [progress, setProgress] = useState(0);
+  const [sessionId, setSessionId] = useState(""); // Store the session ID
   const { jobDetailsData } = useWorkflow();
   const router = useRouter();
-  const isRequestInProgress = useRef(false); // Track if the request is already in progress
+  const isRequestInProgress = useRef(false);
 
-  // On mount, call backend to create the interview session using job_description_id only.
   useEffect(() => {
     const startGeneration = async () => {
-      if (isRequestInProgress.current) return; // Prevent multiple requests
+      if (isRequestInProgress.current) return;
       isRequestInProgress.current = true;
 
       try {
@@ -30,6 +30,7 @@ const PrepareInterview = () => {
         });
 
         if (response.session && response.session.id) {
+          setSessionId(response.session.id); // Save the session ID
           pollStatus(response.session.id);
         } else {
           toast({
@@ -45,7 +46,7 @@ const PrepareInterview = () => {
           variant: "destructive",
         });
       } finally {
-        isRequestInProgress.current = false; // Reset the flag
+        isRequestInProgress.current = false;
       }
     };
 
@@ -78,8 +79,9 @@ const PrepareInterview = () => {
       });
       return;
     }
-    // When generation is complete, redirect to the interview page.
-    router.push("/interview");
+
+    // Navigate to interview page with the session ID
+    router.push(`/Interview?sessionId=${sessionId}`);
   };
 
   return (

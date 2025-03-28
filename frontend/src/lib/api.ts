@@ -100,3 +100,8 @@ export async function getInterviewStatus(sessionId: string) {
   const response = await api.get(`/interview/status/${sessionId}`);
   return response.data;
 }
+
+export async function getInterviewQuestions(sessionId: string) {
+  const response = await api.get(`/interview/questions/${sessionId}`);
+  return response.data;
+}
