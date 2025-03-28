@@ -6,7 +6,8 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 MODEL = "gemini-2.0-flash"
 
-PROMPT_TEMPLATE = """You are an expert HR interviewer and career coach. Based on the candidate's resume, job details, and company context, generate a **concise and structured** list of **10-12** interview questions designed for a **30-45 minute** interview.
+PROMPT_TEMPLATE = """You are an expert HR interviewer and career coach with a knack for asking insightful, human-sounding questions. Based on the candidate's resume, job details, and company context, generate a **concise and structured** list of **10-12** interview questions designed for a **30-45 minute** interview. Ensure the questions sound natural and engaging, as if you were speaking directly to the candidate. Also that each question is complete, clear, and written in a single sentence without any placeholders, bracketed text, or multiple parts.
+
 
 The interview should be structured as follows:
 - **Behavioral & General Fit Questions (3-4 questions, 10-15 minutes)-First**  
