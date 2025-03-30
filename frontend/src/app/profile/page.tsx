@@ -28,13 +28,22 @@ const Profile = () => {
         title: "Logged out",
         description: "You have been logged out successfully.",
       });
-    } catch (error: any) {
-      console.error("Error logging out:", error.message);
-      toast({
-        title: "Error",
-        description: "An error occurred while logging out.",
-        variant: "destructive",
-      });
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error("Error logging out:", error.message);
+        toast({
+          title: "Error",
+          description: "An error occurred while logging out.",
+          variant: "destructive",
+        });
+      } else {
+        console.error("An unknown error occurred during logout.");
+        toast({
+          title: "Error",
+          description: "An unknown error occurred while logging out.",
+          variant: "destructive",
+        });
+      }
     }
   };
 

@@ -1,6 +1,4 @@
-import { ReactNode } from "react";
-
 export interface AppProps {
-  Component: React.ComponentType<any>;
-  pageProps: any;
+  Component: React.ComponentType<Record<string, unknown>>;
+  pageProps: Record<string, unknown>;
 }

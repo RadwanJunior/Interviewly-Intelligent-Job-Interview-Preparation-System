@@ -10,6 +10,8 @@ export type WorkflowStage = {
     file: File | null;
     text: string;
     hasExisting: boolean;
+    fileName: string;
+    resumeId: string | undefined;
   };
   
   export type JobDetailsData = {
