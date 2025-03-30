@@ -67,14 +67,9 @@ async def create_interview_session(
         raise HTTPException(status_code=500, detail="Failed to generate interview questions")
     
     # Create the interview session record with an empty questions list initially
-    print("Creating interview session...")
-    print("user_id: ", user_id)
-    print("resume_record: ", resume_record["id"])
-    print("request_data.job_description_id: ", request_data.job_description_id)
     interview_session_response = SupabaseService.create_interview_session(
         user_id, resume_record["id"], request_data.job_description_id, []
     )
-    print("interview_session_response: ", interview_session_response)
     if "error" in interview_session_response or not interview_session_response.data:
         raise HTTPException(status_code=500, detail="Failed to create interview session")
     interview_session = interview_session_response.data[0]
