@@ -61,7 +61,7 @@ const JobDetailsStage = () => {
       setTimeout(() => {
         goToNextStage();
       }, 300);
-    } catch (error) {
+    } catch {
       toast.error("Failed to confirm job details. Please try again.");
     }
   };
