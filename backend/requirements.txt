@@ -1,0 +1,8 @@
+uvicorn
+fastapi
+supabase
+python-dotenv
+python-multipart
+pydantic[email]
+pdfminer.six
+python-docx
