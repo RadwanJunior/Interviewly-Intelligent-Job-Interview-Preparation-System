@@ -24,7 +24,7 @@ export default function ConfirmEmail() {
         router.push("/dashboard");
       }
     } catch (error) {
-      // Still not confirmed
+      console.error("Error checking email confirmation:", error);
     } finally {
       setChecking(false);
     }
