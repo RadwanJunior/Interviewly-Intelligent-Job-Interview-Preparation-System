@@ -32,11 +32,15 @@ export async function refreshToken() {
     const response = await api.post("/auth/refresh", {});
     console.log("Refresh Token Response:", response.data);
     return response.data;
-  } catch (error: any) {
-    console.error(
-      "Error refreshing token:",
-      error.response?.data || error.message
-    );
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      console.error(
+        "Error refreshing token:",
+        error.response?.data || error.message
+      );
+    } else {
+      console.error("Error refreshing token:", (error as Error).message);
+    }
     throw error;
   }
 }
