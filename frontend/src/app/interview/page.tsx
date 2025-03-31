@@ -11,6 +11,7 @@ import {
   MessageSquare,
   Loader2,
   AlertCircle,
+  Clock,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,8 @@ import { getInterviewQuestions } from "@/lib/api";
 
 // Maximum recording time in seconds (1.5 minutes)
 const MAX_RECORDING_TIME = 90;
+// Time before auto-starting recording (30 seconds)
+const AUTO_RECORD_DELAY = 30;
 
 const Interview = () => {
   const searchParams = useSearchParams();
@@ -39,6 +42,12 @@ const Interview = () => {
   const timerRef = useRef<number | null>(null);
   const audioChunksRef = useRef<BlobPart[]>([]);
   const [activeCall, setActiveCall] = useState(true);
+
+  // Add state for auto-recording countdown
+  const [autoRecordCountdown, setAutoRecordCountdown] =
+    useState(AUTO_RECORD_DELAY);
+  const autoRecordTimerRef = useRef<number | null>(null);
+  const [showingCountdown, setShowingCountdown] = useState(false);
 
   // Add a state to track if the current question has been answered
   const [hasCurrentQuestionBeenAnswered, setHasCurrentQuestionBeenAnswered] =
@@ -78,7 +87,6 @@ const Interview = () => {
           typeof response === "object" &&
           Object.keys(response).length > 0
         ) {
-          // If response is an object with numeric keys (like an array-like object)
           const questionObjects = Object.values(response);
           // Sort questions by order field before mapping to texts
           const sortedQuestions = [...questionObjects].sort(
@@ -102,25 +110,60 @@ const Interview = () => {
     fetchQuestions();
   }, [sessionId]);
 
-  // Reset the answered state when changing questions
+  // Reset the answered state when changing questions and start auto-record countdown
   useEffect(() => {
-    // Check if this question has already been answered
     if (recordings[currentQuestion]?.url) {
       setHasCurrentQuestionBeenAnswered(true);
+      setShowingCountdown(false);
     } else {
       setHasCurrentQuestionBeenAnswered(false);
-    }
-  }, [currentQuestion, recordings]);
+      setAutoRecordCountdown(AUTO_RECORD_DELAY);
+      setShowingCountdown(true);
 
-  // Calculate progress percentage
+      if (autoRecordTimerRef.current) {
+        clearInterval(autoRecordTimerRef.current);
+      }
+
+      autoRecordTimerRef.current = window.setInterval(() => {
+        setAutoRecordCountdown((prev) => {
+          const newCount = prev - 1;
+          if (newCount <= 0) {
+            clearInterval(autoRecordTimerRef.current!);
+            setShowingCountdown(false);
+
+            if (
+              !isRecording &&
+              !recordings[currentQuestion]?.url &&
+              activeCall
+            ) {
+              startRecording();
+            }
+            return 0;
+          }
+          return newCount;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (autoRecordTimerRef.current) {
+        clearInterval(autoRecordTimerRef.current);
+      }
+    };
+  }, [currentQuestion, recordings, isRecording, activeCall]);
+
   const progress =
     questions.length > 0 ? ((currentQuestion + 1) / questions.length) * 100 : 0;
 
-  // Calculate time remaining (for timer progress)
   const timeRemaining = MAX_RECORDING_TIME - recordingTime;
   const timeRemainingPercentage = (timeRemaining / MAX_RECORDING_TIME) * 100;
 
   const startRecording = async () => {
+    if (autoRecordTimerRef.current) {
+      clearInterval(autoRecordTimerRef.current);
+      setShowingCountdown(false);
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
@@ -139,28 +182,22 @@ const Interview = () => {
         });
         const audioUrl = URL.createObjectURL(audioBlob);
 
-        // Update recordings array with new recording
         const newRecordings = [...recordings];
         newRecordings[currentQuestion] = { blob: audioBlob, url: audioUrl };
         setRecordings(newRecordings);
 
-        // Mark this question as answered
         setHasCurrentQuestionBeenAnswered(true);
-
-        // Reset recording time
         setRecordingTime(0);
       };
 
       mediaRecorder.start();
       setIsRecording(true);
 
-      // Start timer for recording duration
       let seconds = 0;
       timerRef.current = window.setInterval(() => {
         seconds++;
         setRecordingTime(seconds);
 
-        // Auto-stop if max recording time is reached
         if (seconds >= MAX_RECORDING_TIME) {
           stopRecording();
           toast({
@@ -190,7 +227,6 @@ const Interview = () => {
         .forEach((track) => track.stop());
       setIsRecording(false);
 
-      // Clear timer
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -204,7 +240,6 @@ const Interview = () => {
   };
 
   const handleNext = () => {
-    // Check if the user has recorded an answer for this question
     if (!hasCurrentQuestionBeenAnswered) {
       toast({
         title: "Record Answer Required",
@@ -215,27 +250,25 @@ const Interview = () => {
       return;
     }
 
-    // If recording is in progress, stop it first
     if (isRecording) {
       stopRecording();
     }
 
-    // Move to next question if not at the end
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion((current) => current + 1);
     } else {
-      // Handle completion of all questions
       toast({
         title: "Interview Complete",
         description:
           "All questions have been answered. Preparing your feedback...",
       });
-      // In a real app, navigate to a results/feedback page
-      // router.push('/feedback');
+    }
+
+    if (autoRecordTimerRef.current) {
+      clearInterval(autoRecordTimerRef.current);
     }
   };
 
-  // End the interview session
   const endCall = () => {
     if (isRecording) {
       stopRecording();
@@ -245,11 +278,8 @@ const Interview = () => {
       title: "Interview Ended",
       description: "You've ended the interview session.",
     });
-    // In a real app, navigate away and show a summary
-    // For now, we'll just set the state to reflect the call has ended
   };
 
-  // Cleanup function for when component unmounts
   useEffect(() => {
     return () => {
       // Stop recording if in progress
@@ -263,12 +293,10 @@ const Interview = () => {
           .forEach((track) => track.stop());
       }
 
-      // Clear timer
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
 
-      // Revoke all object URLs
       recordings.forEach((recording) => {
         if (recording.url) {
           URL.revokeObjectURL(recording.url);
@@ -277,7 +305,6 @@ const Interview = () => {
     };
   }, [recordings]);
 
-  // Format seconds to MM:SS
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
       .toString()
@@ -320,9 +347,7 @@ const Interview = () => {
 
       <main className="flex-grow container mx-auto px-4 py-8 mt-10">
         <div className="max-w-4xl mx-auto">
-          {/* Video Call Interface */}
           <div className="bg-gray-900 rounded-lg overflow-hidden shadow-xl mb-4">
-            {/* Call Header */}
             <div className="bg-gray-800 p-3 flex justify-between items-center">
               <div className="flex items-center">
                 <Video className="h-5 w-5 text-primary mr-2" />
@@ -345,7 +370,6 @@ const Interview = () => {
               </div>
             </div>
 
-            {/* Interviewer and Question Display */}
             <div className="p-6 bg-gray-900 text-gray-100">
               <div className="flex items-start mb-6">
                 <Avatar className="h-12 w-12 border-2 border-primary">
@@ -361,11 +385,19 @@ const Interview = () => {
                     <p className="text-gray-100 text-lg">
                       {questions[currentQuestion]}
                     </p>
+                    {showingCountdown && autoRecordCountdown > 0 && (
+                      <div className="mt-4 bg-blue-900/30 border border-blue-700/50 rounded-md p-3 flex items-center">
+                        <Clock className="h-5 w-5 text-blue-400 mr-2 flex-shrink-0" />
+                        <p className="text-blue-300 text-sm">
+                          Recording will start automatically in{" "}
+                          {autoRecordCountdown} seconds
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Your Answer Section */}
               <div className="flex items-start mt-6">
                 <div className="flex-grow">
                   {recordings[currentQuestion]?.url ? (
@@ -396,20 +428,8 @@ const Interview = () => {
                   </AvatarFallback>
                 </Avatar>
               </div>
-
-              {/* Recording required note */}
-              {!hasCurrentQuestionBeenAnswered && !isRecording && (
-                <div className="mt-4 bg-yellow-900/30 border border-yellow-700/50 rounded-md p-3 flex items-center">
-                  <AlertCircle className="h-5 w-5 text-yellow-500 mr-2 flex-shrink-0" />
-                  <p className="text-yellow-400 text-sm">
-                    You must record an answer before proceeding to the next
-                    question
-                  </p>
-                </div>
-              )}
             </div>
 
-            {/* Recording Controls and Progress */}
             <div className="bg-gray-800 p-4">
               <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 {isRecording && (
@@ -461,7 +481,6 @@ const Interview = () => {
             </div>
           </div>
 
-          {/* Question Progress */}
           <div className="mb-6 bg-white rounded-lg p-4 shadow-md">
             <div className="flex justify-between text-sm text-gray-600 mb-2">
               <span>
@@ -472,7 +491,6 @@ const Interview = () => {
             <Progress value={progress} className="h-2" />
           </div>
 
-          {/* Navigation button - Only Next */}
           <div className="flex justify-end">
             <Button
               onClick={handleNext}
