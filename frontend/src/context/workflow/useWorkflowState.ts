@@ -1,10 +1,10 @@
 "use client";
 import { useState } from "react";
 import { WorkflowStage, WorkflowContextType } from "./types";
-import { 
-  initialStages, 
-  initialResumeData, 
-  initialJobDetailsData 
+import {
+  initialStages,
+  initialResumeData,
+  initialJobDetailsData,
 } from "./initialState";
 
 export const useWorkflowState = (): WorkflowContextType => {
@@ -12,10 +12,16 @@ export const useWorkflowState = (): WorkflowContextType => {
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
   const [resumeData, setResumeData] = useState(initialResumeData);
   const [jobDetailsData, setJobDetailsData] = useState(initialJobDetailsData);
+  // const [loaderState, setLoaderState] = useState({
+  //   isVisible: false,
+  //   progress: 0,
+  //   isComplete: false,
+  //   jobDescriptionId: "",
+  // });
 
   const goToNextStage = () => {
     if (currentStageIndex < stages.length - 1) {
-      setStages(prevStages => {
+      setStages((prevStages) => {
         const newStages = [...prevStages];
         newStages[currentStageIndex] = {
           ...newStages[currentStageIndex],
@@ -27,13 +33,13 @@ export const useWorkflowState = (): WorkflowContextType => {
         };
         return newStages;
       });
-      setCurrentStageIndex(prevIndex => prevIndex + 1);
+      setCurrentStageIndex((prevIndex) => prevIndex + 1);
     }
   };
 
   const goToPreviousStage = () => {
     if (currentStageIndex > 0) {
-      setStages(prevStages => {
+      setStages((prevStages) => {
         const newStages = [...prevStages];
         newStages[currentStageIndex] = {
           ...newStages[currentStageIndex],
@@ -45,13 +51,13 @@ export const useWorkflowState = (): WorkflowContextType => {
         };
         return newStages;
       });
-      setCurrentStageIndex(prevIndex => prevIndex - 1);
+      setCurrentStageIndex((prevIndex) => prevIndex - 1);
     }
   };
 
   const goToStage = (index: number) => {
     if (index >= 0 && index < stages.length) {
-      setStages(prevStages => {
+      setStages((prevStages) => {
         const newStages = [...prevStages];
         newStages[currentStageIndex] = {
           ...newStages[currentStageIndex],
@@ -68,7 +74,7 @@ export const useWorkflowState = (): WorkflowContextType => {
   };
 
   const completeCurrentStage = () => {
-    setStages(prevStages => {
+    setStages((prevStages) => {
       const newStages = [...prevStages];
       newStages[currentStageIndex] = {
         ...newStages[currentStageIndex],
@@ -79,11 +85,11 @@ export const useWorkflowState = (): WorkflowContextType => {
   };
 
   const updateResumeData = (data: Partial<typeof resumeData>) => {
-    setResumeData(prev => ({ ...prev, ...data }));
+    setResumeData((prev) => ({ ...prev, ...data }));
   };
 
   const updateJobDetailsData = (data: Partial<typeof jobDetailsData>) => {
-    setJobDetailsData(prev => ({ ...prev, ...data }));
+    setJobDetailsData((prev) => ({ ...prev, ...data }));
   };
 
   return {
@@ -97,5 +103,9 @@ export const useWorkflowState = (): WorkflowContextType => {
     updateResumeData,
     jobDetailsData,
     updateJobDetailsData,
+    // loaderState,
+    // showLoader,
+    // hideLoader,
+    // updateLoaderProgress,
   };
 };

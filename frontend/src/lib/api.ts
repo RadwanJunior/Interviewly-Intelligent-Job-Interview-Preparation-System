@@ -30,7 +30,6 @@ export async function login(email: string, password: string) {
 export async function refreshToken() {
   try {
     const response = await api.post("/auth/refresh", {});
-    console.log("Refresh Token Response:", response.data);
     return response.data;
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
@@ -77,13 +76,36 @@ export async function getResumeFromUser(userId: string) {
   return response.data;
 }
 
-export async function createJobDescription(jobTitle: string, companyName: string, location: string, jobType: string, description: string) {
+export async function createJobDescription(
+  jobTitle: string,
+  companyName: string,
+  location: string,
+  jobType: string,
+  description: string
+) {
   const response = await api.post("/job_description", {
     job_title: jobTitle,
     company_name: companyName,
     location: location,
     job_type: jobType,
-    description: description
+    description: description,
   });
+  return response.data;
+}
+
+export async function createInterviewSession(data: {
+  job_description_id: string;
+}) {
+  const response = await api.post("/interview/create", data);
+  return response.data;
+}
+
+export async function getInterviewStatus(sessionId: string) {
+  const response = await api.get(`/interview/status/${sessionId}`);
+  return response.data;
+}
+
+export async function getInterviewQuestions(sessionId: string) {
+  const response = await api.get(`/interview/questions/${sessionId}`);
   return response.data;
 }
