@@ -31,8 +31,12 @@ const ResumePreviewStage = () => {
           } else {
             toast.error("Failed to load resume text.");
           }
-        } catch (error: any) {
-          console.error("Error fetching resume:", error);
+        } catch (error: unknown) {
+          if (error instanceof Error) {
+            console.error("Error fetching resume:", error.message);
+          } else {
+            console.error("Error fetching resume:", error);
+          }
           toast.error("Error fetching resume text.");
         }
       }
@@ -46,14 +50,18 @@ const ResumePreviewStage = () => {
   };
 
   const confirmResume = async () => {
-          setIsSaving(true);
       try {
-        await updateResume(resumeData.text || "");
+        setIsSaving(true);
+        await updateResume(resumeData.text);
         toast.success("Resume updated successfully!");
-      } catch (error: any) {
-        console.error("Error updating resume:", error);
+      } catch (error: unknown) {
+        if (error instanceof Error) {
+          console.error("Error updating resume:", error.message);
+        } else {
+          console.error("Error updating resume:", error);
+        }
         toast.error("Failed to update resume.");
-              } finally {
+      } finally {
         setIsSaving(false);
       }
     
@@ -99,7 +107,7 @@ const ResumePreviewStage = () => {
             Resume Preview
           </Label>
           <p className="text-sm text-gray-500 mb-4">
-            We've extracted the text from your resume. Edit if needed.
+            We&apos;ve extracted the text from your resume. Edit if needed.
           </p>
           <Textarea
             id="resume-text"

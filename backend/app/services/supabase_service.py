@@ -329,7 +329,7 @@ class SupabaseService:
         except Exception as e:
             return {"error": {"message": str(e)}}
     @staticmethod
-    def get_interiew_question_table(interview_id: str) -> dict:
+    def get_interview_question_table(interview_id: str) -> dict:
         """
         Retrieves all interview question records for a given interview from the 'interview_questions' table.
         """
