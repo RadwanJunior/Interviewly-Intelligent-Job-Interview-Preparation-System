@@ -6,11 +6,11 @@ import {
   Mic,
   StopCircle,
   ArrowRight,
-  ArrowLeft,
   Video,
   User,
   MessageSquare,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,10 @@ const Interview = () => {
   const timerRef = useRef<number | null>(null);
   const audioChunksRef = useRef<BlobPart[]>([]);
   const [activeCall, setActiveCall] = useState(true);
+
+  // Add a state to track if the current question has been answered
+  const [hasCurrentQuestionBeenAnswered, setHasCurrentQuestionBeenAnswered] =
+    useState(false);
 
   // Fetch interview questions when the component mounts
   useEffect(() => {
@@ -98,6 +102,16 @@ const Interview = () => {
     fetchQuestions();
   }, [sessionId]);
 
+  // Reset the answered state when changing questions
+  useEffect(() => {
+    // Check if this question has already been answered
+    if (recordings[currentQuestion]?.url) {
+      setHasCurrentQuestionBeenAnswered(true);
+    } else {
+      setHasCurrentQuestionBeenAnswered(false);
+    }
+  }, [currentQuestion, recordings]);
+
   // Calculate progress percentage
   const progress =
     questions.length > 0 ? ((currentQuestion + 1) / questions.length) * 100 : 0;
@@ -129,6 +143,9 @@ const Interview = () => {
         const newRecordings = [...recordings];
         newRecordings[currentQuestion] = { blob: audioBlob, url: audioUrl };
         setRecordings(newRecordings);
+
+        // Mark this question as answered
+        setHasCurrentQuestionBeenAnswered(true);
 
         // Reset recording time
         setRecordingTime(0);
@@ -187,6 +204,17 @@ const Interview = () => {
   };
 
   const handleNext = () => {
+    // Check if the user has recorded an answer for this question
+    if (!hasCurrentQuestionBeenAnswered) {
+      toast({
+        title: "Record Answer Required",
+        description:
+          "Please record your answer before moving to the next question.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // If recording is in progress, stop it first
     if (isRecording) {
       stopRecording();
@@ -204,18 +232,6 @@ const Interview = () => {
       });
       // In a real app, navigate to a results/feedback page
       // router.push('/feedback');
-    }
-  };
-
-  const handlePrevious = () => {
-    // If recording is in progress, stop it first
-    if (isRecording) {
-      stopRecording();
-    }
-
-    // Move to previous question if not at the beginning
-    if (currentQuestion > 0) {
-      setCurrentQuestion((current) => current - 1);
     }
   };
 
@@ -380,6 +396,17 @@ const Interview = () => {
                   </AvatarFallback>
                 </Avatar>
               </div>
+
+              {/* Recording required note */}
+              {!hasCurrentQuestionBeenAnswered && !isRecording && (
+                <div className="mt-4 bg-yellow-900/30 border border-yellow-700/50 rounded-md p-3 flex items-center">
+                  <AlertCircle className="h-5 w-5 text-yellow-500 mr-2 flex-shrink-0" />
+                  <p className="text-yellow-400 text-sm">
+                    You must record an answer before proceeding to the next
+                    question
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Recording Controls and Progress */}
@@ -424,7 +451,9 @@ const Interview = () => {
                       className="bg-primary hover:bg-primary/90"
                       disabled={!activeCall}>
                       <Mic className="h-5 w-5 mr-2" />
-                      Record Answer
+                      {recordings[currentQuestion]?.url
+                        ? "Record Again"
+                        : "Record Answer"}
                     </Button>
                   )}
                 </div>
@@ -443,22 +472,21 @@ const Interview = () => {
             <Progress value={progress} className="h-2" />
           </div>
 
-          {/* Navigation buttons */}
-          <div className="flex justify-between">
-            <Button
-              variant="outline"
-              onClick={handlePrevious}
-              disabled={currentQuestion === 0 || !activeCall}
-              className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Previous
-            </Button>
-
+          {/* Navigation button - Only Next */}
+          <div className="flex justify-end">
             <Button
               onClick={handleNext}
-              className="flex items-center gap-2 bg-primary hover:bg-primary/90"
-              disabled={!activeCall}>
-              {currentQuestion === questions.length - 1 ? "Finish" : "Next"}
+              className={`flex items-center gap-2 ${
+                hasCurrentQuestionBeenAnswered
+                  ? "bg-primary hover:bg-primary/90"
+                  : "bg-gray-400"
+              }`}
+              disabled={
+                !activeCall || !hasCurrentQuestionBeenAnswered || isRecording
+              }>
+              {currentQuestion === questions.length - 1
+                ? "Finish"
+                : "Next Question"}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
