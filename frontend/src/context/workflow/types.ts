@@ -24,13 +24,6 @@ export type JobDetailsData = {
   description: string;
 };
 
-export type loaderState = {
-  isVisible: boolean;
-  progress: number;
-  isComplete: boolean;
-  jobDescriptionId: string;
-};
-
 export type WorkflowContextType = {
   stages: WorkflowStage[];
   currentStageIndex: number;
@@ -42,8 +35,4 @@ export type WorkflowContextType = {
   updateResumeData: (data: Partial<ResumeData>) => void;
   jobDetailsData: JobDetailsData;
   updateJobDetailsData: (data: Partial<JobDetailsData>) => void;
-  // loaderState: loaderState;
-  // showLoader: (jobDescriptionId: string) => void;
-  // hideLoader: () => void;
-  // updateLoaderProgress: (progress: number, isComplete?: boolean) => void;
 };

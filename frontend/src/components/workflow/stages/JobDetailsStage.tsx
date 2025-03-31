@@ -76,7 +76,7 @@ const JobDetailsStage = () => {
       console.log("Job Details Data:", jobDetailsData);
       completeCurrentStage();
       router.push("/prepare");
-    } catch (error) {
+    } catch {
       toast.error("Failed to confirm job details. Please try again.");
     }
   };

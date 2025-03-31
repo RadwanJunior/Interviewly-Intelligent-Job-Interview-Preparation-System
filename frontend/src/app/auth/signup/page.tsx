@@ -40,7 +40,7 @@ export default function SignUp() {
 
     setLoading(true);
     try {
-      const response = await signup(
+      await signup(
         formData.firstName,
         formData.lastName,
         formData.email,
@@ -51,11 +51,14 @@ export default function SignUp() {
         description: "Account created! Check your email to confirm.",
       });
       router.push("/auth/confirm-email");
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Signup failed, please try again.";
       toast({
         title: "Error",
-        description:
-          (error as Error).message || "Signup failed, please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

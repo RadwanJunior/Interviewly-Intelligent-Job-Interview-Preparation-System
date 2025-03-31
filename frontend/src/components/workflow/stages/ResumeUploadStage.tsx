@@ -60,9 +60,13 @@ const ResumeUploadStage = () => {
       } else {
         toast.error("No existing resume found. Please upload one.");
       }
-    } catch (error: any) {
-      console.error("Error fetching resume:", error);
-      toast.error("Error fetching resume. Please try again.");
+    } catch (error: unknown) {
+        if (error instanceof Error) {
+          console.error("Error fetching resume:", error.message);
+        } else {
+          console.error("Error fetching resume:", error);
+        }
+        toast.error("Error fetching resume. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -110,8 +114,12 @@ const ResumeUploadStage = () => {
 
       completeCurrentStage();
       goToNextStage();
-    } catch (error: any) {
-      console.error("Error processing resume:", error);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error("Error processing resume:", error.message);
+      } else {
+        console.error("Error processing resume:", error);
+      }
       toast.error("There was an error processing your resume.");
     } finally {
       setLoading(false);
@@ -170,7 +178,7 @@ const ResumeUploadStage = () => {
             <FileText className="w-12 h-12 mb-4 text-primary" />
             <h3 className="text-lg font-medium mb-2">Use Existing Resume</h3>
             <p className="text-sm text-gray-500 mb-4">
-              We'll use your previously uploaded resume
+              We&apos;ll use your previously uploaded resume
             </p>
             {/* Show existing file name only for existing resumes */}
             {resumeData.hasExisting && resumeData.fileName && (
