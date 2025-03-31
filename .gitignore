@@ -1,3 +1,7 @@
 .venv/
+<<<<<<< Updated upstream
 venv/
 /frontend/.next/
+=======
+.qodo
+>>>>>>> Stashed changes

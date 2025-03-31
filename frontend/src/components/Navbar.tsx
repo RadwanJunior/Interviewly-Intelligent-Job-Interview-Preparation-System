@@ -10,9 +10,6 @@ const Navbar = React.memo(() => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // This would be replaced with actual authentication check
   const { user } = useAuth();
-  // console.log(user);
-
-  console.log("Navbar re-rendered");
 
   useEffect(() => {
     const handleScroll = () => {
