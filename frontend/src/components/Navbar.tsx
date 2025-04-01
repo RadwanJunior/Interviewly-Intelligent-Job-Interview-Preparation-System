@@ -1,30 +1,35 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Menu, X, User } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 
-const Navbar = React.memo(() => {
+// Function to track whether the user has scrolled down the page
+// and update the state accordingly
+const useScrollHandler = () => {
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { user } = useAuth();
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
-    };
+    const handleScroll = () => setIsScrolled(window.scrollY > 10);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const handleScrollToSection = (id: string) => {
-    const section = document.getElementById(id);
-    if (section) {
-      section.scrollIntoView({ behavior: "smooth", block: "start" });
-      setIsMobileMenuOpen(false); // Close mobile menu after clicking
-    }
-  };
+  return isScrolled;
+};
+
+// Navbar component
+// This component contains the navigation bar for the application
+const Navbar = React.memo(() => {
+  const isScrolled = useScrollHandler();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user } = useAuth();
+
+  const handleScrollToSection = useCallback((id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setIsMobileMenuOpen(false); // Close mobile menu after clicking
+  }, []);
 
   return (
     <nav
@@ -39,61 +44,76 @@ const Navbar = React.memo(() => {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center space-x-8">
-          <button onClick={() => handleScrollToSection("features")} className="text-foreground/80 hover:text-primary transition-colors">
-            Features
-          </button>
-          <button onClick={() => handleScrollToSection("how-it-works")} className="text-foreground/80 hover:text-primary transition-colors">
-            How it Works
-          </button>
-          <button onClick={() => handleScrollToSection("pricing")} className="text-foreground/80 hover:text-primary transition-colors">
-            Pricing
-          </button>
+          {["features", "how-it-works", "pricing"].map((section) => (
+            <button
+              key={section}
+              onClick={() => handleScrollToSection(section)}
+              className="text-foreground/80 hover:text-primary transition-colors"
+            >
+              {section.replace("-", " ")}
+            </button>
+          ))}
           {user ? (
-            <Link href="/profile" className="flex items-center space-x-2 px-6 py-2 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors">
+            <Link
+              href="/profile"
+              className="flex items-center space-x-2 px-6 py-2 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors"
+            >
               <User className="h-4 w-4" />
               <span>Profile</span>
             </Link>
           ) : (
-            <Link href="/auth/login" className="px-6 py-2 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors">
+            <Link
+              href="/auth/login"
+              className="px-6 py-2 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors"
+            >
               Log in
             </Link>
           )}
         </div>
 
         {/* Mobile Menu Button */}
-        <button className="md:hidden" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+        <button className="md:hidden" onClick={() => setIsMobileMenuOpen((prev) => !prev)}>
           {isMobileMenuOpen ? <X className="h-6 w-6 text-foreground" /> : <Menu className="h-6 w-6 text-foreground" />}
         </button>
       </div>
 
-        {/* Mobile Menu */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 right-0 bg-white shadow-lg animate-fade-in">
-            <div className="container mx-auto px-4 py-4 flex flex-col space-y-4">
-              <button onClick={() => handleScrollToSection("features")} className="text-foreground/80 hover:text-primary transition-colors">
-                Features
+      {/* Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden absolute top-full left-0 right-0 bg-white shadow-lg animate-fade-in">
+          <div className="container mx-auto px-4 py-4 flex flex-col space-y-4">
+            {["features", "how-it-works", "pricing"].map((section) => (
+              <button
+                key={section}
+                onClick={() => handleScrollToSection(section)}
+                className="text-foreground/80 hover:text-primary transition-colors"
+              >
+                {section.replace("-", " ")}
               </button>
-              <button onClick={() => handleScrollToSection("how-it-works")} className="text-foreground/80 hover:text-primary transition-colors">
-                How it Works
-              </button>
-              <button onClick={() => handleScrollToSection("pricing")} className="text-foreground/80 hover:text-primary transition-colors">
-                Pricing
-              </button>
-              {user ? (
-                <Link href="/profile" className="text-foreground/80 hover:text-primary transition-colors flex items-center space-x-2">
-                  <User className="h-4 w-4" />
-                  <span>Profile</span>
-                </Link>
-              ) : (
-                <Link href="/auth/login" className="px-6 py-2 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors">
-                  Log in
-                </Link>
-              )}
-            </div>
+            ))}
+            {user ? (
+              <Link
+                href="/profile"
+                className="text-foreground/80 hover:text-primary transition-colors flex items-center space-x-2"
+              >
+                <User className="h-4 w-4" />
+                <span>Profile</span>
+              </Link>
+            ) : (
+              <Link
+                href="/auth/login"
+                className="px-6 py-2 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors"
+              >
+                Log in
+              </Link>
+            )}
           </div>
-        )}
+        </div>
+      )}
     </nav>
   );
 });
 
+Navbar.displayName = "Navbar";
+
 export default Navbar;
+
