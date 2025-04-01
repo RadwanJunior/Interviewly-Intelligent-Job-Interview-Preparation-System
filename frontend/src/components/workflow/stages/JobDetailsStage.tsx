@@ -151,10 +151,13 @@ const JobDetailsStage = () => {
             <Select
               value={jobDetailsData.jobType}
               onValueChange={handleSelectChange("jobType")}>
-              <SelectTrigger id="job-type">
+              
+              <SelectTrigger
+                id="job-type"
+                className="bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-foreground focus:ring-2 focus:ring-primary focus:border-primary">
                 <SelectValue placeholder="Select job type" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white border border-gray-300 shadow-md rounded-md">
                 <SelectItem value="Full-time">Full-time</SelectItem>
                 <SelectItem value="Part-time">Part-time</SelectItem>
                 <SelectItem value="Contract">Contract</SelectItem>

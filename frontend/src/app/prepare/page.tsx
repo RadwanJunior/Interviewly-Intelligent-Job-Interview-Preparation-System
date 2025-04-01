@@ -97,7 +97,7 @@ const PrepareInterview = () => {
         <div className="max-w-3xl mx-auto">
           <Card className="p-8 shadow-lg">
             <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              <h1 className="text-3xl font-bold text-primary mb-4">
                 Prepare for Your Interview
               </h1>
               <p className="text-lg text-gray-600">

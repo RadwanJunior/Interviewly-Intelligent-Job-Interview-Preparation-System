@@ -1,4 +1,4 @@
-"use client";
+ "use client";
 import React, { useEffect, useRef } from "react";
 import { useWorkflow } from "@/context/WorkflowContext";
 import ResumeUploadStage from "./stages/ResumeUploadStage";
@@ -47,26 +47,26 @@ const WorkflowStageRenderer = () => {
           <section 
             key={stage.id}
             id={`stage-${stage.id}`}
-            ref={(el) => (stageRefs.current[index] = el)}
+            ref={(el) => { stageRefs.current[index] = el; }}
             className={`
               scroll-mt-32 transition-all duration-500
-              ${isActive ? 'opacity-100' : isPrevious ? 'opacity-80' : 'opacity-40'}
+              ${isActive ? 'opacity-100' : isPrevious ? 'opacity-75' : 'opacity-40'}
               ${!stage.isCompleted && !isActive ? 'pointer-events-none' : ''}
             `}
           >
             <CardContent 
               className={`
                 pt-6 transition-all duration-300 
-                ${isActive ? 'scale-100 border-l-4 border-primary pl-5' : 'scale-97'}
-                ${isPrevious ? 'scale-98 hover:scale-99' : ''}
-                ${isNext && index === currentStageIndex + 1 ? 'scale-95 hover:opacity-50' : ''}
+                ${isActive ? 'scale-100 border-l-4 border-primary pl-5 bg-primary/5 rounded-md' : 'scale-97'}
+                ${isPrevious ? 'scale-98 hover:scale-99 hover:bg-secondary/30 rounded-md' : ''}
+                ${isNext && index === currentStageIndex + 1 ? 'scale-95 hover:opacity-60' : ''}
               `}
             >
               <StageComponent />
             </CardContent>
             
             {index < stages.length - 1 && (
-              <div className="w-full border-t border-border-200 my-8 opacity-30" />
+              <div className="w-full border-t border-border/20 my-8 opacity-30" />
             )}
           </section>
         );
