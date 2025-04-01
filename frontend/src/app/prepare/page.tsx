@@ -101,7 +101,7 @@ const PrepareInterview = () => {
                 Prepare for Your Interview
               </h1>
               <p className="text-lg text-gray-600">
-                We're setting up your personalized interview based on your
+                We&apos;re setting up your personalized interview based on your
                 resume and job description.
               </p>
             </div>
@@ -164,7 +164,7 @@ const PrepareInterview = () => {
                 <p className="font-medium">Important:</p>
                 <p>
                   Once you start the interview, you cannot pause it. Make sure
-                  you're ready.
+                  you&apos;re ready.
                 </p>
               </div>
             </div>
