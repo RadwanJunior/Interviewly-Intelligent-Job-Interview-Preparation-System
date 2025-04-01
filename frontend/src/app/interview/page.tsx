@@ -16,7 +16,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card, CardContent } from "@/components/ui/card";
 import { getInterviewQuestions } from "@/lib/api";
+import Footer from "@/components/Footer";
 
 /**
  * Constants for timing controls in the interview
@@ -78,12 +80,8 @@ const Interview = () => {
   const timerRef = useRef<number | null>(null);
   const autoRecordTimerRef = useRef<number | null>(null);
 
-  /**
-   * Effect: Fetch interview questions when component mounts
-   * - Gets questions from API using session ID
-   * - Handles different response formats
-   * - Sorts questions by order field
-   */
+  // ... keep existing code (fetchQuestions effect hook)
+  
   useEffect(() => {
     const fetchQuestions = async () => {
       // Validate session ID exists
@@ -148,12 +146,8 @@ const Interview = () => {
     fetchQuestions();
   }, [sessionId]);
 
-  /**
-   * Effect: Manage auto-recording countdown when question changes
-   * - Checks if question already has an answer
-   * - Starts countdown timer for auto-recording
-   * - Automatically starts recording after countdown completes
-   */
+  // ... keep existing code (auto-recording countdown effect hook)
+  
   useEffect(() => {
     // If current question already has a recording
     if (recordings[currentQuestion]?.url) {
@@ -204,6 +198,8 @@ const Interview = () => {
     };
   }, [currentQuestion, recordings, isRecording, activeCall]);
 
+  // ... keep existing code (progress calculations and startRecording, stopRecording, handleNext, endCall functions)
+  
   // Calculate progress percentage through questions
   const progress =
     questions.length > 0 ? ((currentQuestion + 1) / questions.length) * 100 : 0;
@@ -377,12 +373,8 @@ const Interview = () => {
     });
   };
 
-  /**
-   * Effect: Cleanup resources when component unmounts
-   * - Stops any active recording
-   * - Clears all timers
-   * - Releases object URLs to prevent memory leaks
-   */
+  // ... keep existing code (cleanup effect hook)
+  
   useEffect(() => {
     return () => {
       // Stop recording if in progress
@@ -426,10 +418,10 @@ const Interview = () => {
   // Display loading state while fetching questions
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="mt-4">Loading your interview questions...</p>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center animate-fade-up">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="mt-4 text-lg font-heading">Loading your interview questions...</p>
         </div>
       </div>
     );
@@ -438,18 +430,20 @@ const Interview = () => {
   // Display error state if loading failed
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-red-50 p-4 rounded-md border border-red-200 max-w-md">
-          <h3 className="text-red-600 font-medium mb-2">Error</h3>
-          <p className="text-red-600">{error}</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="max-w-md animate-fade-up border-destructive/50">
+          <CardContent className="pt-6">
+            <h3 className="text-destructive font-medium text-lg mb-2">Error</h3>
+            <p className="text-foreground">{error}</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   // Main interview interface
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
+    <div className="min-h-screen flex flex-col bg-background">
       <Head>
         <title>Interview Session - Interviewly</title>
         <meta
@@ -458,35 +452,40 @@ const Interview = () => {
         />
       </Head>
 
-      <main className="flex-grow container mx-auto px-4 py-8 mt-10">
-        <div className="max-w-4xl mx-auto">
+      <main className="flex-grow container mx-auto px-4 py-8 mt-6 md:mt-10">
+        <div className="max-w-4xl mx-auto animate-fade-in">
+          <h1 className="font-heading font-bold text-2xl md:text-3xl text-center mb-6 text-foreground text-primary">
+            Interview Session
+          </h1>
+          
           {/* Video Call Interface Container */}
-          <div className="bg-gray-900 rounded-lg overflow-hidden shadow-xl mb-4">
+          <Card className="mb-6 overflow-hidden border-2 border-primary/10 shadow-lg">
             {/* Call Header - Shows status and end call button */}
-            <div className="bg-gray-800 p-3 flex justify-between items-center">
+            <div className="bg-primary p-3 flex justify-between items-center">
               <div className="flex items-center">
-                <Video className="h-5 w-5 text-primary mr-2" />
-                <span className="text-white font-medium">
+                <Video className="h-5 w-5 text-primary-foreground mr-2" />
+                <span className="text-primary-foreground font-medium">
                   Interview Session
                 </span>
               </div>
               <div className="flex items-center space-x-2">
-                <span className="text-green-400 text-sm flex items-center">
-                  <div className="h-2 w-2 rounded-full bg-green-400 mr-1"></div>
+                <span className="text-primary-foreground/90 text-sm flex items-center">
+                  <div className={`h-2 w-2 rounded-full ${activeCall ? 'bg-green-400' : 'bg-red-400'} mr-1`}></div>
                   {activeCall ? "Active" : "Call Ended"}
                 </span>
                 <Button
                   variant="destructive"
                   size="sm"
                   onClick={endCall}
-                  className="h-8">
+                  className="h-8 text-red-600">
                   End Call
                 </Button>
+
               </div>
             </div>
 
             {/* Question Display and Interaction Area */}
-            <div className="p-6 bg-gray-900 text-gray-100">
+            <div className="p-6 bg-card text-card-foreground">
               {/* Interviewer Avatar and Question */}
               <div className="flex items-start mb-6">
                 <Avatar className="h-12 w-12 border-2 border-primary">
@@ -495,21 +494,21 @@ const Interview = () => {
                     <User className="h-6 w-6" />
                   </AvatarFallback>
                 </Avatar>
-                <div className="ml-4">
-                  <div className="font-medium text-gray-100">Interviewer</div>
-                  <div className="mt-3 bg-gray-800 p-4 rounded-lg rounded-tl-none">
+                <div className="ml-4 flex-1">
+                  <div className="font-medium text-foreground">Interviewer</div>
+                  <div className="mt-3 bg-gray-100 p-4 rounded-lg rounded-tl-none border border-gray-100">
                     <MessageSquare className="h-5 w-5 text-primary mb-2" />
                     {/* Current question text */}
-                    <p className="text-gray-100 text-lg">
+                    <p className="text-secondary-foreground text-lg">
                       {questions[currentQuestion]}
                     </p>
                     {/* Auto-recording countdown notification */}
                     {showingCountdown && autoRecordCountdown > 0 && (
-                      <div className="mt-4 bg-blue-900/30 border border-blue-700/50 rounded-md p-3 flex items-center">
-                        <Clock className="h-5 w-5 text-blue-400 mr-2 flex-shrink-0" />
-                        <p className="text-blue-300 text-sm">
+                      <div className="mt-4 bg-gray-50 border border-gray-100 rounded-md p-3 flex items-center">
+                        <Clock className="h-5 w-5 text-gray-900 mr-2 flex-shrink-0" />
+                        <p className="text-gray-900 text-sm">
                           Recording will start automatically in{" "}
-                          {autoRecordCountdown} seconds
+                          <span className="font-semibold">{autoRecordCountdown}</span> seconds
                         </p>
                       </div>
                     )}
@@ -522,8 +521,8 @@ const Interview = () => {
                 <div className="flex-grow">
                   {/* Display recorded answer if available */}
                   {recordings[currentQuestion]?.url ? (
-                    <div className="bg-gray-800 p-4 rounded-lg">
-                      <h3 className="text-gray-300 font-medium mb-3">
+                    <div className="bg-gray-100 p-4 rounded-lg border border-gray-100">
+                      <h3 className="text-secondary-foreground font-medium mb-3">
                         Your Answer:
                       </h3>
                       <audio
@@ -531,11 +530,13 @@ const Interview = () => {
                         controls
                         className="w-full"
                       />
+
+
                     </div>
                   ) : (
                     // Placeholder when no recording exists
-                    <div className="bg-gray-800/50 p-4 rounded-lg border border-dashed border-gray-700 flex items-center justify-center">
-                      <p className="text-gray-400 text-center">
+                    <div className="bg-gray-50 p-4 rounded-lg border border-dashed border-green-100 flex items-center justify-center h-20">
+                      <p className="text-muted-foreground text-center">
                         {isRecording
                           ? "Recording your answer..."
                           : "Click 'Record Answer' below to respond"}
@@ -553,27 +554,28 @@ const Interview = () => {
               </div>
             </div>
 
+
             {/* Recording Controls Section */}
-            <div className="bg-gray-800 p-4">
+            <div className="bg-muted p-4">
               <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 {/* Recording Progress Bar */}
                 {isRecording && (
                   <div className="w-full">
-                    <div className="flex justify-between text-xs text-gray-400 mb-1">
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
                       <span>Time remaining: {formatTime(timeRemaining)}</span>
                       <span>Max: 1:30</span>
                     </div>
                     <Progress
                       value={timeRemainingPercentage}
-                      className="h-2 bg-gray-700"
+                      className="h-2 bg-secondary"
                     />
                   </div>
                 )}
                 {/* Recording Status Indicator */}
-                <div className="flex items-center gap-2 text-white">
+                <div className="flex items-center gap-2 text-foreground">
                   {isRecording ? (
                     <>
-                      <div className="h-3 w-3 rounded-full bg-red-500 animate-pulse"></div>
+                      <div className="h-3 w-3 rounded-full bg-destructive animate-pulse"></div>
                       <span className="text-sm">
                         Recording... {formatTime(recordingTime)}
                       </span>
@@ -585,9 +587,8 @@ const Interview = () => {
                 <div className="flex items-center gap-3">
                   {isRecording ? (
                     <Button
-                      variant="secondary"
-                      onClick={stopRecording}
-                      className="bg-red-600 hover:bg-red-700 text-white">
+                      variant="destructive"
+                      onClick={stopRecording}>
                       <StopCircle className="h-5 w-5 mr-2" />
                       Stop Recording
                     </Button>
@@ -595,7 +596,6 @@ const Interview = () => {
                     <Button
                       variant="default"
                       onClick={startRecording}
-                      className="bg-primary hover:bg-primary/90"
                       disabled={!activeCall}>
                       <Mic className="h-5 w-5 mr-2" />
                       {/* Dynamically change button text based on recording status */}
@@ -607,28 +607,26 @@ const Interview = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* Overall Progress Indicator */}
-          <div className="mb-6 bg-white rounded-lg p-4 shadow-md">
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
-              <span>
-                Question {currentQuestion + 1} of {questions.length}
-              </span>
-              <span>{Math.round(progress)}% Complete</span>
-            </div>
-            <Progress value={progress} className="h-2" />
-          </div>
+          <Card className="mb-6 shadow-sm">
+            <CardContent className="pt-4">
+              <div className="flex justify-between text-sm text-muted-foreground mb-2">
+                <span>
+                  Question {currentQuestion + 1} of {questions.length}
+                </span>
+                <span>{Math.round(progress)}% Complete</span>
+              </div>
+              <Progress value={progress} className="h-2" />
+            </CardContent>
+          </Card>
 
           {/* Navigation Button - Next Only */}
-          <div className="flex justify-end">
+          <div className="flex justify-end mb-10">
             <Button
               onClick={handleNext}
-              className={`flex items-center gap-2 ${
-                hasCurrentQuestionBeenAnswered
-                  ? "bg-primary hover:bg-primary/90"
-                  : "bg-gray-400"
-              }`}
+              className="flex items-center gap-2"
               disabled={
                 !activeCall || !hasCurrentQuestionBeenAnswered || isRecording
               }>
