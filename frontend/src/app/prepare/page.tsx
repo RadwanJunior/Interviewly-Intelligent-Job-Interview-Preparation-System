@@ -39,10 +39,10 @@ const PrepareInterview = () => {
             variant: "destructive",
           });
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         toast({
           title: "Error",
-          description: "Error creating interview session.",
+          description: `Error creating interview session: ${error instanceof Error ? error.message : 'Unknown error'}`,
           variant: "destructive",
         });
       } finally {
@@ -61,7 +61,7 @@ const PrepareInterview = () => {
               clearInterval(interval);
             }
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error("Error polling status: ", error);
         }
       }, 2000);
