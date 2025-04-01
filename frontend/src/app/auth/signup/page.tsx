@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import Link from "next/link";
 import { signup } from "@/lib/api"; // Import the API.signup function
 
 export default function SignUp() {
@@ -67,9 +68,16 @@ export default function SignUp() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-6">
-      <div className="w-full max-w-md bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-2xl font-semibold text-center mb-4">Sign Up</h2>
+    // <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-6">
+    //   <div className="w-full max-w-md bg-white p-6 rounded-lg shadow-md">
+    //     <h2 className="text-2xl font-semibold text-center mb-4">Sign Up</h2>
+    
+        <div className="container mx-auto px-4 py-32">
+        <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8 animate-fade-up">
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-heading font-bold text-foreground">Create an Account</h1>
+            <p className="text-foreground/70 mt-2">Sign up to start your interview preparation</p>
+          </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="firstName">First Name</Label>
@@ -77,6 +85,7 @@ export default function SignUp() {
               id="firstName"
               type="text"
               name="firstName"
+              placeholder="First Name"
               value={formData.firstName}
               onChange={handleChange}
               required
@@ -88,6 +97,7 @@ export default function SignUp() {
               id="lastName"
               type="text"
               name="lastName"
+              placeholder="Last Name"
               value={formData.lastName}
               onChange={handleChange}
               required
@@ -99,6 +109,7 @@ export default function SignUp() {
               id="email"
               type="email"
               name="email"
+              placeholder="you@example.com"
               value={formData.email}
               onChange={handleChange}
               required
@@ -110,6 +121,7 @@ export default function SignUp() {
               id="password"
               type="password"
               name="password"
+              placeholder="••••••••"
               value={formData.password}
               onChange={handleChange}
               required
@@ -119,6 +131,18 @@ export default function SignUp() {
             {loading ? "Signing Up..." : "Sign Up"}
           </Button>
         </form>
+
+        <div className="mt-6 text-center text-sm">
+            <p className="text-foreground/70">
+            Already have an account?{" "}
+              <Link
+                href="/auth/login"
+                className="text-primary hover:underline">
+                Log in
+              </Link>
+            </p>
+          </div>
+
       </div>
     </div>
   );
