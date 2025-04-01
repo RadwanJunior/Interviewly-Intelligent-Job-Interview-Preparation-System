@@ -18,7 +18,6 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { getInterviewQuestions } from "@/lib/api";
-import Footer from "@/components/Footer";
 
 /**
  * Constants for timing controls in the interview
@@ -123,9 +122,10 @@ const Interview = () => {
         ) {
           const questionObjects = Object.values(response);
           const sortedQuestions = [...questionObjects].sort(
-            (a: any, b: any) => a.order - b.order
+            (a, b) =>
+              (a as { order: number }).order - (b as { order: number }).order
           );
-          const questionTexts = sortedQuestions.map((q: any) => q.question);
+          const questionTexts = sortedQuestions.map((q) => (q as { question: string }).question);
           setQuestions(questionTexts);
           setRecordings(questionTexts.map(() => ({ blob: null, url: null })));
         }
