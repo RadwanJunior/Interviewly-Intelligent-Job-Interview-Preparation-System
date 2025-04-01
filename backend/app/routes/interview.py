@@ -103,7 +103,7 @@ async def create_interview_session(
 # get questions for a specific interview session
 @router.get("/questions/{session_id}")
 async def get_questions(session_id: str):
-    questions_response = SupabaseService.get_interiew_question_table(session_id)
+    questions_response = SupabaseService.get_interview_question_table(session_id)
     if "error" in questions_response or not questions_response.data:
         raise HTTPException(status_code=404, detail="Questions not found")
     return questions_response.data
