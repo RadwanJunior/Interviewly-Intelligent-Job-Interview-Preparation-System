@@ -80,7 +80,7 @@ const Interview = () => {
   const autoRecordTimerRef = useRef<number | null>(null);
 
   // ... keep existing code (fetchQuestions effect hook)
-  
+
   useEffect(() => {
     const fetchQuestions = async () => {
       // Validate session ID exists
@@ -125,7 +125,9 @@ const Interview = () => {
             (a, b) =>
               (a as { order: number }).order - (b as { order: number }).order
           );
-          const questionTexts = sortedQuestions.map((q) => (q as { question: string }).question);
+          const questionTexts = sortedQuestions.map(
+            (q) => (q as { question: string }).question
+          );
           setQuestions(questionTexts);
           setRecordings(questionTexts.map(() => ({ blob: null, url: null })));
         }
@@ -147,8 +149,13 @@ const Interview = () => {
   }, [sessionId]);
 
   // ... keep existing code (auto-recording countdown effect hook)
-  
+
   useEffect(() => {
+    // If recording is already in progress, don't show countdown
+    if (isRecording) {
+      setShowingCountdown(false);
+      return;
+    }
     // If current question already has a recording
     if (recordings[currentQuestion]?.url) {
       setHasCurrentQuestionBeenAnswered(true);
@@ -199,7 +206,7 @@ const Interview = () => {
   }, [currentQuestion, recordings, isRecording, activeCall]);
 
   // ... keep existing code (progress calculations and startRecording, stopRecording, handleNext, endCall functions)
-  
+
   // Calculate progress percentage through questions
   const progress =
     questions.length > 0 ? ((currentQuestion + 1) / questions.length) * 100 : 0;
@@ -218,8 +225,9 @@ const Interview = () => {
     // Cancel any auto-recording countdown
     if (autoRecordTimerRef.current) {
       clearInterval(autoRecordTimerRef.current);
-      setShowingCountdown(false);
+      autoRecordTimerRef.current = null;
     }
+    setShowingCountdown(false);
 
     try {
       // Request microphone access
@@ -374,7 +382,7 @@ const Interview = () => {
   };
 
   // ... keep existing code (cleanup effect hook)
-  
+
   useEffect(() => {
     return () => {
       // Stop recording if in progress
@@ -421,7 +429,9 @@ const Interview = () => {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center animate-fade-up">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="mt-4 text-lg font-heading">Loading your interview questions...</p>
+          <p className="mt-4 text-lg font-heading">
+            Loading your interview questions...
+          </p>
         </div>
       </div>
     );
@@ -457,7 +467,7 @@ const Interview = () => {
           <h1 className="font-heading font-bold text-2xl md:text-3xl text-center mb-6 text-foreground text-primary">
             Interview Session
           </h1>
-          
+
           {/* Video Call Interface Container */}
           <Card className="mb-6 overflow-hidden border-2 border-primary/10 shadow-lg">
             {/* Call Header - Shows status and end call button */}
@@ -470,7 +480,10 @@ const Interview = () => {
               </div>
               <div className="flex items-center space-x-2">
                 <span className="text-primary-foreground/90 text-sm flex items-center">
-                  <div className={`h-2 w-2 rounded-full ${activeCall ? 'bg-green-400' : 'bg-red-400'} mr-1`}></div>
+                  <div
+                    className={`h-2 w-2 rounded-full ${
+                      activeCall ? "bg-green-400" : "bg-red-400"
+                    } mr-1`}></div>
                   {activeCall ? "Active" : "Call Ended"}
                 </span>
                 <Button
@@ -480,7 +493,6 @@ const Interview = () => {
                   className="h-8 text-red-600">
                   End Call
                 </Button>
-
               </div>
             </div>
 
@@ -508,7 +520,10 @@ const Interview = () => {
                         <Clock className="h-5 w-5 text-gray-900 mr-2 flex-shrink-0" />
                         <p className="text-gray-900 text-sm">
                           Recording will start automatically in{" "}
-                          <span className="font-semibold">{autoRecordCountdown}</span> seconds
+                          <span className="font-semibold">
+                            {autoRecordCountdown}
+                          </span>{" "}
+                          seconds
                         </p>
                       </div>
                     )}
@@ -530,8 +545,6 @@ const Interview = () => {
                         controls
                         className="w-full"
                       />
-
-
                     </div>
                   ) : (
                     // Placeholder when no recording exists
@@ -553,7 +566,6 @@ const Interview = () => {
                 </Avatar>
               </div>
             </div>
-
 
             {/* Recording Controls Section */}
             <div className="bg-muted p-4">
@@ -588,7 +600,8 @@ const Interview = () => {
                   {isRecording ? (
                     <Button
                       variant="destructive"
-                      onClick={stopRecording}>
+                      onClick={stopRecording}
+                      className="bg-red-600 hover:bg-red-700 text-white">
                       <StopCircle className="h-5 w-5 mr-2" />
                       Stop Recording
                     </Button>
