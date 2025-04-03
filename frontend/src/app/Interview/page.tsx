@@ -454,7 +454,6 @@ const Interview = () => {
 
   // Main interview interface
   return (
-    <Suspense fallback={<div>Loading...</div>}>
     <div className="min-h-screen flex flex-col bg-background">
       <Head>
         <title>Interview Session - Interviewly</title>
@@ -655,7 +654,6 @@ const Interview = () => {
         </div>
       </main>
     </div>
-    </Suspense>
   );
 };
 

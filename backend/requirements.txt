@@ -8,3 +8,4 @@ pdfminer.six
 python-docx
 google-genai
 google
+gunicorn
