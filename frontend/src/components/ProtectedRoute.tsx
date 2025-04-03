@@ -1,25 +1,22 @@
-"use client";
-import { useAuth } from "../context/AuthContext";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "next/router";
+import { useSession } from "next-auth/react";
 
-export default function ProtectedRoute({ children }) {
-  const { session, loading } = useAuth();
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { data: session, status } = useSession();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !session) {
-      router.push("/auth/login"); // Redirect to homepage if not logged in
+    if (status === "unauthenticated") {
+      router.push("/auth/login");
     }
-  }, [session, loading, router]);
+  }, [status, router]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="spinner" />
-      </div>
-    );
+  if (status === "loading") {
+    return <div>Loading...</div>;
   }
 
   return <>{session ? children : null}</>;
-}
+};
+
+export default ProtectedRoute;
