@@ -18,6 +18,7 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { getInterviewQuestions } from "@/lib/api";
+import { Suspense } from "react";
 
 /**
  * Constants for timing controls in the interview
@@ -453,6 +454,7 @@ const Interview = () => {
 
   // Main interview interface
   return (
+    <Suspense fallback={<div>Loading...</div>}>
     <div className="min-h-screen flex flex-col bg-background">
       <Head>
         <title>Interview Session - Interviewly</title>
@@ -653,6 +655,7 @@ const Interview = () => {
         </div>
       </main>
     </div>
+    </Suspense>
   );
 };
 
