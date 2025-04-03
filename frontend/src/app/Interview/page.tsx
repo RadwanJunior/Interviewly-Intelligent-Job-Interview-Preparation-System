@@ -659,4 +659,13 @@ const Interview = () => {
   );
 };
 
-export default Interview;
+
+// Removed unnecessary import as Interview is defined in the same file
+
+export default function InterviewPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <Interview />
+    </Suspense>
+  );
+}
