@@ -1,10 +1,14 @@
 import axios from "axios";
 
+const backend_url = process.env.BACKEND_URL || "http://localhost:8000"; // Change this for production
+
 const api = axios.create({
-  baseURL: "http://localhost:8000", // Change this for production
+  baseURL: backend_url, // Change this for production
   withCredentials: true, // Ensures cookies (tokens) are sent
   headers: { "Content-Type": "application/json" },
 });
+
+console.log("API:", api); // Log the base URL for debugging
 
 export async function signup(
   firstName: string,
