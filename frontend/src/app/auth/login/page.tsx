@@ -168,7 +168,7 @@ const LogIn = () => {
     try {
       await loginUser(formData.email, formData.password);
       toast({ title: "Success", description: "Login successful!" });
-      router.push("/dashboard");
+      router.push("/");
     } catch (error) {
       toast({
         title: "Error",
