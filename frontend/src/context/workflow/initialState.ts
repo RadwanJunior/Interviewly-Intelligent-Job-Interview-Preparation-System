@@ -30,9 +30,12 @@ export const initialResumeData: ResumeData = {
   file: null,
   text: "",
   hasExisting: false,
+  fileName: "",
+  resumeId: "",
 };
 
 export const initialJobDetailsData: JobDetailsData = {
+  JobDescriptionId: "",
   userId: "",
   companyName: "",
   jobTitle: "",
