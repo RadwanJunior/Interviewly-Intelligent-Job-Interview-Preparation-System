@@ -6,7 +6,7 @@ import os
 
 app = FastAPI()
 
-frontend_url = os.getenv("FRONTEND_URL") or "http://localhost:3000"
+frontend_url = "https://interviewly.onrender.com"
 
 # CORS setup (Adjust origins as needed)
 app.add_middleware(

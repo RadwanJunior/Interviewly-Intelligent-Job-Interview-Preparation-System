@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const backend_url = process.env.BACKEND_URL || "http://localhost:8000"; // Change this for production
+const backend_url = "https://interviewly-intelligent-job-interview.onrender.com"; // Change this for production
 
 const api = axios.create({
   baseURL: backend_url, // Change this for production
