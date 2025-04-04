@@ -12,10 +12,7 @@ REFRESH_TOKEN_COOKIE = "refresh_token"
 # Determine cookie security based on environment.
 # In development (localhost), secure should be False.
 IS_PRODUCTION = os.environ.get("ENVIRONMENT") == "production"
-print("ENVIRONMENT: ", os.environ.get("ENVIRONMENT"))
-print("IS_PRODUCTION: ", IS_PRODUCTION)
 COOKIE_SECURE = True if IS_PRODUCTION else False
-print("COOKIE_SECURE: ", COOKIE_SECURE)
 
 # Define Pydantic models for the request body
 class AuthPayload(BaseModel):
@@ -83,12 +80,6 @@ async def login(response: Response, payload: AuthPayload):
 @router.post("/refresh")
 async def refresh_token(request: Request, response: Response):
     """Refreshes the access token using the refresh token stored in cookies."""
-    print("Request Exists")
-    print(request)
-    print("Request Does Not Exists")
-    print("Cookie exists")
-    print(request.cookies)
-    print("Cookie does not exists")
 
     refresh_token_value = request.cookies.get(REFRESH_TOKEN_COOKIE)
     if not refresh_token_value:
