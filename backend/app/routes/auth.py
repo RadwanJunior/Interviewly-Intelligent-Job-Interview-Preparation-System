@@ -12,7 +12,10 @@ REFRESH_TOKEN_COOKIE = "refresh_token"
 # Determine cookie security based on environment.
 # In development (localhost), secure should be False.
 IS_PRODUCTION = os.environ.get("ENVIRONMENT") == "production"
+print("ENVIRONMENT: ", os.environ.get("ENVIRONMENT"))
+print("IS_PRODUCTION: ", IS_PRODUCTION)
 COOKIE_SECURE = True if IS_PRODUCTION else False
+print("COOKIE_SECURE: ", COOKIE_SECURE)
 
 # Define Pydantic models for the request body
 class AuthPayload(BaseModel):
