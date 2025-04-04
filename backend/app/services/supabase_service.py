@@ -5,8 +5,8 @@ from fastapi import UploadFile, HTTPException, Request
 
 load_dotenv()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY")
 
 supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 expiry = 60 * 60 * 24 * 30  # 30 days in seconds
