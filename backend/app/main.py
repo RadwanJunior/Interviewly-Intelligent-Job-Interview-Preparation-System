@@ -2,13 +2,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import auth, resume, interview
 from app.routes import job_description
+import os
 
 app = FastAPI()
+
+FRONTEND_URL = os.getenv("FRONTEND_URL") or "http://localhost:3000"
 
 # CORS setup (Adjust origins as needed)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Adjust for production
+    allow_origins=[FRONTEND_URL],  # Adjust for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

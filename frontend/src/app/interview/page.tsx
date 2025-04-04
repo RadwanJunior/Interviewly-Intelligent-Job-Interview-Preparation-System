@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Head from "next/head";
 import {
@@ -453,206 +453,218 @@ const Interview = () => {
 
   // Main interview interface
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Head>
-        <title>Interview Session - Interviewly</title>
-        <meta
-          name="description"
-          content="Practice interview questions and record your answers with Interviewly."
-        />
-      </Head>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="flex flex-col items-center animate-fade-up">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="mt-4 text-lg font-heading">Loading interview...</p>
+          </div>
+        </div>
+      }>
+      <div className="min-h-screen flex flex-col bg-background">
+        <Head>
+          <title>Interview Session - Interviewly</title>
+          <meta
+            name="description"
+            content="Practice interview questions and record your answers with Interviewly."
+          />
+        </Head>
 
-      <main className="flex-grow container mx-auto px-4 py-8 mt-6 md:mt-10">
-        <div className="max-w-4xl mx-auto animate-fade-in">
-          <h1 className="font-heading font-bold text-2xl md:text-3xl text-center mb-6 text-foreground text-primary">
-            Interview Session
-          </h1>
+        <main className="flex-grow container mx-auto px-4 py-8 mt-6 md:mt-10">
+          <div className="max-w-4xl mx-auto animate-fade-in">
+            <h1 className="font-heading font-bold text-2xl md:text-3xl text-center mb-6 text-foreground text-primary">
+              Interview Session
+            </h1>
 
-          {/* Video Call Interface Container */}
-          <Card className="mb-6 overflow-hidden border-2 border-primary/10 shadow-lg">
-            {/* Call Header - Shows status and end call button */}
-            <div className="bg-primary p-3 flex justify-between items-center">
-              <div className="flex items-center">
-                <Video className="h-5 w-5 text-primary-foreground mr-2" />
-                <span className="text-primary-foreground font-medium">
-                  Interview Session
-                </span>
+            {/* Video Call Interface Container */}
+            <Card className="mb-6 overflow-hidden border-2 border-primary/10 shadow-lg">
+              {/* Call Header - Shows status and end call button */}
+              <div className="bg-primary p-3 flex justify-between items-center">
+                <div className="flex items-center">
+                  <Video className="h-5 w-5 text-primary-foreground mr-2" />
+                  <span className="text-primary-foreground font-medium">
+                    Interview Session
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-primary-foreground/90 text-sm flex items-center">
+                    <div
+                      className={`h-2 w-2 rounded-full ${
+                        activeCall ? "bg-green-400" : "bg-red-400"
+                      } mr-1`}></div>
+                    {activeCall ? "Active" : "Call Ended"}
+                  </span>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={endCall}
+                    className="h-8 text-red-600">
+                    End Call
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-primary-foreground/90 text-sm flex items-center">
-                  <div
-                    className={`h-2 w-2 rounded-full ${
-                      activeCall ? "bg-green-400" : "bg-red-400"
-                    } mr-1`}></div>
-                  {activeCall ? "Active" : "Call Ended"}
-                </span>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={endCall}
-                  className="h-8 text-red-600">
-                  End Call
-                </Button>
-              </div>
-            </div>
 
-            {/* Question Display and Interaction Area */}
-            <div className="p-6 bg-card text-card-foreground">
-              {/* Interviewer Avatar and Question */}
-              <div className="flex items-start mb-6">
-                <Avatar className="h-12 w-12 border-2 border-primary">
-                  <AvatarImage src="" alt="Interviewer" />
-                  <AvatarFallback className="bg-primary/10 text-primary">
-                    <User className="h-6 w-6" />
-                  </AvatarFallback>
-                </Avatar>
-                <div className="ml-4 flex-1">
-                  <div className="font-medium text-foreground">Interviewer</div>
-                  <div className="mt-3 bg-gray-100 p-4 rounded-lg rounded-tl-none border border-gray-100">
-                    <MessageSquare className="h-5 w-5 text-primary mb-2" />
-                    {/* Current question text */}
-                    <p className="text-secondary-foreground text-lg">
-                      {questions[currentQuestion]}
-                    </p>
-                    {/* Auto-recording countdown notification */}
-                    {showingCountdown && autoRecordCountdown > 0 && (
-                      <div className="mt-4 bg-gray-50 border border-gray-100 rounded-md p-3 flex items-center">
-                        <Clock className="h-5 w-5 text-gray-900 mr-2 flex-shrink-0" />
-                        <p className="text-gray-900 text-sm">
-                          Recording will start automatically in{" "}
-                          <span className="font-semibold">
-                            {autoRecordCountdown}
-                          </span>{" "}
-                          seconds
+              {/* Question Display and Interaction Area */}
+              <div className="p-6 bg-card text-card-foreground">
+                {/* Interviewer Avatar and Question */}
+                <div className="flex items-start mb-6">
+                  <Avatar className="h-12 w-12 border-2 border-primary">
+                    <AvatarImage src="" alt="Interviewer" />
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      <User className="h-6 w-6" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="ml-4 flex-1">
+                    <div className="font-medium text-foreground">
+                      Interviewer
+                    </div>
+                    <div className="mt-3 bg-gray-100 p-4 rounded-lg rounded-tl-none border border-gray-100">
+                      <MessageSquare className="h-5 w-5 text-primary mb-2" />
+                      {/* Current question text */}
+                      <p className="text-secondary-foreground text-lg">
+                        {questions[currentQuestion]}
+                      </p>
+                      {/* Auto-recording countdown notification */}
+                      {showingCountdown && autoRecordCountdown > 0 && (
+                        <div className="mt-4 bg-gray-50 border border-gray-100 rounded-md p-3 flex items-center">
+                          <Clock className="h-5 w-5 text-gray-900 mr-2 flex-shrink-0" />
+                          <p className="text-gray-900 text-sm">
+                            Recording will start automatically in{" "}
+                            <span className="font-semibold">
+                              {autoRecordCountdown}
+                            </span>{" "}
+                            seconds
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* User's Answer Section */}
+                <div className="flex items-start mt-6">
+                  <div className="flex-grow">
+                    {/* Display recorded answer if available */}
+                    {recordings[currentQuestion]?.url ? (
+                      <div className="bg-gray-100 p-4 rounded-lg border border-gray-100">
+                        <h3 className="text-secondary-foreground font-medium mb-3">
+                          Your Answer:
+                        </h3>
+                        <audio
+                          src={recordings[currentQuestion].url || ""}
+                          controls
+                          className="w-full"
+                        />
+                      </div>
+                    ) : (
+                      // Placeholder when no recording exists
+                      <div className="bg-gray-50 p-4 rounded-lg border border-dashed border-green-100 flex items-center justify-center h-20">
+                        <p className="text-muted-foreground text-center">
+                          {isRecording
+                            ? "Recording your answer..."
+                            : "Click 'Record Answer' below to respond"}
                         </p>
                       </div>
                     )}
                   </div>
+                  {/* User Avatar */}
+                  <Avatar className="h-12 w-12 border-2 border-accent ml-4">
+                    <AvatarImage src="" alt="You" />
+                    <AvatarFallback className="bg-accent/10 text-accent">
+                      <User className="h-6 w-6" />
+                    </AvatarFallback>
+                  </Avatar>
                 </div>
               </div>
 
-              {/* User's Answer Section */}
-              <div className="flex items-start mt-6">
-                <div className="flex-grow">
-                  {/* Display recorded answer if available */}
-                  {recordings[currentQuestion]?.url ? (
-                    <div className="bg-gray-100 p-4 rounded-lg border border-gray-100">
-                      <h3 className="text-secondary-foreground font-medium mb-3">
-                        Your Answer:
-                      </h3>
-                      <audio
-                        src={recordings[currentQuestion].url || ""}
-                        controls
-                        className="w-full"
+              {/* Recording Controls Section */}
+              <div className="bg-muted p-4">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                  {/* Recording Progress Bar */}
+                  {isRecording && (
+                    <div className="w-full">
+                      <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                        <span>Time remaining: {formatTime(timeRemaining)}</span>
+                        <span>Max: 1:30</span>
+                      </div>
+                      <Progress
+                        value={timeRemainingPercentage}
+                        className="h-2 bg-secondary"
                       />
                     </div>
-                  ) : (
-                    // Placeholder when no recording exists
-                    <div className="bg-gray-50 p-4 rounded-lg border border-dashed border-green-100 flex items-center justify-center h-20">
-                      <p className="text-muted-foreground text-center">
-                        {isRecording
-                          ? "Recording your answer..."
-                          : "Click 'Record Answer' below to respond"}
-                      </p>
-                    </div>
                   )}
-                </div>
-                {/* User Avatar */}
-                <Avatar className="h-12 w-12 border-2 border-accent ml-4">
-                  <AvatarImage src="" alt="You" />
-                  <AvatarFallback className="bg-accent/10 text-accent">
-                    <User className="h-6 w-6" />
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-            </div>
-
-            {/* Recording Controls Section */}
-            <div className="bg-muted p-4">
-              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                {/* Recording Progress Bar */}
-                {isRecording && (
-                  <div className="w-full">
-                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>Time remaining: {formatTime(timeRemaining)}</span>
-                      <span>Max: 1:30</span>
-                    </div>
-                    <Progress
-                      value={timeRemainingPercentage}
-                      className="h-2 bg-secondary"
-                    />
+                  {/* Recording Status Indicator */}
+                  <div className="flex items-center gap-2 text-foreground">
+                    {isRecording ? (
+                      <>
+                        <div className="h-3 w-3 rounded-full bg-destructive animate-pulse"></div>
+                        <span className="text-sm">
+                          Recording... {formatTime(recordingTime)}
+                        </span>
+                      </>
+                    ) : null}
                   </div>
-                )}
-                {/* Recording Status Indicator */}
-                <div className="flex items-center gap-2 text-foreground">
-                  {isRecording ? (
-                    <>
-                      <div className="h-3 w-3 rounded-full bg-destructive animate-pulse"></div>
-                      <span className="text-sm">
-                        Recording... {formatTime(recordingTime)}
-                      </span>
-                    </>
-                  ) : null}
-                </div>
 
-                {/* Recording Control Buttons */}
-                <div className="flex items-center gap-3">
-                  {isRecording ? (
-                    <Button
-                      variant="destructive"
-                      onClick={stopRecording}
-                      className="bg-red-600 hover:bg-red-700 text-white">
-                      <StopCircle className="h-5 w-5 mr-2" />
-                      Stop Recording
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="default"
-                      onClick={startRecording}
-                      disabled={!activeCall}>
-                      <Mic className="h-5 w-5 mr-2" />
-                      {/* Dynamically change button text based on recording status */}
-                      {recordings[currentQuestion]?.url
-                        ? "Record Again"
-                        : "Record Answer"}
-                    </Button>
-                  )}
+                  {/* Recording Control Buttons */}
+                  <div className="flex items-center gap-3">
+                    {isRecording ? (
+                      <Button
+                        variant="destructive"
+                        onClick={stopRecording}
+                        className="bg-red-600 hover:bg-red-700 text-white">
+                        <StopCircle className="h-5 w-5 mr-2" />
+                        Stop Recording
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="default"
+                        onClick={startRecording}
+                        disabled={!activeCall}>
+                        <Mic className="h-5 w-5 mr-2" />
+                        {/* Dynamically change button text based on recording status */}
+                        {recordings[currentQuestion]?.url
+                          ? "Record Again"
+                          : "Record Answer"}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
+            </Card>
+
+            {/* Overall Progress Indicator */}
+            <Card className="mb-6 shadow-sm">
+              <CardContent className="pt-4">
+                <div className="flex justify-between text-sm text-muted-foreground mb-2">
+                  <span>
+                    Question {currentQuestion + 1} of {questions.length}
+                  </span>
+                  <span>{Math.round(progress)}% Complete</span>
+                </div>
+                <Progress value={progress} className="h-2" />
+              </CardContent>
+            </Card>
+
+            {/* Navigation Button - Next Only */}
+            <div className="flex justify-end mb-10">
+              <Button
+                onClick={handleNext}
+                className="flex items-center gap-2"
+                disabled={
+                  !activeCall || !hasCurrentQuestionBeenAnswered || isRecording
+                }>
+                {/* Dynamically change button text on last question */}
+                {currentQuestion === questions.length - 1
+                  ? "Finish"
+                  : "Next Question"}
+                <ArrowRight className="h-4 w-4" />
+              </Button>
             </div>
-          </Card>
-
-          {/* Overall Progress Indicator */}
-          <Card className="mb-6 shadow-sm">
-            <CardContent className="pt-4">
-              <div className="flex justify-between text-sm text-muted-foreground mb-2">
-                <span>
-                  Question {currentQuestion + 1} of {questions.length}
-                </span>
-                <span>{Math.round(progress)}% Complete</span>
-              </div>
-              <Progress value={progress} className="h-2" />
-            </CardContent>
-          </Card>
-
-          {/* Navigation Button - Next Only */}
-          <div className="flex justify-end mb-10">
-            <Button
-              onClick={handleNext}
-              className="flex items-center gap-2"
-              disabled={
-                !activeCall || !hasCurrentQuestionBeenAnswered || isRecording
-              }>
-              {/* Dynamically change button text on last question */}
-              {currentQuestion === questions.length - 1
-                ? "Finish"
-                : "Next Question"}
-              <ArrowRight className="h-4 w-4" />
-            </Button>
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </Suspense>
   );
 };
 

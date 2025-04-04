@@ -338,7 +338,75 @@ class SupabaseService:
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
-
-
+    @staticmethod
+    def insert_user_response(response: dict) -> dict:
+        """
+        Inserts a new user response record into the 'user_responses' table.
+        """
+        try:
+            response = supabase_client.table("user_responses").insert({
+                "interview_id": response.get("interview_id"),
+                "question_id": response.get("question_id"),
+                "audio_url": response.get("audio_url"),
+                "gemini_file_id": response.get("gemini_file_id"),
+                "processed": response.get("processed"),
+            }).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    def get_user_response(interview_id: str) -> dict:
+        """
+        Retrieves all user response records for a given interview from the 'user_responses' table.
+        """
+        try:
+            response = supabase_client.table("user_responses").select("*").eq("interview_id", interview_id).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    @staticmethod
+    def update_user_response(response_id: str, processed: bool) -> dict:
+        """
+        Updates the processed status of a user response record.
+        """
+        try:
+            response = supabase_client.table("user_responses").update({
+                "processed": processed
+            }).eq("id", response_id).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    @staticmethod
+    def insert_feedback(feedback: dict) -> dict:
+        """
+        Inserts a new feedback record into the 'feedback' table.
+        """
+        try:
+            response = supabase_client.table("feedback").insert(feedback).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    def get_feedback(interview_id: str) -> dict:
+        """
+        Retrieves feedback records for a given interview from the 'feedback' table.
+        """
+        try:
+            response = supabase_client.table("feedback").select("*").eq("interview_id", interview_id).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    async def upload_recording_file(user_id: str, file: UploadFile, bucket_name: str = "public", interview_id: str = None):
+        """Uploads a file to Supabase Storage."""
+        try:
+            file_content = await file.read()
+            response = supabase_client.storage.from_(bucket_name).upload(f"{user_id}/{interview_id}/{file.filename}", file_content)
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
 
 supabase_service = SupabaseService()

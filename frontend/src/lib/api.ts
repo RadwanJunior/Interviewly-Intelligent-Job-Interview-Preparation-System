@@ -6,6 +6,8 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+consolest.log("API base URL:", api.defaults.baseURL);
+
 export async function signup(
   firstName: string,
   lastName: string,
