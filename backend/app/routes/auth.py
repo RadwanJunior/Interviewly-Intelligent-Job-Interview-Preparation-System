@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Response, Request, Depends
 from pydantic import BaseModel, EmailStr
 import os
 from app.services.supabase_service import supabase_service
+import datetime
 
 router = APIRouter()
 
@@ -58,20 +59,8 @@ async def login(response: Response, payload: AuthPayload):
         raise HTTPException(status_code=400, detail=session["error"]["message"])
 
     # Set HTTP-only cookies
-    response.set_cookie(
-        key=ACCESS_TOKEN_COOKIE,
-        value=session["access_token"],
-        httponly=True,
-        secure=COOKIE_SECURE,
-        samesite="Lax"
-    )
-    response.set_cookie(
-        key=REFRESH_TOKEN_COOKIE,
-        value=session["refresh_token"],
-        httponly=True,
-        secure=COOKIE_SECURE,
-        samesite="Lax"
-    )
+    set_auth_cookie(response, ACCESS_TOKEN_COOKIE, session["access_token"])
+    set_auth_cookie(response, REFRESH_TOKEN_COOKIE, session["refresh_token"])
 
     print("session: ", session)
 
@@ -90,13 +79,7 @@ async def refresh_token(request: Request, response: Response):
         raise HTTPException(status_code=401, detail=new_session["error"]["message"])
 
     # Update access token in cookies
-    response.set_cookie(
-        key=ACCESS_TOKEN_COOKIE,
-        value=new_session["access_token"],
-        httponly=True,
-        secure=COOKIE_SECURE,
-        samesite="Lax"
-    )
+    set_auth_cookie(response, ACCESS_TOKEN_COOKIE, new_session["access_token"])
 
     return {"message": "Token refreshed", "user": new_session["user"]}
 
