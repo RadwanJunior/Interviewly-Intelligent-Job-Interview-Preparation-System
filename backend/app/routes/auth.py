@@ -84,6 +84,13 @@ async def login(response: Response, payload: AuthPayload):
 @router.post("/refresh")
 async def refresh_token(request: Request, response: Response):
     """Refreshes the access token using the refresh token stored in cookies."""
+    print("Request Exists")
+    print(request)
+    print("Request Does Not Exists")
+    print("Cookie exists")
+    print(request.cookies)
+    print("Cookie does not exists")
+
     refresh_token_value = request.cookies.get(REFRESH_TOKEN_COOKIE)
     if not refresh_token_value:
         raise HTTPException(status_code=401, detail="No refresh token found")
