@@ -51,12 +51,13 @@ const ResumeUploadStage = () => {
     try {
       // Call API to fetch the user's existing resume
       const response = await getResume();
-      console.log("Get Resume Response:", response);
       if (response && response.data && response.data.length > 0) {
         // Use the latest resume from the response
         const latestRes = response.data[0];
         updateResumeData({
-          fileName: latestRes.file_url.split("/").pop(), // Extract filename from the URL
+          fileName:
+            latestRes.file_url.match(/[^/]+(\.pdf|\.docx)/)?.[0] ||
+            "Unknown File", // Extract filename ending with .pdf or .docx
           text: latestRes.extracted_text,
           hasExisting: true,
           file: null,
@@ -179,7 +180,7 @@ const ResumeUploadStage = () => {
             <FileText className="w-12 h-12 mb-4 text-primary" />
             <h3 className="text-lg font-medium mb-2">Use Existing Resume</h3>
             <p className="text-sm text-gray-500 mb-4">
-              We'll use your previously uploaded resume
+              We&apos;ll use your previously uploaded resume
             </p>
             {/* Display existing file name */}
             {resumeData.hasExisting && resumeData.fileName && (

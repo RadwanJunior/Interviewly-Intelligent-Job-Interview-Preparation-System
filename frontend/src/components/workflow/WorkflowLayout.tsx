@@ -16,17 +16,18 @@ const WorkflowLayout = ({ children, title = "Application Workflow" }: WorkflowLa
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <h1 className="text-3xl font-bold text-center mb-8">{title}</h1>
-      
-      {/* Progress indicator and Step stepper - both sticky now */}
-      <div className="sticky top-0 z-20 bg-background pt-4 pb-4 shadow-sm">
-        {/* Progress indicator */}
-        <div className="mb-4">
+      <h1 className="text-3xl font-heading font-bold text-center mb-6 text-primary animate-fade-in pt-16">
+        {title}
+      </h1>
+
+      {/* Progress indicator and Step stepper */}
+      <div className="pt-4 pb-4">
+        <div className="mb-4 ">
           <div className="flex justify-between mb-2">
-            <span className="text-sm font-medium">
+            <span className="text-sm font-medium text-foreground/80">
               Step {currentStageIndex + 1} of {stages.length}
             </span>
-            <span className="text-sm font-medium">{Math.round(progress)}%</span>
+            <span className="text-sm font-medium text-primary">{Math.round(progress)}%</span>
           </div>
           <Progress value={progress} className="h-2" />
         </div>
@@ -36,7 +37,7 @@ const WorkflowLayout = ({ children, title = "Application Workflow" }: WorkflowLa
       </div>
 
       {/* Content with continuous scroll */}
-      <Card className="animate-fade-in mt-4">
+      <Card className="animate-fade-up mt-6 border border-border/50 rounded-xl shadow-md overflow-hidden">
         {children}
       </Card>
     </div>
@@ -44,4 +45,3 @@ const WorkflowLayout = ({ children, title = "Application Workflow" }: WorkflowLa
 };
 
 export default WorkflowLayout;
-

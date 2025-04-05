@@ -22,7 +22,7 @@ export const useWorkflowState = (): WorkflowContextType => {
   // Function to navigate to the next stage
   const goToNextStage = () => {
     if (currentStageIndex < stages.length - 1) {
-      setStages(prevStages => {
+      setStages((prevStages) => {
         const newStages = [...prevStages];
         newStages[currentStageIndex] = {
           ...newStages[currentStageIndex],
@@ -41,7 +41,7 @@ export const useWorkflowState = (): WorkflowContextType => {
   // Function to navigate to the previous stage
   const goToPreviousStage = () => {
     if (currentStageIndex > 0) {
-      setStages(prevStages => {
+      setStages((prevStages) => {
         const newStages = [...prevStages];
         newStages[currentStageIndex] = {
           ...newStages[currentStageIndex],
@@ -60,7 +60,7 @@ export const useWorkflowState = (): WorkflowContextType => {
   // Function to navigate to a specific stage by index
   const goToStage = (index: number) => {
     if (index >= 0 && index < stages.length) {
-      setStages(prevStages => {
+      setStages((prevStages) => {
         const newStages = [...prevStages];
         newStages[currentStageIndex] = {
           ...newStages[currentStageIndex],
@@ -78,7 +78,7 @@ export const useWorkflowState = (): WorkflowContextType => {
 
   // Function to mark the current stage as completed
   const completeCurrentStage = () => {
-    setStages(prevStages => {
+    setStages((prevStages) => {
       const newStages = [...prevStages];
       newStages[currentStageIndex] = {
         ...newStages[currentStageIndex],
@@ -110,5 +110,9 @@ export const useWorkflowState = (): WorkflowContextType => {
     updateResumeData,
     jobDetailsData,
     updateJobDetailsData,
+    // loaderState,
+    // showLoader,
+    // hideLoader,
+    // updateLoaderProgress,
   };
 };

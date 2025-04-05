@@ -23,6 +23,21 @@ const Navbar = React.memo(() => {
     return () => window.removeEventListener("scroll", handleScroll); // Cleanup event listener on unmount
   }, []);
 
+  return isScrolled;
+};
+
+// Navbar component
+// This component contains the navigation bar for the application
+const Navbar = React.memo(() => {
+  const isScrolled = useScrollHandler();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user } = useAuth();
+
+  const handleScrollToSection = useCallback((id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setIsMobileMenuOpen(false); // Close mobile menu after clicking
+  }, []);
+
   return (
     // Navbar container with dynamic styling based on scroll state
     <nav
@@ -128,5 +143,7 @@ const Navbar = React.memo(() => {
     </nav>
   );
 });
+
+Navbar.displayName = "Navbar";
 
 export default Navbar; 

@@ -12,10 +12,10 @@ import { login, logout, refreshToken } from "@/lib/api";
 
 // Define the shape of the AuthContext
 interface AuthContextType {
-  user: any | null; 
-  loading: boolean; 
-  loginUser: (email: string, password: string) => Promise<void>; 
-  logoutUser: () => Promise<void>; 
+  user: { id: string; email: string } | null;
+  loading: boolean;
+  loginUser: (email: string, password: string) => Promise<void>;
+  logoutUser: () => Promise<void>;
 }
 
 // Create the AuthContext with an initial value of `undefined`
@@ -23,8 +23,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // AuthProvider component to wrap the application and provide authentication state
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<any | null>(null); 
-  const [loading, setLoading] = useState(true); 
+  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Effect to initialize authentication state (e.g., check for an existing session)
   useEffect(() => {

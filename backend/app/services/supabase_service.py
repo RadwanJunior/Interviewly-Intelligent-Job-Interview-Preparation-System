@@ -214,4 +214,149 @@ class SupabaseService:
             return {"error": {"message": str(e)}}
 
 # Instantiate the SupabaseService for use
+    @staticmethod
+    def get_job_details_table(user_id: str) -> dict:
+        """
+        Retrieves all job details records for a user from the 'job_details' table.
+        """
+        try:
+            response = supabase_client.table("job_details").select("*").eq("user_id", user_id).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    def create_interview_session(user_id: str, resume_id: str, job_description_id: str, questions: list) -> dict:
+        """
+        Inserts a new interview session record into the 'interview_sessions' table.
+        """
+        try:
+            response = supabase_client.table("interviews").insert({
+                "user_id": user_id,
+                "resume_id": resume_id,
+                "job_description_id": job_description_id,
+                "interview_questions": questions,
+                "status": "pending"
+            }).execute()
+            print(f"Supabase response: {response}")
+            return response
+        except Exception as e:
+            print(f"Error creating interview session: {str(e)}")
+            return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    def get_interview_sessions(user_id: str) -> dict:
+        """
+        Retrieves all interview session records for a user from the 'interview_sessions' table.
+        """
+        try:
+            response = supabase_client.table("interview_sessions").select("*").eq("user_id", user_id).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    def update_interview_session(session_id: str, status: str) -> dict:
+        """
+        Updates the status of an existing interview session record.
+        """
+        try:
+            response = supabase_client.table("interview_sessions").update({
+                "status": status
+            }).eq("id", session_id).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    def get_latest_interview_session(user_id: str) -> dict:
+        """
+        Retrieves the latest interview session record for a user from the 'interviews' table.
+        """
+        try:
+            response = supabase_client.table("interview").select("*").eq("user_id", user_id).order("created_at", ascending=False).limit(1).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+        
+    @staticmethod
+    def get_interview_questions(session_id: str) -> dict:
+        """
+        Retrieves the interview questions for a specific session from the 'interview_sessions' table.
+        """
+        try:
+            response = supabase_client.table("interview_sessions").select("interview_questions").eq("id", session_id).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    @staticmethod
+    def create_interview_question(interview_id: str, question: str) -> dict:
+        """
+        Inserts a new record into the 'interview_questions' table for a given interview.
+        """
+        try:
+            response = supabase_client.table("interview_questions").insert({
+                "interview_id": interview_id,
+                "question": question
+            }).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+
+    @staticmethod
+    def update_interview_session_questions(session_id: str, question_ids: list) -> dict:
+        """
+        Updates the interview session record with the list of interview question IDs.
+        """
+        try:
+            response = supabase_client.table("interviews").update({
+                "interview_questions": question_ids
+            }).eq("id", session_id).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+
+    @staticmethod
+    def get_job_description(job_description_id: str) -> dict:
+        """
+        Retrieves a specific job description record from the 'job_descriptions' table.
+        """
+        try:
+            response = supabase_client.table("job_descriptions").select("*").eq("id", job_description_id).single().execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    @staticmethod
+    def insert_interview_questions(question_records: list) -> dict:
+        """
+        Inserts a batch of interview questions into the 'interview_questions' table.
+        """
+        try:
+            response = supabase_client.table("interview_questions").insert(question_records).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    @staticmethod
+    def get_interview_question(question_id: str) -> dict:
+        """
+        Retrieves a specific interview question record from the 'interview_questions' table.
+        """
+        try:
+            response = supabase_client.table("interview_questions").select("*").eq("id", question_id).single().execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    @staticmethod
+    def get_interview_question_table(interview_id: str) -> dict:
+        """
+        Retrieves all interview question records for a given interview from the 'interview_questions' table.
+        """
+        try:
+            response = supabase_client.table("interview_questions").select("*").eq("interview_id", interview_id).execute()
+            return response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+
+
+
 supabase_service = SupabaseService()

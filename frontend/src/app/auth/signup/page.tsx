@@ -76,8 +76,7 @@ export default function SignUp() {
       // Display error toast
       toast({
         title: "Error",
-        description:
-          (error as Error).message || "Signup failed, please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -100,6 +99,7 @@ export default function SignUp() {
               id="firstName"
               type="text"
               name="firstName"
+              placeholder="First Name"
               value={formData.firstName}
               onChange={handleChange}
               required
@@ -113,6 +113,7 @@ export default function SignUp() {
               id="lastName"
               type="text"
               name="lastName"
+              placeholder="Last Name"
               value={formData.lastName}
               onChange={handleChange}
               required
@@ -126,6 +127,7 @@ export default function SignUp() {
               id="email"
               type="email"
               name="email"
+              placeholder="you@example.com"
               value={formData.email}
               onChange={handleChange}
               required
@@ -139,6 +141,7 @@ export default function SignUp() {
               id="password"
               type="password"
               name="password"
+              placeholder="••••••••"
               value={formData.password}
               onChange={handleChange}
               required
@@ -150,6 +153,18 @@ export default function SignUp() {
             {loading ? "Signing Up..." : "Sign Up"}
           </Button>
         </form>
+
+        <div className="mt-6 text-center text-sm">
+            <p className="text-foreground/70">
+            Already have an account?{" "}
+              <Link
+                href="/auth/login"
+                className="text-primary hover:underline">
+                Log in
+              </Link>
+            </p>
+          </div>
+
       </div>
     </div>
   );

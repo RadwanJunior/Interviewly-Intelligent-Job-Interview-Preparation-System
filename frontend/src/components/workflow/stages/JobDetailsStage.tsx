@@ -27,6 +27,7 @@ const JobDetailsStage = () => {
     goToNextStage, // Function to navigate to the next stage
     goToPreviousStage // Function to navigate to the previous stage
   } = useWorkflow();
+  const router = useRouter(); // Initialize the router
 
   // Handle input changes for text fields
   const handleInputChange = (field: keyof typeof jobDetailsData) => (
@@ -151,14 +152,16 @@ const JobDetailsStage = () => {
             <Label htmlFor="job-type" className="text-base">
               Job Type
             </Label>
-            <Select 
+            <Select
               value={jobDetailsData.jobType}
-              onValueChange={handleSelectChange("jobType")}
-            >
-              <SelectTrigger id="job-type">
+              onValueChange={handleSelectChange("jobType")}>
+              
+              <SelectTrigger
+                id="job-type"
+                className="bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-foreground focus:ring-2 focus:ring-primary focus:border-primary">
                 <SelectValue placeholder="Select job type" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white border border-gray-300 shadow-md rounded-md">
                 <SelectItem value="Full-time">Full-time</SelectItem>
                 <SelectItem value="Part-time">Part-time</SelectItem>
                 <SelectItem value="Contract">Contract</SelectItem>
@@ -181,8 +184,9 @@ const JobDetailsStage = () => {
               className="min-h-[300px] font-mono text-sm"
             />
             <p className="text-sm text-muted-foreground mt-2">
-              Tip: Copy and paste the full job description from the job posting. 
-              This will help us analyze the requirements and provide better interview preparation.
+              Tip: Copy and paste the full job description from the job posting.
+              This will help us analyze the requirements and provide better
+              interview preparation.
             </p>
           </div>
         </div>
@@ -200,8 +204,11 @@ const JobDetailsStage = () => {
           {/* Confirm and Continue button */}
           <Button 
             onClick={confirmJobDetails}
-            disabled={!jobDetailsData.jobTitle || !jobDetailsData.companyName || !jobDetailsData.description}
-          >
+            disabled={
+              !jobDetailsData.jobTitle ||
+              !jobDetailsData.companyName ||
+              !jobDetailsData.description
+            }>
             <Check className="mr-2 h-4 w-4" />
             Confirm & Continue
             <ArrowRight className="ml-2 h-4 w-4" />

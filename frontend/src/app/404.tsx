@@ -22,7 +22,7 @@ export default function NotFound() {
 
       {/* Display a descriptive message for the user */}
       <p className="text-gray-600 mb-8 text-center max-w-md">
-        Sorry, the page you are looking for doesn't exist or has been moved.
+        Sorry, the page you are looking for doesn&apos;t exist or has been moved.
       </p>
 
       {/* Link to return to the home page */}

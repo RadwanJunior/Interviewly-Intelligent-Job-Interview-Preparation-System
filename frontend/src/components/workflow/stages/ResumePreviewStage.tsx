@@ -110,7 +110,7 @@ const ResumePreviewStage = () => {
             Resume Preview
           </Label>
           <p className="text-sm text-gray-500 mb-4">
-            We've extracted the text from your resume. Edit if needed.
+            We&apos;ve extracted the text from your resume. Edit if needed.
           </p>
           <Textarea
             id="resume-text"
