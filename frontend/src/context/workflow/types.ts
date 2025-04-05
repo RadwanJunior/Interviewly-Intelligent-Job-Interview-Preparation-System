@@ -1,3 +1,4 @@
+// Type definition for a workflow stage
 export type WorkflowStage = {
   id: string;
   title: string;
@@ -6,16 +7,15 @@ export type WorkflowStage = {
   isActive: boolean;
 };
 
+// Type definition for resume-related data
 export type ResumeData = {
-  fileName: string | undefined;
   file: File | null;
   text: string;
   hasExisting: boolean;
-  resumeId: string | undefined;
 };
 
+// Type definition for job-related data
 export type JobDetailsData = {
-  JobDescriptionId: string;
   userId: string;
   companyName: string;
   jobTitle: string;
@@ -24,6 +24,7 @@ export type JobDetailsData = {
   description: string;
 };
 
+// Type definition for the Workflow Context
 export type WorkflowContextType = {
   stages: WorkflowStage[];
   currentStageIndex: number;
