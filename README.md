@@ -5,6 +5,9 @@ Nowadays, many interviewees experience a very long and exhausting interview prep
 # Jira
 https://interviewly.atlassian.net
 
+# Phase 1 Presentation
+https://interviewly-presentation.vercel.app/ 
+
 ## Team members and their roles
 
 * Adham Radwan: aradw009@uottawa.ca | 300224504
@@ -15,4 +18,4 @@ https://interviewly.atlassian.net
 
 * Name: Ibrahim Bayaa
 * Email: ibayaa@gmail.com
-* Affiliation: PM Consultant Interested in using the product
+* Affiliation: PM Consultant, Interested in using the product
