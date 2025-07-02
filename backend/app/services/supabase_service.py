@@ -2,6 +2,7 @@ import os
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from fastapi import UploadFile, HTTPException, Request
+import time
 
 load_dotenv()
 
@@ -256,7 +257,7 @@ class SupabaseService:
         Retrieves the latest interview session record for a user from the 'interviews' table.
         """
         try:
-            response = supabase_client.table("interview").select("*").eq("user_id", user_id).order("created_at", ascending=False).limit(1).execute()
+            response = supabase_client.table("interviews").select("*").eq("user_id", user_id).order("created_at", ascending=False).limit(1).execute()
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
@@ -267,7 +268,7 @@ class SupabaseService:
         Retrieves the interview questions for a specific session from the 'interview_sessions' table.
         """
         try:
-            response = supabase_client.table("interview_sessions").select("interview_questions").eq("id", session_id).execute()
+            response = supabase_client.table("interviews").select("interview_questions").eq("id", session_id).execute()
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
@@ -339,7 +340,7 @@ class SupabaseService:
         except Exception as e:
             return {"error": {"message": str(e)}}
     @staticmethod
-    def insert_user_response(response: dict) -> dict:
+    async def insert_user_response(response: dict) -> dict:
         """
         Inserts a new user response record into the 'user_responses' table.
         """
@@ -395,17 +396,109 @@ class SupabaseService:
         """
         try:
             response = supabase_client.table("feedback").select("*").eq("interview_id", interview_id).execute()
+            return response.data
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    async def upload_recording_file(user_id: str, file_path: str, bucket_name: str = "recordings", interview_id: str = None):
+        """Uploads a file to Supabase Storage."""
+        try:
+            # Read the file from the path
+            with open(file_path, "rb") as f:
+                file_content = f.read()
+                
+            # Create a filename for storage
+            filename = os.path.basename(file_path)
+            storage_path = f"{user_id}/{interview_id}/{filename}"
+            
+            # Upload to Supabase storage
+            response = supabase_client.storage.from_(bucket_name).upload(
+                storage_path, 
+                file_content
+            )
+            
+            # Generate and return the public URL
+            if "error" not in response:
+                file_url = supabase_client.storage.from_(bucket_name).get_public_url(
+                    storage_path
+                )
+                return file_url
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
     
     @staticmethod
-    async def upload_recording_file(user_id: str, file: UploadFile, bucket_name: str = "public", interview_id: str = None):
-        """Uploads a file to Supabase Storage."""
+    async def get_interview_data(user_id: str, interview_id: str) -> dict:
+        """
+        Retrieves interview data for a specific user and interview ID.
+        """
         try:
-            file_content = await file.read()
-            response = supabase_client.storage.from_(bucket_name).upload(f"{user_id}/{interview_id}/{file.filename}", file_content)
-            return response
+            response = supabase_client.table("interviews").select("*").eq("user_id", user_id).eq("id", interview_id).single().execute()
+            # get resume and job description details from id retrieved
+            if hasattr(response, "data") and response.data:
+                interview_data = response.data
+                resume_id = interview_data.get("resume_id")
+                job_description_id = interview_data.get("job_description_id")
+                
+                # Fetch resume details
+                resume_response = supabase_client.table("resumes").select("*").eq("id", resume_id).single().execute()
+                interview_data["resume"] = getattr(resume_response, "data", {})
+
+                # Fetch job description details
+                job_response = supabase_client.table("job_descriptions").select("*").eq("id", job_description_id).single().execute()
+                interview_data["job_description"] = getattr(job_response, "data", {})
+                return interview_data
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    @staticmethod
+    def get_user_responses(interview_id: str) -> dict:
+        """
+        Retrieves all user responses for a specific interview.
+        """
+        try:
+            response = supabase_client.table("user_responses").select("*").eq("interview_id", interview_id).execute()
+            return response.data if hasattr(response, "data") else response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    @staticmethod
+    def save_feedback(feedback: dict) -> dict:
+        """
+        Saves feedback for a specific interview.
+        """
+        try:
+            response = supabase_client.table("feedback").insert({
+                "interview_id": feedback.get("interview_id"),
+                "user_id": feedback.get("user_id"),
+                "feedback_data": feedback.get("feedback_data"),
+                "status": feedback.get("status", "pending"),
+                "error_msg": feedback.get("error_msg", ""),
+                "updated_at": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+            
+            }).execute()
+            return response.data if hasattr(response, "data") else response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    def get_question_by_order(interview_id: str, order: int) -> dict:
+        """
+        Retrieves a specific interview question by its order for a given interview.
+        """
+        try:
+            response = supabase_client.table("interview_questions").select("*").eq("interview_id", interview_id).eq("order", order).single().execute()
+            return response.data if hasattr(response, "data") else response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    def update_user_responses_processed(interview_id: str):
+        """
+        Updates all user responses for a specific interview to mark them as processed.
+        """
+        try:
+            response = supabase_client.table("user_responses").update({"processed": True}).eq("interview_id", interview_id).execute()
+            return response.data if hasattr(response, "data") else response
         except Exception as e:
             return {"error": {"message": str(e)}}
 
