@@ -1,8 +1,8 @@
-import uuid
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Form, Depends, Request
 from typing import Dict, Optional
-from backend.app.services.feedback_service import FeedbackService
-from backend.app.services.supabase_service import SupabaseService
+from app.services.feedback_service import FeedbackService
+from app.services.supabase_service import SupabaseService
+import traceback
 
 router = APIRouter()
 
@@ -18,7 +18,8 @@ async def upload_audio(
     question_id: str = Form(...),
     question_text: str = Form(...),
     question_order: int = Form(...),
-    is_last_question: bool = Form(False)
+    is_last_question: bool = Form(False),
+    mime_type: str = Form(...)
 ):
     """
     Upload an audio recording for a specific interview question.
@@ -36,7 +37,7 @@ async def upload_audio(
         # Upload the audio file using the FeedbackService
         # This will upload to Gemini and Supabase storage, and create user_responses record
         recording_data = await FeedbackService.upload_audio_file(
-            file, interview_id, question_id, question_text, question_order, user_id
+            file, interview_id, question_id, question_text, question_order, user_id, mime_type
         )
         
         # Check if this is the last question
@@ -67,6 +68,7 @@ async def upload_audio(
             }
             
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error uploading audio: {str(e)}")
 
 async def generate_feedback_background(interview_id: str, user_id: str):
@@ -76,26 +78,13 @@ async def generate_feedback_background(interview_id: str, user_id: str):
     """
     try:
         # Call the service to generate feedback
-        feedback_result = await FeedbackService.generate_feedback(interview_id, user_id)
-        
-        # Store feedback in Supabase
-        feedback_data = {
-            "interview_id": interview_id,
-            "feedback_data": feedback_result,
-            "user_id": user_id
-        }
-        
-        # Insert feedback into Supabase
-        feedback_id = SupabaseService.insert_feedback(feedback_data)
-        
-        # Update status in our memory tracker
-        feedback_status[interview_id] = {
-            "status": "completed",
-            "feedback_id": feedback_id
-        }
-        
+        await FeedbackService.generate_feedback(interview_id, user_id) 
         # Update user_responses to mark as processed
         SupabaseService.update_user_responses_processed(interview_id)
+
+        feedback_status[interview_id] = {
+            "status": "completed",
+        }
         
     except Exception as e:
         # Update status with error
@@ -123,14 +112,24 @@ async def check_feedback_status(interview_id: str, request: Request):
         feedback = SupabaseService.get_feedback(interview_id)
         
         if feedback:
-            return {
-                "status": "completed",
-                "feedback_id": feedback["id"]
-            }
+            # Handle feedback whether it's a list or a dictionary
+            if isinstance(feedback, list) and feedback:
+                # If it's a list, use the first item
+                return {
+                    "status": "completed",
+                    "feedback_id": feedback[0]["id"] if "id" in feedback[0] else None
+                }
+            elif isinstance(feedback, dict):
+                # If it's a dictionary, use it directly
+                return {
+                    "status": "completed",
+                    "feedback_id": feedback.get("id")
+                }
         
         return {"status": "not_started"}
         
     except Exception as e:
+        print(f"DEBUG: Error in check_feedback_status: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error checking feedback status: {str(e)}")
 
 @router.get("/feedback/{interview_id}")
@@ -162,12 +161,20 @@ async def get_feedback(interview_id: str, request: Request):
                 "message": "No feedback found for this interview"
             }
         
-        return {
-            "status": "success",
-            "feedback": feedback["feedback_data"]
-        }
+        # Handle both list and dictionary return types
+        if isinstance(feedback, list) and feedback:
+            return {
+                "status": "success",
+                "feedback": feedback[0].get("feedback_data")
+            }
+        else:
+            return {
+                "status": "success",
+                "feedback": feedback.get("feedback_data")
+            }
             
     except Exception as e:
+        print(f"DEBUG: Error in get_feedback: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error retrieving feedback: {str(e)}")
 
 @router.post("/generate/{interview_id}")
@@ -213,3 +220,22 @@ async def trigger_feedback_generation(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error triggering feedback generation: {str(e)}")
+
+@router.post("/generate_test/{interview_id}")
+async def feedback_generation_test(interview_id: str, user_id: str):
+    """
+    Test endpoint to manually trigger feedback generation for an interview session.
+    This is primarily for testing purposes and should not be used in production.
+    """
+    try:
+        # Start background task
+        feedback_result = await FeedbackService.generate_feedback(user_id, interview_id)
+        
+        return {
+            "status": "success",
+            "message": "Feedback generation test completed",
+            "feedback": feedback_result
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error in feedback generation test: {str(e)}")

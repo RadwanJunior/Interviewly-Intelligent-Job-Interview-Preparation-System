@@ -6,7 +6,7 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-consolest.log("API base URL:", api.defaults.baseURL);
+console.log("API base URL:", api.defaults.baseURL);
 
 export async function signup(
   firstName: string,
@@ -109,5 +109,56 @@ export async function getInterviewStatus(sessionId: string) {
 
 export async function getInterviewQuestions(sessionId: string) {
   const response = await api.get(`/interview/questions/${sessionId}`);
+  return response.data;
+}
+
+// Upload an audio file for a question
+export async function uploadAudio({
+  file,
+  interview_id,
+  question_id,
+  question_text,
+  question_order,
+  is_last_question = false,
+  mime_type = "audio/webm",
+}: {
+  file: File;
+  interview_id: string;
+  question_id: string;
+  question_text: string;
+  question_order: number;
+  is_last_question?: boolean;
+  mime_type?: string;
+}) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("interview_id", interview_id);
+  formData.append("question_id", question_id);
+  formData.append("question_text", question_text);
+  formData.append("question_order", String(question_order));
+  formData.append("is_last_question", String(is_last_question));
+  formData.append("mime_type", mime_type);
+
+  const response = await api.post("/audio/upload", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+}
+
+// Manually trigger feedback generation
+export async function triggerFeedbackGeneration(interview_id: string) {
+  const response = await api.post(`/audio/generate/${interview_id}`);
+  return response.data;
+}
+
+// Get feedback generation status
+export async function getFeedbackStatus(interview_id: string) {
+  const response = await api.get(`/audio/status/${interview_id}`);
+  return response.data;
+}
+
+// Get generated feedback
+export async function getFeedback(interview_id: string) {
+  const response = await api.get(`/audio/feedback/${interview_id}`);
   return response.data;
 }
