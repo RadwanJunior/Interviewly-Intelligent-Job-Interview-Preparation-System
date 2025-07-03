@@ -9,7 +9,6 @@ class DashboardService:
         try:
             # Get all interviews for the user using SupabaseService
             interview_data = SupabaseService.get_interview_history(user_id)
-            print(f"DEBUG: Retrieved interview data: {interview_data}")
             if isinstance(interview_data, dict) and "error" in interview_data:
                 return interview_data
                 
