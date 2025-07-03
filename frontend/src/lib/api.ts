@@ -162,3 +162,45 @@ export async function getFeedback(interview_id: string) {
   const response = await api.get(`/audio/feedback/${interview_id}`);
   return response.data;
 }
+
+export async function fetchDashboardStats() {
+  const response = await api.get("/dashboard/stats");
+  return response.data;
+}
+
+export async function fetchInterviewHistory() {
+  const response = await api.get("/dashboard/history");
+  return response.data;
+}
+
+export async function fetchActivePlan() {
+  try {
+    const response = await api.get("/dashboard/active-plan");
+
+    // 404 means no active plan (not an error)
+    if (response.status === 404) {
+      return null;
+    }
+
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return null;
+    }
+    console.error("Error fetching active plan:", error);
+    return null;
+  }
+}
+
+export async function createPreparationPlan(planData) {
+  const response = await api.post("/dashboard/preparation-plan", planData);
+  return response.data;
+}
+
+export async function updatePreparationPlan(planId, updateData) {
+  const response = await api.put(
+    `/dashboard/preparation-plan/${planId}`,
+    updateData
+  );
+  return response.data;
+}
