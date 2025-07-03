@@ -608,9 +608,9 @@ class SupabaseService:
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("user_id", user_id).eq("status", "active").execute()
             
-            return True
+            return response.data if hasattr(response, "data") and response.data else {"message": "No records updated"}
         except Exception as e:
             print(f"Error updating preparation plan status: {str(e)}")
-            return False
+            return {"error": str(e)}
 
 supabase_service = SupabaseService()
