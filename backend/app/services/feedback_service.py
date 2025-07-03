@@ -12,6 +12,7 @@ import traceback
 import time
 import re
 import json5
+from datetime import datetime, timezone
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 MODEL = "gemini-2.0-flash"
@@ -490,6 +491,46 @@ class FeedbackService:
                 error_detail = feedback_result["error"].get("message", str(feedback_result["error"]))
                 raise Exception(f"Failed to save feedback to the database: {error_detail}")
             
+            # --- Calculate Score, Duration and Finalize Interview ---
+            score = None
+            if "confidence_score" in feedback_data:
+                # Convert score from 1-10 scale to 0-100, with a default
+                confidence_score = feedback_data.get("confidence_score", 5)
+                score = min(100, max(0, confidence_score * 10))
+
+            created_at_str = interview_data.get("created_at")
+            completed_at_dt = datetime.now(timezone.utc)
+            duration_str = "N/A"
+
+            if created_at_str:
+                try:
+                    # Supabase timestamps are timezone-aware ISO strings
+                    created_at_dt = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+                    
+                    # Calculate duration in minutes
+                    duration_seconds = (completed_at_dt - created_at_dt).total_seconds()
+                    duration_minutes = round(duration_seconds / 60)
+                    
+                    if duration_minutes < 1:
+                        duration_str = "< 1 minute"
+                    elif duration_minutes == 1:
+                        duration_str = "1 minute"
+                    else:
+                        duration_str = f"{duration_minutes} minutes"
+                except (ValueError, TypeError) as e:
+                    print(f"Warning: Could not parse created_at '{created_at_str}' to calculate duration. Error: {e}")
+
+            # Update the interview status, completion time, duration, and score
+            update_payload = {
+                "status": "completed",
+                "completed_at": completed_at_dt.isoformat(),
+                "duration": duration_str,
+            }
+            if score is not None:
+                update_payload["score"] = score
+                
+            SupabaseService.update_interview(interview_id, update_payload)
+
             return {
                 "status": "success",
                 "message": "Feedback generated successfully",

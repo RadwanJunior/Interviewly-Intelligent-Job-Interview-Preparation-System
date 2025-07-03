@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import auth, resume, interview, audio
-from app.routes import job_description
+from app.routes import auth, resume, interview, audio, dashboard, job_description
 import os
 import uvicorn
 
@@ -25,6 +24,7 @@ app.include_router(resume.resume_router, prefix="/resumes" ,tags=["resumes"])
 app.include_router(job_description.router, prefix="/job_description", tags=["job_description"])
 app.include_router(interview.router, prefix="/interview", tags=["interview"])
 app.include_router(audio.router, prefix="/audio", tags=["audio"])
+app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 
 @app.get("/")
 def read_root():
