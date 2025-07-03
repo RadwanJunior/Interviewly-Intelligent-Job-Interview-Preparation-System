@@ -7,11 +7,6 @@ from app.services.supabase_service import SupabaseService
 
 router = APIRouter()
 
-class PlanStep(BaseModel):
-    title: str
-    description: Optional[str] = None
-    completed: bool = False
-
 class PreparationPlanModel(BaseModel):
     jobTitle: str
     company: Optional[str] = None

@@ -4,8 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Calendar,
-  Clock,
-  Star,
   TrendingUp,
   Plus,
   FileText,
