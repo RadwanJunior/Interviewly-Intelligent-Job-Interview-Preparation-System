@@ -3,6 +3,8 @@ from supabase import create_client, Client
 from dotenv import load_dotenv
 from fastapi import UploadFile, HTTPException, Request
 import time
+from datetime import datetime, timezone
+
 
 load_dotenv()
 
@@ -501,5 +503,114 @@ class SupabaseService:
             return response.data if hasattr(response, "data") else response
         except Exception as e:
             return {"error": {"message": str(e)}}
+
+    @staticmethod
+    def get_interview_history(user_id: str):
+        """Get interview history with related data"""
+        try:
+            # Get all interviews for the user
+            interview_response = supabase_client.table("interviews").select(
+                "id, created_at, completed_at, status, score, duration, type, job_description_id, resume_id"
+            ).eq("user_id", user_id).order("created_at", desc=True).execute()
+            
+            return interview_response.data if hasattr(interview_response, "data") else []
+        except Exception as e:
+            print(f"Error getting interview history: {str(e)}")
+            return {"error": str(e)}
+
+    @staticmethod
+    def get_job_description_details(job_id: str):
+        """Get job description details"""
+        try:
+            response = supabase_client.table("job_descriptions").select(
+                "title, company, location"
+            ).eq("id", job_id).single().execute()
+            
+            return response.data if hasattr(response, "data") else {}
+        except Exception as e:
+            print(f"Error getting job description: {str(e)}")
+            return {"error": str(e)}
+
+    @staticmethod
+    def get_interview_feedback(interview_id: str):
+        """Get feedback for an interview"""
+        try:
+            response = supabase_client.table("feedback").select(
+                "feedback_data"
+            ).eq("interview_id", interview_id).single().execute()
+            
+            return response.data if hasattr(response, "data") else None
+        except Exception as e:
+            print(f"Error getting feedback: {str(e)}")
+            return {"error": str(e)}
+
+    @staticmethod
+    def update_interview(interview_id: str, update_data: dict):
+        """Update interview data"""
+        try:
+            response = supabase_client.table("interviews").update(update_data).eq("id", interview_id).execute()
+            return response.data[0] if hasattr(response, "data") and response.data else None
+        except Exception as e:
+            print(f"Error updating interview: {str(e)}")
+            return {"error": str(e)}
+
+    @staticmethod
+    def get_active_preparation_plan(user_id: str):
+        """Get active preparation plan for a user"""
+        try:
+            response = supabase_client.table("preparation_plans").select(
+                "*"
+            ).eq("user_id", user_id).eq("status", "active").order("created_at", desc=True).limit(1).execute()
+            
+            return response.data[0] if hasattr(response, "data") and response.data else None
+        except Exception as e:
+            print(f"Error getting active plan: {str(e)}")
+            return {"error": str(e)}
+
+    @staticmethod
+    def create_preparation_plan(plan_data: dict):
+        """Create a new preparation plan"""
+        try:
+            response = supabase_client.table("preparation_plans").insert(plan_data).execute()
+            return response.data[0] if hasattr(response, "data") and response.data else None
+        except Exception as e:
+            print(f"Error creating preparation plan: {str(e)}")
+            return {"error": str(e)}
+
+    @staticmethod
+    def update_preparation_plan(plan_id: str, update_data: dict):
+        """Update a preparation plan"""
+        try:
+            response = supabase_client.table("preparation_plans").update(update_data).eq("id", plan_id).execute()
+            return response.data[0] if hasattr(response, "data") and response.data else None
+        except Exception as e:
+            print(f"Error updating preparation plan: {str(e)}")
+            return {"error": str(e)}
+
+    @staticmethod
+    def check_plan_ownership(plan_id: str, user_id: str) -> bool:
+        """Check if a plan belongs to a user"""
+        try:
+            response = supabase_client.table("preparation_plans").select(
+                "id"
+            ).eq("id", plan_id).eq("user_id", user_id).execute()
+            
+            return hasattr(response, "data") and len(response.data) > 0
+        except Exception as e:
+            print(f"Error checking plan ownership: {str(e)}")
+            return False
+    @staticmethod
+    def update_preparation_plan_status_by_user(user_id: str, status: str):
+        """Update status of all preparation plans for a user"""
+        try:
+            response = supabase_client.table("preparation_plans").update({
+                "status": status,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }).eq("user_id", user_id).eq("status", "active").execute()
+            
+            return response.data if hasattr(response, "data") and response.data else {"message": "No records updated"}
+        except Exception as e:
+            print(f"Error updating preparation plan status: {str(e)}")
+            return {"error": str(e)}
 
 supabase_service = SupabaseService()

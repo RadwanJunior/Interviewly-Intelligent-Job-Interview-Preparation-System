@@ -98,7 +98,7 @@ const Index = () => {
             and dream job. Get instant feedback to improve your performance.
           </p>
           <button
-            onClick={() => router.push("/Workflow")}
+            onClick={() => router.push("/dashboard")}
             className="inline-flex items-center px-8 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-full hover:bg-primary/90 transition-all transform hover:scale-105 animate-fade-up shadow-lg shadow-primary/25"
             style={{ animationDelay: "0.3s" }}>
             Start Practicing
