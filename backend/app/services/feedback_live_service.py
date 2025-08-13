@@ -30,19 +30,19 @@ Instructions:
 - For each interview question and the immediately following audio clip, first transcribe the response verbatim.
 - Then provide detailed feedback that covers both content and delivery (tone, pace, confidence, clarity, enthusiasm).
 - Return a single JSON object using this schema:
-{
+{{
   "question_analysis": [
-    {
+    {{
       "question": "The interview question",
       "transcript": "Verbatim transcription from the audio",
       "delivery_analysis": "Analysis of vocal tone, pacing, confidence, clarity, enthusiasm, and professionalism",
-      "feedback": {
+      "feedback": {{
         "strengths": ["Specific strength 1", "Specific strength 2"],
         "areas_for_improvement": ["Area 1", "Area 2"],
         "tips_for_improvement": ["Actionable tip 1", "Actionable tip 2"]
-      },
+      }},
       "tone_and_style": "Concise assessment of tone and communication style"
-    }
+    }}
   ],
   "overall_feedback_summary": ["Key strength", "Key improvement area"],
   "communication_assessment": ["Observation 1", "Observation 2"],
@@ -50,7 +50,7 @@ Instructions:
   "overall_sentiment": "Positive/Neutral/Negative",
   "confidence_score": 7,
   "overall_improvement_steps": ["Actionable step 1", "Actionable step 2", "Actionable step 3"]
-}
+}}
 """
 
 # In-memory tracker for feedback generation status
@@ -100,19 +100,19 @@ Based on the full transcript and audio analysis, provide detailed feedback on th
 
 Return your analysis as a structured JSON object using the following format:
 
-{
+{{
   "question_analysis": [
-    {
+    {{
       "question": "The interview question that was asked",
       "transcript": "The candidate's response transcribed",
       "delivery_analysis": "Analysis of vocal tone, pacing, confidence, etc.",
-      "feedback": {
+      "feedback": {{
         "strengths": ["Specific strength 1", "Specific strength 2"],
         "areas_for_improvement": ["Area to improve 1", "Area to improve 2"],
         "tips_for_improvement": ["Actionable tip 1", "Actionable tip 2"]
-      },
+      }},
       "tone_and_style": "Assessment of tone, delivery, and communication style"
-    }
+    }}
   ],
   "overall_feedback_summary": ["Key strength 1", "Key improvement area 1", "Key insight 3"],
   "communication_assessment": ["Communication observation 1", "Communication observation 2"],
@@ -120,7 +120,7 @@ Return your analysis as a structured JSON object using the following format:
   "overall_sentiment": "Positive/Neutral/Negative",
   "confidence_score": 7,
   "overall_improvement_steps": ["Actionable step 1", "Actionable step 2", "Actionable step 3"]
-}
+}}
 
 The confidence_score should be an integer from 1-10 where 10 represents exceptional interview performance.
 """
@@ -133,10 +133,18 @@ class FeedbackLiveService:
             # Remove markdown code blocks
             text = re.sub(r'```json|```', '', json_text).strip()
             
+            # Fix unterminated strings - look for pattern of quoted string without closing quote
+            # Common at the end of files or before another field starts
+            text = re.sub(r'"([^"]*?)(?=\n\s*")', r'"\1"', text)
+            text = re.sub(r'"([^"]*?)$', r'"\1"', text)  # Fix unterminated string at end of text
+            
             # Fix missing quotes, commas, and other common issues
             text = re.sub(r'": "([^"\n]*)(?=\n\s*")', '": "\\1"', text)
             text = re.sub(r'": "([^"\n]*)(?=\n\s*})', '": "\\1"', text)
             text = re.sub(r'([^"])\s*,\s*"', '\\1",\n"', text)
+            
+            # Handle cases with triple quotes which often break parsing
+            text = re.sub(r'"""', '"', text)  # Replace triple quotes with single quotes
             
             # Try parsing with json5 (more forgiving JSON parser)
             try:
@@ -148,7 +156,27 @@ class FeedbackLiveService:
                 
         except Exception as e:
             logging.error(f"All JSON repair strategies failed: {str(e)}")
-            raise
+            
+            # Create a minimal valid structure as fallback when all else fails
+            return {
+                "question_analysis": [{
+                    "question": "Interview question", 
+                    "transcript": "Response could not be transcribed correctly",
+                    "delivery_analysis": "Could not analyze delivery due to JSON parsing issues",
+                    "feedback": {
+                        "strengths": ["Unable to analyze strengths due to technical issues"],
+                        "areas_for_improvement": ["Try again with clearer audio"],
+                        "tips_for_improvement": ["Consider using text responses if audio issues persist"]
+                    },
+                    "tone_and_style": "Could not analyze"
+                }],
+                "overall_feedback_summary": ["Unable to generate complete feedback due to technical issues"],
+                "communication_assessment": ["Assessment unavailable due to processing error"],
+                "delivery_feedback": ["Feedback unavailable due to processing error"],
+                "overall_sentiment": "Neutral",
+                "confidence_score": 5,
+                "overall_improvement_steps": ["Try the interview again for better feedback"]
+            }
 
     @staticmethod
     def balance_quotes(text):
@@ -280,14 +308,22 @@ class FeedbackLiveService:
                  config={"max_output_tokens": 1024,"temperature": 0.2}
              )
             
-            if response and hasattr(response, "candidates") and response.candidates:
-                analysis = response.candidates[0].content.parts[0].text
-                return analysis
-            return "Audio analysis unavailable"
+            # Improved error handling
+            if not response:
+                return "No response received from Gemini API"
+            if not hasattr(response, "candidates") or not response.candidates:
+                return "No candidate responses from Gemini API"
+            if not hasattr(response.candidates[0], "content") or not response.candidates[0].content:
+                return "Empty content in Gemini API response"
+            if not hasattr(response.candidates[0].content, "parts") or not response.candidates[0].content.parts:
+                return "No content parts in Gemini API response"
+                
+            analysis = response.candidates[0].content.parts[0].text
+            return analysis
             
         except Exception as e:
             logging.error(f"Error analyzing audio delivery: {e}")
-            return "Error analyzing audio"
+            return f"Error analyzing audio: {str(e)[:100]}"
 
     @staticmethod
     async def extract_question_answer_pairs(conversation_turns):
@@ -362,11 +398,14 @@ class FeedbackLiveService:
         try:
             stream = io.BytesIO(audio_bytes)
             stream.name = display_name
+            # Fix: Create a valid Gemini file name (only lowercase alphanumeric chars and dashes)
+            # Remove dots, underscores, spaces and other invalid characters
+            clean_name = re.sub(r'[^a-z0-9-]', '', f"{interview_id[:8]}-answer-{display_name.replace('.wav', '').replace('_', '')}")
             gem_file = genai_client.files.upload(
                 file=stream,
                 config=types.UploadFileConfig(
                     mime_type=mime,
-                    name=f"{interview_id}-{display_name}",
+                    name=clean_name,  # Use cleaned name
                     display_name=display_name
                 )
             )
@@ -577,7 +616,10 @@ class FeedbackLiveService:
                         if score is not None:
                             update_payload["score"] = score
                         
-                        await SupabaseService.update_interview(interview_id, update_payload)
+                        update_result = SupabaseService.update_interview(interview_id, update_payload)
+                        # Handle if the function sometimes returns a dict directly and sometimes an awaitable
+                        if hasattr(update_result, "__await__"):
+                            await update_result
                         logging.info(f"Updated interview status to completed for {interview_id}")
                         
                         feedback_status[interview_id] = {"status": "completed"}
@@ -687,10 +729,17 @@ class FeedbackLiveService:
                     }
                 )
                 
-                # Process response and create feedback (rest of the code unchanged)
-                # ...existing code...
-                if not api_response or not api_response.candidates:
+                # Improved error checking to avoid NoneType errors
+                if not api_response:
                     raise Exception("Empty response from Gemini API")
+                if not hasattr(api_response, "candidates") or not api_response.candidates:
+                    raise Exception("No candidates in Gemini API response")
+                if not hasattr(api_response.candidates[0], "content") or not api_response.candidates[0].content:
+                    raise Exception("Empty content in Gemini API response")
+                if not hasattr(api_response.candidates[0].content, "parts") or not api_response.candidates[0].content.parts:
+                    raise Exception("No content parts in Gemini API response")
+                if not hasattr(api_response.candidates[0].content.parts[0], "text"):
+                    raise Exception("No text in Gemini API response")
                 
                 feedback_text = api_response.candidates[0].content.parts[0].text
                 logging.info(f"Received {len(feedback_text)} characters of feedback from Gemini")
@@ -701,12 +750,14 @@ class FeedbackLiveService:
                 if feedback_text.endswith("```"):
                     feedback_text = feedback_text[:-3]
                 
-                # Parse feedback text to JSON
+                # Parse feedback text to JSON with improved error handling
                 try:
                     feedback_data = json.loads(feedback_text)
                 except json.JSONDecodeError as e:
                     logging.warning(f"JSON parsing failed: {str(e)}. Attempting repair...")
                     feedback_data = await FeedbackLiveService.repair_json(feedback_text, str(e))
+                    if not feedback_data:
+                        raise Exception(f"Failed to parse or repair JSON from Gemini response: {str(e)}")
 
             except Exception as api_err:
                 logging.error(f"Gemini API error: {str(api_err)}")
