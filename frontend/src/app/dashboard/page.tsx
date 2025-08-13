@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -118,11 +117,9 @@ const Dashboard = () => {
   };
 
   const handleStartInterview = (type: "text" | "call") => {
-    if (type === "text") {
-      router.push("/prepare-interview");
-    } else {
-      router.push("/prepare-interview");
-    }
+    // Navigate to the beginning of the workflow, passing the interview type.
+    // The workflow will handle collecting the resume/job info and then redirecting.
+    router.push(`/Workflow?type=${type}`);
   };
 
   const handleViewFeedback = (interviewId: string) => {
@@ -298,17 +295,13 @@ const Dashboard = () => {
                 </Button>
                 <Button
                   onClick={() => handleStartInterview("call")}
-                  className="h-24 flex flex-col items-center justify-center space-y-2 bg-secondary hover:bg-secondary/90"
-                  disabled>
+                  className="h-24 flex flex-col items-center justify-center space-y-2 bg-secondary hover:bg-secondary/90">
                   <Phone className="h-6 w-6" />
                   <div className="text-center">
                     <div className="font-medium">Call Interview</div>
                     <div className="text-sm opacity-90">
                       Real-time AI conversation
                     </div>
-                    <Badge variant="secondary" className="text-xs mt-1">
-                      Coming Soon
-                    </Badge>
                   </div>
                 </Button>
               </div>

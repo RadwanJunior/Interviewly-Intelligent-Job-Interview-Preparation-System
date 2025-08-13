@@ -4,71 +4,66 @@ import Head from "next/head";
 import { CheckCircle, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkflow } from "@/context/WorkflowContext";
-import { createInterviewSession, getInterviewStatus } from "@/lib/api";
-import { useRouter } from "next/navigation";
+// Remove getInterviewStatus as it's no longer needed
+import { createInterviewSession } from "@/lib/api";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const PrepareInterview = () => {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(true);
-  const [progress, setProgress] = useState(0);
-  const [sessionId, setSessionId] = useState(""); // Store the session ID
+  // Remove the progress state
+  // const [progress, setProgress] = useState(0);
+  const [sessionId, setSessionId] = useState("");
   const { jobDetailsData } = useWorkflow();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const interviewType = searchParams.get("type") || "text";
   const isRequestInProgress = useRef(false);
 
   useEffect(() => {
     const startGeneration = async () => {
-      if (isRequestInProgress.current) return;
+      if (isRequestInProgress.current || !jobDetailsData?.JobDescriptionId)
+        return;
       isRequestInProgress.current = true;
 
       try {
         const response = await createInterviewSession({
           job_description_id: jobDetailsData.JobDescriptionId,
+          type: interviewType as "text" | "call",
         });
 
         if (response.session && response.session.id) {
-          setSessionId(response.session.id); // Save the session ID
-          pollStatus(response.session.id);
+          setSessionId(response.session.id);
+          // Once the session is created, we're ready. Stop the loading state.
+          setIsGenerating(false);
         } else {
           toast({
             title: "Error",
             description: "Could not create interview session.",
             variant: "destructive",
           });
+          // Also stop loading on error
+          setIsGenerating(false);
         }
       } catch (error: unknown) {
         toast({
           title: "Error",
-          description: `Error creating interview session: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          description: `Error creating interview session: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
           variant: "destructive",
         });
-      } finally {
-        isRequestInProgress.current = false;
+        setIsGenerating(false);
       }
+      // No finally block needed as we handle isGenerating in each path
     };
 
-    const pollStatus = async (sessionId: string) => {
-      const interval = setInterval(async () => {
-        try {
-          const statusResp = await getInterviewStatus(sessionId);
-          if (typeof statusResp.progress === "number") {
-            setProgress(statusResp.progress);
-            if (statusResp.completed) {
-              setIsGenerating(false);
-              clearInterval(interval);
-            }
-          }
-        } catch (error: unknown) {
-          console.error("Error polling status: ", error);
-        }
-      }, 2000);
-    };
+    // The pollStatus function is no longer needed and can be removed.
 
     startGeneration();
-  }, [jobDetailsData, toast]);
+  }, [jobDetailsData, toast, interviewType, router]);
 
   const handleStart = () => {
     if (isGenerating) {
@@ -80,8 +75,12 @@ const PrepareInterview = () => {
       return;
     }
 
-    // Navigate to interview page with the session ID
-    router.push(`/Interview?sessionId=${sessionId}`);
+    // Navigate to the correct interview page based on type
+    if (interviewType === "call") {
+      router.push(`/InterviewCall?sessionId=${sessionId}`);
+    } else {
+      router.push(`/Interview?sessionId=${sessionId}`);
+    }
   };
 
   return (
@@ -108,11 +107,7 @@ const PrepareInterview = () => {
 
             {/* Generation Status */}
             <div className="mb-8">
-              <div className="flex justify-between text-sm text-gray-600 mb-2">
-                <span>Generating interview questions</span>
-                <span>{progress}%</span>
-              </div>
-              <Progress value={progress} className="h-2" />
+              {/* The progress bar and percentage are removed */}
               <div className="flex justify-center mt-4">
                 {isGenerating ? (
                   <div className="flex items-center text-yellow-600">

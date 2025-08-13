@@ -35,4 +35,6 @@ export type WorkflowContextType = {
   updateResumeData: (data: Partial<ResumeData>) => void;
   jobDetailsData: JobDetailsData;
   updateJobDetailsData: (data: Partial<JobDetailsData>) => void;
+  interviewType: "text" | "call";
+  setInterviewType: (interviewType: "text" | "call") => void;
 };
