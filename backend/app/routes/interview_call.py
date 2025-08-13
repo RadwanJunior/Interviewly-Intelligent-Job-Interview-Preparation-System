@@ -1,4 +1,3 @@
-###### Solution 4 ############################
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from app.services.supabase_service import SupabaseService
 from google import genai
@@ -102,11 +101,6 @@ async def process_and_save_turn(turn: ConversationTurn, interview_id: str, turn_
     
     except Exception as e:
         logging.error(f"[{interview_id}] Error in process_and_save_turn for {turn.speaker} turn {turn_index}: {e}", exc_info=True)
-
-
-# =========================================================================
-# === FINAL, ROBUST ASYNC TASKS USING NEW SDK METHODS ===
-# =========================================================================
 
 async def client_to_gemini_task(websocket: WebSocket, session: genai.live.AsyncSession, interview_id: str, conversation_turns: list, background_tasks: BackgroundTasks, user_id: str, turn_index_ref: dict):
     """
@@ -273,9 +267,6 @@ async def gemini_to_client_task(websocket: WebSocket, session: genai.live.AsyncS
         logging.error(f"[{interview_id}] Error in gemini_to_client_task: {e}", exc_info=True)
 
 
-# =========================================================================
-# === FINAL, REDESIGNED WEBSOCKET ENDPOINT (USER-FIRST) ===
-# =========================================================================
 @router.websocket("/ws/{interview_id}")
 async def websocket_endpoint(
     websocket: WebSocket,

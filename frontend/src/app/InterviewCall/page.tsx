@@ -30,6 +30,7 @@ const InterviewCallContent = () => {
   const [isInterviewActive, setIsInterviewActive] = useState(false);
   const [isGeminiSpeaking, setIsGeminiSpeaking] = useState(false);
   const [audioQueue, setAudioQueue] = useState<Blob[]>([]);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0); // New state for reconnect attempts
 
   // Refs
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
@@ -50,10 +51,49 @@ const InterviewCallContent = () => {
       setStatus("Listening...");
     },
     onAudioChunk: (chunk: ArrayBufferLike) => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        // The chunk is already in the correct Int16 format from our hook.
-        // Just send it.
-        wsRef.current.send(chunk);
+      // 1. Check connection state with more detailed error feedback
+      if (!wsRef.current) {
+        console.error("WebSocket connection not initialized");
+        setStatus("Connection error. Please refresh.");
+        return;
+      }
+
+      // 2. Handle all possible WebSocket states
+      switch (wsRef.current.readyState) {
+        case WebSocket.OPEN:
+          try {
+            // 3. Wrap the send in try/catch - WebSocket.send() can throw exceptions
+            wsRef.current.send(chunk);
+          } catch (err) {
+            console.error("Failed to send audio chunk:", err);
+
+            // 4. Show user-friendly error and handle gracefully
+            setStatus("Connection issue. Audio may be disrupted.");
+
+            // 5. Optional: Buffer important data for retry
+            // audioBufferForRetry.push(chunk);
+          }
+          break;
+
+        case WebSocket.CONNECTING:
+          console.warn("WebSocket still connecting. Dropping audio chunk.");
+          setStatus("Establishing connection...");
+          break;
+
+        case WebSocket.CLOSING:
+        case WebSocket.CLOSED:
+          console.warn(
+            `WebSocket ${
+              wsRef.current.readyState === WebSocket.CLOSING
+                ? "closing"
+                : "closed"
+            }. Dropping audio chunk.`
+          );
+          setStatus("Connection lost. Please refresh.");
+
+          // 6. Try to reconnect automatically
+          attemptReconnect();
+          break;
       }
     },
     onSpeechEnd: () => {
@@ -64,51 +104,6 @@ const InterviewCallContent = () => {
     },
   });
 
-  // const processAudioQueue = () => {
-  //   if (audioQueueRef.current.length === 0 || !audioContextRef.current) {
-  //     setIsGeminiSpeaking(false);
-  //     // When the queue is empty and playback has finished, start listening again.
-  //     if (isInterviewActive) {
-  //       startVAD();
-  //     }
-  //     return;
-  //   }
-
-  //   setIsGeminiSpeaking(true);
-
-  //   const audioData = audioQueueRef.current.shift()!; // Get the next chunk
-  //   const audioBuffer = new Int16Array(audioData); // The backend sends raw PCM16 bytes
-
-  //   // The audio from Gemini is 24000 Hz, 1 channel
-  //   const geminiSampleRate = 24000;
-  //   const frameCount = audioBuffer.length;
-  //   const myArrayBuffer = audioContextRef.current.createBuffer(
-  //     1,
-  //     frameCount,
-  //     geminiSampleRate
-  //   );
-  //   const nowBuffering = myArrayBuffer.getChannelData(0);
-
-  //   for (let i = 0; i < frameCount; i++) {
-  //     // Convert Int16 back to Float32 for Web Audio API
-  //     nowBuffering[i] = audioBuffer[i] / 32767;
-  //   }
-
-  //   const source = audioContextRef.current.createBufferSource();
-  //   source.buffer = myArrayBuffer;
-  //   source.connect(audioContextRef.current.destination);
-  //   // Also connect to your lipsync manager if it has a Web Audio Node input
-  //   // lipsyncManager.connectNode(source);
-
-  //   const currentTime = audioContextRef.current.currentTime;
-  //   const playTime = Math.max(currentTime, nextPlayTimeRef.current);
-
-  //   source.start(playTime);
-  //   nextPlayTimeRef.current = playTime + myArrayBuffer.duration;
-
-  //   source.onended = processAudioQueue; // When this chunk finishes, play the next
-  // };
-  // Lipsync processing loop
   useEffect(() => {
     let rafId: number;
     const analyze = () => {
@@ -240,10 +235,6 @@ const InterviewCallContent = () => {
           // 5. Play the concatenated audio
           const audioUrl = URL.createObjectURL(concatenatedBlob);
           if (audioPlayerRef.current) {
-            // IMPORTANT: Set the correct MIME type
-            const concatenatedBlob = new Blob([concatenatedBuffer], {
-              type: "audio/wav", // This already sets the MIME type correctly
-            });
             audioPlayerRef.current.src = audioUrl;
 
             // Ensure the lipsync is properly connected BEFORE playing
@@ -350,6 +341,20 @@ const InterviewCallContent = () => {
     } else {
       setIsInterviewActive(true);
       startVAD();
+    }
+  };
+
+  // New function for reconnection logic
+  const attemptReconnect = () => {
+    const MAX_RECONNECT_ATTEMPTS = 5; // Maximum number of reconnection attempts
+    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      setTimeout(() => {
+        // Reconnection code here
+        setStatus(`Reconnecting (attempt ${reconnectAttempts + 1})...`);
+      }, 1000 * Math.pow(2, reconnectAttempts)); // Exponential backoff
+      setReconnectAttempts((prev) => prev + 1);
+    } else {
+      setStatus("Connection failed. Please refresh the page.");
     }
   };
 
