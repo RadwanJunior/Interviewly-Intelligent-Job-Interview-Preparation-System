@@ -42,12 +42,12 @@ class ConversationTurn:
 async def process_and_save_turn(turn: ConversationTurn, interview_id: str, turn_index: int, user_id: str = None):
     """Background task to process and save a conversation turn using the new ConversationService."""
     try:
-        # First, check if we have all the necessary data
-        if not turn.audio_chunks:
-            logging.warning(f"[{interview_id}] Skipping turn {turn_index} for {turn.speaker} due to no audio.")
+        # Modified check: Save if we have EITHER audio OR text content
+        if not turn.audio_chunks and not turn.text:
+            logging.warning(f"[{interview_id}] Skipping turn {turn_index} for {turn.speaker} due to no audio or text.")
             return
             
-        logging.info(f"[{interview_id}] Processing turn {turn_index} for {turn.speaker} with {len(turn.audio_chunks)} audio chunks")
+        logging.info(f"[{interview_id}] Processing turn {turn_index} for {turn.speaker} with {len(turn.audio_chunks) if turn.audio_chunks else 0} audio chunks")
         
         # Import the service here to avoid circular imports
         try:
@@ -63,18 +63,18 @@ async def process_and_save_turn(turn: ConversationTurn, interview_id: str, turn_
                     return {"status": "error", "reason": "service_import_failed"}
             ConversationService = FallbackService
         
-        # Verify audio data
-        total_audio_size = sum(len(chunk) for chunk in turn.audio_chunks)
-        logging.info(f"[{interview_id}] Total audio size: {total_audio_size} bytes")
+        # Verify we have something to save (either audio OR text)
+        total_audio_size = sum(len(chunk) for chunk in turn.audio_chunks) if turn.audio_chunks else 0
+        has_content = total_audio_size > 0 or turn.text
         
-        if total_audio_size == 0:
-            logging.warning(f"[{interview_id}] Empty audio data for {turn.speaker} turn {turn_index}")
+        if not has_content:
+            logging.warning(f"[{interview_id}] Empty turn for {turn.speaker} turn {turn_index}")
             return
         
         # Convert the ConversationTurn object to a dictionary
         turn_data = {
             "speaker": turn.speaker,
-            "audio_chunks": turn.audio_chunks,
+            "audio_chunks": turn.audio_chunks if turn.audio_chunks else [],
             "text": turn.text,
             "turn_index": turn_index
         }
@@ -89,17 +89,17 @@ async def process_and_save_turn(turn: ConversationTurn, interview_id: str, turn_
         )
         
         logging.info(f"[{interview_id}] Turn {turn_index} DB save result: {result}")
-
+        
         # And dump the actual data being saved:
         logging.info(f"[{interview_id}] Turn {turn_index} data: speaker={turn_data.get('speaker')}, " +
-                     f"text length={len(turn_data.get('text', ''))}, " +
-                     f"audio_chunks={len(turn_data.get('audio_chunks', []))}")
+                    f"text length={len(turn_data.get('text', ''))}, " +
+                    f"audio_chunks={len(turn_data.get('audio_chunks', []))}")
         
         if result.get("status") == "success":
             logging.info(f"[{interview_id}] Successfully saved turn {turn_index} for {turn.speaker}.")
         else:
             logging.error(f"[{interview_id}] Failed to save turn {turn_index}: {result.get('reason')}")
-            
+    
     except Exception as e:
         logging.error(f"[{interview_id}] Error in process_and_save_turn for {turn.speaker} turn {turn_index}: {e}", exc_info=True)
 

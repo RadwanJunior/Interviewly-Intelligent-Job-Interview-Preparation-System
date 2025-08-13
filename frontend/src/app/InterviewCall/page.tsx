@@ -285,7 +285,7 @@ const InterviewCallContent = () => {
   const finishInterview = async () => {
     if (!isInterviewActive) {
       // If the interview is already over, just navigate
-      // router.push(`/Feedback?sessionId=${sessionId}`);
+      router.push(`/Feedback?sessionId=${sessionId}`);
       return;
     }
 
@@ -316,9 +316,9 @@ const InterviewCallContent = () => {
         });
 
         // Wait 2 seconds before redirecting to give user time to read the message
-        // setTimeout(() => {
-        //   router.push(`/Feedback?sessionId=${sessionId}`);
-        // }, 2000);
+        setTimeout(() => {
+          router.push(`/Feedback?sessionId=${sessionId}`);
+        }, 2000);
       } else {
         // Show error
         toast({
