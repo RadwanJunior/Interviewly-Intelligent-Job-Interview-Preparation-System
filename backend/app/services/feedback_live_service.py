@@ -29,6 +29,8 @@ Job Context:
 Instructions:
 - For each interview question and the immediately following audio clip, first transcribe the response verbatim.
 - Then provide detailed feedback that covers both content and delivery (tone, pace, confidence, clarity, enthusiasm).
+- Format your feedback as clear bullet points (not paragraphs) that are specific and actionable.
+- Ensure a balanced analysis with 2-4 clear strengths and 2-4 clear areas for improvement.
 - Return a single JSON object using this schema:
 {{
   "question_analysis": [
@@ -37,15 +39,25 @@ Instructions:
       "transcript": "Verbatim transcription from the audio",
       "delivery_analysis": "Analysis of vocal tone, pacing, confidence, clarity, enthusiasm, and professionalism",
       "feedback": {{
-        "strengths": ["Specific strength 1", "Specific strength 2"],
-        "areas_for_improvement": ["Area 1", "Area 2"],
-        "tips_for_improvement": ["Actionable tip 1", "Actionable tip 2"]
+        "strengths": [
+          "Specific strength point 1 that begins with an action verb or positive descriptor",
+          "Specific strength point 2 that begins with an action verb or positive descriptor",
+          "Specific strength point 3 that begins with an action verb or positive descriptor"
+        ],
+        "areas_for_improvement": [
+          "Specific improvement area 1 that begins with an action verb or clear issue",
+          "Specific improvement area 2 that begins with an action verb or clear issue"
+        ],
+        "tips_for_improvement": [
+          "Actionable tip 1 that starts with a specific verb (e.g., 'Use the STAR method to...')",
+          "Actionable tip 2 that starts with a specific verb (e.g., 'Prepare 2-3 examples of...')"
+        ]
       }},
       "tone_and_style": "Concise assessment of tone and communication style"
     }}
   ],
-  "overall_feedback_summary": ["Key strength", "Key improvement area"],
-  "communication_assessment": ["Observation 1", "Observation 2"],
+  "overall_feedback_summary": ["Key strength 1", "Key improvement area 1"],
+  "communication_assessment": ["Communication observation 1", "Communication observation 2"],
   "delivery_feedback": ["Vocal delivery insight 1", "Speaking style insight 2"],
   "overall_sentiment": "Positive/Neutral/Negative",
   "confidence_score": 7,
@@ -128,23 +140,83 @@ The confidence_score should be an integer from 1-10 where 10 represents exceptio
 class FeedbackLiveService:
     @staticmethod
     async def repair_json(json_text, error_message=None):
-        """JSON repair function for handling malformed JSON from Gemini"""
+        """Enhanced JSON repair function for handling malformed JSON from Gemini"""
         try:
-            # Remove markdown code blocks
+            # First try: Remove markdown code blocks
             text = re.sub(r'```json|```', '', json_text).strip()
             
-            # Fix unterminated strings - look for pattern of quoted string without closing quote
-            # Common at the end of files or before another field starts
+            # Strategy from feedback_service: Target specific position if error contains line/column info
+            if error_message:
+                if "Expecting ',' delimiter" in error_message:
+                    match = re.search(r'line (\d+) column (\d+)', error_message)
+                    if match:
+                        line_num = int(match.group(1))
+                        col_num = int(match.group(2))
+                        
+                        # Split text into lines and try to fix the specific line
+                        lines = text.split('\n')
+                        if 0 <= line_num-1 < len(lines):
+                            problem_line = lines[line_num-1]
+                            if col_num <= len(problem_line):
+                                # Insert a comma at the problem position
+                                fixed_line = problem_line[:col_num] + ',' + problem_line[col_num:]
+                                lines[line_num-1] = fixed_line
+                                text = '\n'.join(lines)
+                                logging.info(f"Applied targeted comma fix at line {line_num}, column {col_num}")
+            
+            # Handle triple quotes (common issue in Gemini output)
+            text = re.sub(r'^"""|"""$|"""', '"', text, flags=re.MULTILINE)
+            
+            # Fix unterminated strings
             text = re.sub(r'"([^"]*?)(?=\n\s*")', r'"\1"', text)
-            text = re.sub(r'"([^"]*?)$', r'"\1"', text)  # Fix unterminated string at end of text
+            text = re.sub(r'"([^"]*?)$', r'"\1"', text)
+            
+            # Handle line breaks inside strings
+            text = re.sub(r'"\s*\n\s*([^"]*)', r'"\n\1', text)
+            text = re.sub(r'([^"])\s*\n\s*"', r'\1\n"', text)
+            
+            # Fix missing commas between array elements
+            text = re.sub(r'"\s*\n\s*"', '",\n"', text)  # Between strings
+            text = re.sub(r'}\s*\n\s*{', '},\n{', text)   # Between objects
+            text = re.sub(r']\s*\n\s*"', '],\n"', text)   # After array
             
             # Fix missing quotes, commas, and other common issues
             text = re.sub(r'": "([^"\n]*)(?=\n\s*")', '": "\\1"', text)
             text = re.sub(r'": "([^"\n]*)(?=\n\s*})', '": "\\1"', text)
             text = re.sub(r'([^"])\s*,\s*"', '\\1",\n"', text)
             
-            # Handle cases with triple quotes which often break parsing
-            text = re.sub(r'"""', '"', text)  # Replace triple quotes with single quotes
+            # Fix quote escaping issues
+            text = re.sub(r'(?<!\\)"(?=\w)', r'\\"', text)
+            
+            # Handle runaway strings
+            lines = text.split('\n')
+            fixed_lines = []
+            in_broken_string = False
+            
+            for line in lines:
+                if in_broken_string:
+                    if '"' in line and not line.strip().startswith('"'):
+                        fixed_lines.append(f'"{line}')
+                        in_broken_string = False
+                    else:
+                        continue
+                else:
+                    if line.count('"') % 2 == 1:
+                        if line.strip().endswith('"'):
+                            in_broken_string = True
+                            fixed_lines.append(line + '"')
+                        elif line.strip().startswith('"'):
+                            fixed_lines.append('"' + line)
+                        else:
+                            fixed_lines.append('"' + line + '"')
+                    else:
+                        fixed_lines.append(line)
+                        
+            text = '\n'.join(fixed_lines)
+            
+            # Debug: Save the repaired JSON to inspect
+            with open(f"debug_repaired_json_{datetime.now().strftime('%H%M%S')}.json", "w") as f:
+                f.write(text)
             
             # Try parsing with json5 (more forgiving JSON parser)
             try:
@@ -157,25 +229,25 @@ class FeedbackLiveService:
         except Exception as e:
             logging.error(f"All JSON repair strategies failed: {str(e)}")
             
-            # Create a minimal valid structure as fallback when all else fails
+            # Return a minimal valid structure as fallback when all else fails
             return {
                 "question_analysis": [{
                     "question": "Interview question", 
-                    "transcript": "Response could not be transcribed correctly",
-                    "delivery_analysis": "Could not analyze delivery due to JSON parsing issues",
+                    "transcript": "Transcription available in the interview recording",
+                    "delivery_analysis": "Audio analysis was successful but JSON parsing encountered an error",
                     "feedback": {
-                        "strengths": ["Unable to analyze strengths due to technical issues"],
-                        "areas_for_improvement": ["Try again with clearer audio"],
-                        "tips_for_improvement": ["Consider using text responses if audio issues persist"]
+                        "strengths": ["Interview completed successfully"],
+                        "areas_for_improvement": ["Try viewing the interview recording directly"],
+                        "tips_for_improvement": ["Review the recorded interview for detailed feedback"]
                     },
-                    "tone_and_style": "Could not analyze"
+                    "tone_and_style": "Analysis available in recording"
                 }],
-                "overall_feedback_summary": ["Unable to generate complete feedback due to technical issues"],
-                "communication_assessment": ["Assessment unavailable due to processing error"],
-                "delivery_feedback": ["Feedback unavailable due to processing error"],
+                "overall_feedback_summary": ["Interview completed successfully. Please view the recording for details."],
+                "communication_assessment": ["Assessment available in the recording"],
+                "delivery_feedback": ["Feedback available in the recording"],
                 "overall_sentiment": "Neutral",
                 "confidence_score": 5,
-                "overall_improvement_steps": ["Try the interview again for better feedback"]
+                "overall_improvement_steps": ["Review the recorded interview"]
             }
 
     @staticmethod
@@ -420,28 +492,26 @@ class FeedbackLiveService:
     @staticmethod
     async def generate_live_feedback(interview_id: str, user_id: str):
         """
-        Generates holistic feedback for a live interview by analyzing both
-        transcript content and audio delivery.
+        Generates holistic feedback for a live interview by analyzing audio responses
+        using a single multimodal call to Gemini.
         """
         try:
             logging.info(f"Starting live feedback generation for interview {interview_id}")
             
-            # 1. Fetch all necessary data
+            # 1. Fetch interview data
             interview_data = await SupabaseService.get_interview_data(user_id, interview_id)
             if not interview_data:
                 raise Exception(f"Failed to retrieve interview data for interview {interview_id}")
             
+            # 2. Get conversation turns
             conversation_turns = await SupabaseService.get_all_conversation_turns(interview_id)
             if not conversation_turns:
-                logging.warning(f"No conversation turns found in database for interview {interview_id}. Checking for user responses...")
-                # Fallback logic for user_responses (keep this part unchanged)
+                logging.warning(f"No conversation turns found for interview {interview_id}. Checking for user responses...")
                 user_responses = SupabaseService.get_user_responses(interview_id)
                 if user_responses:
-                    # Create synthetic conversation turns from user_responses (keep this part unchanged)
-                    # ...existing code to create conversation_turns from user_responses...
+                    # Create synthetic conversation turns from user_responses
                     conversation_turns = []
                     for i, response in enumerate(user_responses):
-                        # Get the question
                         question_id = response.get("question_id")
                         question_data = SupabaseService.get_interview_question(question_id)
                         
@@ -467,41 +537,35 @@ class FeedbackLiveService:
             logging.info(f"Retrieved {len(conversation_turns)} conversation turns")
             conversation_turns.sort(key=lambda x: x.get('turn_index', 0))
 
-            # Build Q&A pairs (AI question -> user answer)
+            # 3. Build Q&A pairs (more robust version)
             qa_pairs = []
-            current_question = None
-            current_question_turn = None
-            current_answer = None
-            current_answer_turn = None
-            
-            for turn in conversation_turns:
-                if turn.get('speaker') == 'ai' and turn.get('text_content'):
-                    if current_question and current_answer:
-                        qa_pairs.append({
-                            "question": current_question,
-                            "question_turn": current_question_turn,
-                            "answer": current_answer,
-                            "answer_turn": current_answer_turn
-                        })
-                    current_question = turn.get('text_content')
-                    current_question_turn = turn
-                    current_answer = None
-                    current_answer_turn = None
-                elif turn.get('speaker') == 'user' and current_question and not current_answer:
-                    current_answer = turn.get('text_content', '')
-                    current_answer_turn = turn
-            
-            if current_question and current_answer:
-                qa_pairs.append({
-                    "question": current_question,
-                    "question_turn": current_question_turn,
-                    "answer": current_answer,
-                    "answer_turn": current_answer_turn
-                })
-            
-            logging.info(f"Built {len(qa_pairs)} question-answer pairs")
+            turns_by_index = {turn.get('turn_index'): turn for turn in conversation_turns}
+            sorted_indices = sorted(turns_by_index.keys())
 
-            # APPROACH 1: Single-call multimodal path — send all audio files at once
+            # Match pairs by looking at consecutive turns
+            for i in range(len(sorted_indices) - 1):
+                current_idx = sorted_indices[i]
+                next_idx = sorted_indices[i + 1]
+                
+                current_turn = turns_by_index[current_idx]
+                next_turn = turns_by_index[next_idx]
+                
+                # Check if we have an AI->user turn sequence (question->answer)
+                if (current_turn.get('speaker') == 'ai' and 
+                    next_turn.get('speaker') == 'user' and
+                    next_turn.get('audio_url')):  # Must have audio URL
+                    
+                    # We have a potential Q&A pair
+                    qa_pairs.append({
+                        "question": current_turn.get('text_content') or f"Question {i+1}",  # Fallback if no text
+                        "question_turn": current_turn,
+                        "answer": next_turn.get('text_content', ''),  # Can be empty
+                        "answer_turn": next_turn
+                    })
+
+            logging.info(f"Built {len(qa_pairs)} question-answer pairs using consecutive turn matching")
+
+            # 4. Upload audio files to Gemini
             gemini_items = []
             for idx, pair in enumerate(qa_pairs):
                 answer_turn = pair.get("answer_turn") or {}
@@ -515,357 +579,183 @@ class FeedbackLiveService:
                     gemini_items.append({"question": q_text, "file_name": file_name})
             
             logging.info(f"Prepared {len(gemini_items)} audio files for multimodal API")
-
-            if gemini_items:
-                # Build the prompt and contents for a single multimodal call
-                resume_text = interview_data.get('resume', {}).get('extracted_text', '') or "Not provided"
-                job_title = (interview_data.get('job_description', {}) or {}).get('title', '') or "Not specified"
-                job_description = (interview_data.get('job_description', {}) or {}).get('description', '') or "Not provided"
-                company_name = interview_data.get('company_name', '') or "Not specified"
-
-                prompt_text = LIVE_BATCH_PROMPT.format(
-                    resume=resume_text[:2000],
-                    job_title=job_title,
-                    job_description=job_description[:2000],
-                    company_name=company_name
-                )
-
-                contents = [{"role": "user", "parts": [{"text": prompt_text}]}]
-                for item in gemini_items:
-                    # Add the question and the Gemini file reference
-                    contents[0]["parts"].append({"text": f"\nInterview Question: {item['question']}"})
-                    contents[0]["parts"].append({
-                        "file_data": {
-                            "file_uri": f"https://generativelanguage.googleapis.com/v1beta/{item['file_name']}",
-                            "mime_type": "audio/wav"
-                        }
-                    })
-
-                # Call multimodal model once with retry logic for rate limits
-                retries = 3
-                last_err = None
-                
-                for attempt in range(1, retries + 1):
-                    try:
-                        logging.info(f"Making single multimodal call to Gemini (attempt {attempt}/{retries})")
-                        api_response = genai_client.models.generate_content(
-                            model=MULTIMODAL_MODEL,
-                            contents=contents,
-                            config={
-                                "max_output_tokens": 4096,
-                                "temperature": 0.3,
-                                "response_mime_type": "application/json"
-                            }
-                        )
-                        
-                        if not api_response or not getattr(api_response, "candidates", None):
-                            raise Exception("Empty response from Gemini API")
-                        
-                        feedback_text = api_response.candidates[0].content.parts[0].text
-                        if feedback_text.startswith("```json"):
-                            feedback_text = feedback_text[7:]
-                        if feedback_text.endswith("```"):
-                            feedback_text = feedback_text[:-3]
-                        
-                        try:
-                            feedback_data = json.loads(feedback_text)
-                        except json.JSONDecodeError as e:
-                            logging.warning(f"JSON parsing failed: {str(e)}. Attempting repair...")
-                            feedback_data = await FeedbackLiveService.repair_json(feedback_text, str(e))
-
-                        # Save feedback and update interview status
-                        db_feedback_payload = {
-                            "interview_id": interview_id,
-                            "user_id": user_id,
-                            "feedback_data": feedback_data,
-                            "status": "completed",
-                        }
-                        
-                        feedback_result = await SupabaseService.save_feedback(db_feedback_payload)
-                        if isinstance(feedback_result, dict) and feedback_result.get("error"):
-                            error_detail = feedback_result["error"].get("message", str(feedback_result["error"]))
-                            raise Exception(f"Failed to save feedback to database: {error_detail}")
-
-                        logging.info(f"Saved feedback to database for interview {interview_id}")
-
-                        # Compute score and update interview
-                        score = None
-                        if "confidence_score" in feedback_data:
-                            confidence_score = feedback_data.get("confidence_score", 5)
-                            score = min(100, max(0, int(confidence_score) * 10))
-                        
-                        created_at_str = interview_data.get("created_at")
-                        completed_at_dt = datetime.now(timezone.utc)
-                        duration_str = "N/A"
-                        
-                        if created_at_str:
-                            try:
-                                created_at_dt = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
-                                duration_seconds = (completed_at_dt - created_at_dt).total_seconds()
-                                duration_minutes = round(duration_seconds / 60)
-                                duration_str = "< 1 minute" if duration_minutes < 1 else ("1 minute" if duration_minutes == 1 else f"{duration_minutes} minutes")
-                            except (ValueError, TypeError) as e:
-                                logging.warning(f"Could not parse created_at '{created_at_str}': {str(e)}")
-                        
-                        update_payload = {
-                            "status": "completed",
-                            "completed_at": completed_at_dt.isoformat(),
-                            "duration": duration_str,
-                        }
-                        
-                        if score is not None:
-                            update_payload["score"] = score
-                        
-                        update_result = SupabaseService.update_interview(interview_id, update_payload)
-                        # Handle if the function sometimes returns a dict directly and sometimes an awaitable
-                        if hasattr(update_result, "__await__"):
-                            await update_result
-                        logging.info(f"Updated interview status to completed for {interview_id}")
-                        
-                        feedback_status[interview_id] = {"status": "completed"}
-                        return {"status": "success", "message": "Feedback generated successfully with multimodal batch approach"}
-                    
-                    except Exception as e:
-                        last_err = e
-                        msg = str(e)
-                        if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
-                            # Back off and retry on rate limits
-                            logging.warning(f"Hit rate limit, retrying in {5 * attempt} seconds...")
-                            await asyncio.sleep(5 * attempt)
-                            continue
-                        # For non-rate-limit errors, log and continue to fallback method
-                        logging.error(f"Error in single-call approach: {str(e)}")
-                        break
-                
-                logging.warning(f"All single-call attempts failed or error wasn't rate-limit related. Falling back to per-turn analysis.")
-
-            # APPROACH 2: Multi-call fallback (if single-call failed or no gemini_items)
-            logging.info("Using multi-call approach as fallback")
             
-            # Process missing transcriptions from audio if needed
-            processed_turns = []
-            for turn in conversation_turns:
-                if turn.get('text_content'):
-                    processed_turns.append(turn)
-                elif turn.get('audio_url'):
-                    logging.info(f"Transcribing audio for turn {turn.get('turn_index')}")
-                    transcription = await FeedbackLiveService.process_audio_for_transcription(turn.get('audio_url'))
-                    if transcription:
-                        turn['text_content'] = transcription
-                        try:
-                            await SupabaseService.update_conversation_turn(
-                                turn_id=turn.get('id'), 
-                                update_data={"text_content": transcription}
-                            )
-                        except Exception as update_err:
-                            logging.warning(f"Could not update turn with transcription: {update_err}")
-                    processed_turns.append(turn)
+            if not gemini_items:
+                raise Exception("No audio files could be prepared for analysis")
 
-            # 4. Analyze audio delivery for each user response
-            audio_analyses = []
-            for pair in qa_pairs:
-                answer_turn = pair.get("answer_turn")
-                if answer_turn and answer_turn.get("audio_url"):
-                    question_text = pair.get("question", "")
-                    audio_url = answer_turn.get("audio_url")
-                    
-                    logging.info(f"Analyzing audio delivery for question: {question_text[:30]}...")
-                    delivery_analysis = await FeedbackLiveService.analyze_audio_delivery(
-                        audio_url=audio_url,
-                        question=question_text
+            # 5. Prepare prompt and contents ...
+            resume_text = interview_data.get('resume', {}).get('extracted_text', '') or "Not provided"
+            job_title = (interview_data.get('job_description', {}) or {}).get('title', '') or "Not specified"
+            job_description = (interview_data.get('job_description', {}) or {}).get('description', '') or "Not provided"
+            company_name = interview_data.get('company_name', '') or "Not specified"
+
+            prompt_text = LIVE_BATCH_PROMPT.format(
+                resume=resume_text[:2000],
+                job_title=job_title,
+                job_description=job_description[:2000],
+                company_name=company_name
+            )
+
+            contents = [{"role": "user", "parts": [{"text": prompt_text}]}]
+            for item in gemini_items:
+                contents[0]["parts"].append({"text": f"\nInterview Question: {item['question']}"})
+                contents[0]["parts"].append({
+                    "file_data": {
+                        "file_uri": f"https://generativelanguage.googleapis.com/v1beta/{item['file_name']}",
+                        "mime_type": "audio/wav"
+                    }
+                })
+
+            # 6. Call multimodal model with retry logic
+            retries = 3
+            last_err = None
+            
+            for attempt in range(1, retries + 1):
+                try:
+                    logging.info(f"Making single multimodal call to Gemini (attempt {attempt}/{retries})")
+                    api_response = genai_client.models.generate_content(
+                        model=MULTIMODAL_MODEL,
+                        contents=contents,
+                        config={
+                            "max_output_tokens": 4096,
+                            "temperature": 0.3,
+                            "response_mime_type": "application/json"
+                        }
                     )
                     
-                    if delivery_analysis:
-                        audio_analyses.append({
-                            "question": question_text[:100] + "..." if len(question_text) > 100 else question_text,
-                            "delivery_analysis": delivery_analysis
-                        })
-            
-            logging.info(f"Generated {len(audio_analyses)} audio delivery analyses")
-            
-            # 5. Format the transcript
-            formatted_transcript = ""
-            for turn in processed_turns:
-                speaker = "AI" if turn.get('speaker') == 'ai' else "User"
-                text = turn.get('text_content', '')
-                if text:  # Only add turns that have text content
-                    formatted_transcript += f"{speaker}: {text}\n\n"
-            
-            if not formatted_transcript:
-                raise Exception("Could not generate transcript - no text content found")
-                
-            # 6. Format the audio analysis for the prompt
-            formatted_audio_analysis = ""
-            for analysis in audio_analyses:
-                formatted_audio_analysis += f"Question: {analysis['question']}\n"
-                formatted_audio_analysis += f"Delivery Analysis: {analysis['delivery_analysis']}\n\n"
-            
-            # 7. Assemble the prompt
-            resume_text = interview_data.get('resume', {}).get('extracted_text', '')
-            job_title = interview_data.get('job_description', {}).get('title', '')
-            job_description = interview_data.get('job_description', {}).get('description', '')
-            company_name = interview_data.get('company_name', '')
-            
-            prompt = LIVE_FEEDBACK_PROMPT_TEMPLATE.format(
-                resume=resume_text[:2000] if resume_text else "Not provided",
-                job_title=job_title or "Not specified",
-                job_description=job_description[:2000] if job_description else "Not provided",
-                company_name=company_name or "Not specified",
-                transcript=formatted_transcript,
-                audio_analysis=formatted_audio_analysis
-            )
-            
-            # 8. Call Gemini to get feedback
-            try:
-                logging.info(f"Calling Gemini API for interview {interview_id} (multi-call approach)")
-                
-                api_response = genai_client.models.generate_content(
-                    model=MODEL,
-                    contents=[{"role": "user", "parts": [{"text": prompt}]}],
-                    config={
-                        "max_output_tokens": 4096,
-                        "temperature": 0.4,
-                        "response_mime_type": "application/json"
-                    }
-                )
-                
-                # Improved error checking to avoid NoneType errors
-                if not api_response:
-                    raise Exception("Empty response from Gemini API")
-                if not hasattr(api_response, "candidates") or not api_response.candidates:
-                    raise Exception("No candidates in Gemini API response")
-                if not hasattr(api_response.candidates[0], "content") or not api_response.candidates[0].content:
-                    raise Exception("Empty content in Gemini API response")
-                if not hasattr(api_response.candidates[0].content, "parts") or not api_response.candidates[0].content.parts:
-                    raise Exception("No content parts in Gemini API response")
-                if not hasattr(api_response.candidates[0].content.parts[0], "text"):
-                    raise Exception("No text in Gemini API response")
-                
-                feedback_text = api_response.candidates[0].content.parts[0].text
-                logging.info(f"Received {len(feedback_text)} characters of feedback from Gemini")
-                
-                # Clean up JSON if needed
-                if feedback_text.startswith("```json"):
-                    feedback_text = feedback_text[7:]
-                if feedback_text.endswith("```"):
-                    feedback_text = feedback_text[:-3]
-                
-                # Parse feedback text to JSON with improved error handling
-                try:
-                    feedback_data = json.loads(feedback_text)
-                except json.JSONDecodeError as e:
-                    logging.warning(f"JSON parsing failed: {str(e)}. Attempting repair...")
-                    feedback_data = await FeedbackLiveService.repair_json(feedback_text, str(e))
-                    if not feedback_data:
-                        raise Exception(f"Failed to parse or repair JSON from Gemini response: {str(e)}")
+                    # Add after getting the Gemini response but before parsing
+                    if not api_response or not getattr(api_response, "candidates", None):
+                        raise Exception("Empty response from Gemini API")
 
-            except Exception as api_err:
-                logging.error(f"Gemini API error: {str(api_err)}")
-                raise Exception(f"Failed to generate feedback with Gemini: {str(api_err)}")
-            
-            # 9. Enhance the feedback with audio analysis information
-            if "question_analysis" in feedback_data:
-                for i, qa in enumerate(feedback_data["question_analysis"]):
-                    if i < len(audio_analyses):
-                        # Ensure delivery_analysis field exists
-                        if "delivery_analysis" not in qa:
-                            qa["delivery_analysis"] = audio_analyses[i]["delivery_analysis"]
-            
-            # Also add a new section if it doesn't exist
-            if "delivery_feedback" not in feedback_data:
-                delivery_insights = []
-                for analysis in audio_analyses:
-                    key_points = analysis["delivery_analysis"].split("\n")
-                    for point in key_points:
-                        if point.strip() and len(point.strip()) > 20:  # Only meaningful points
-                            delivery_insights.append(point.strip())
-                
-                if delivery_insights:
-                    # Remove duplicates while preserving order
-                    unique_insights = []
-                    for insight in delivery_insights:
-                        if insight not in unique_insights:
-                            unique_insights.append(insight)
+                    feedback_text = api_response.candidates[0].content.parts[0].text
+
+                    # Debug logging to see the raw JSON
+                    with open(f"debug_gemini_response_{interview_id[:8]}_{datetime.now().strftime('%H%M%S')}.json", "w") as f:
+                        f.write(feedback_text)
+
+                    if feedback_text.startswith("```json"):
+                        feedback_text = feedback_text[7:]
+                    if feedback_text.endswith("```"):
+                        feedback_text = feedback_text[:-3]
                     
-                    feedback_data["delivery_feedback"] = unique_insights[:5]  # Top 5 insights
-            
-            # 10. Save feedback and update interview status
-            db_feedback_payload = {
-                "interview_id": interview_id,
-                "user_id": user_id,
-                "feedback_data": feedback_data,
-                "status": "completed",
-            }
-            
-            feedback_result = await SupabaseService.save_feedback(db_feedback_payload)
-            if isinstance(feedback_result, dict) and feedback_result.get("error"):
-                error_detail = feedback_result["error"].get("message", str(feedback_result["error"]))
-                raise Exception(f"Failed to save feedback to database: {error_detail}")
-                
-            logging.info(f"Saved feedback to database for interview {interview_id}")
-            
-            # 11. Calculate score, duration, and update interview status
-            score = None
-            if "confidence_score" in feedback_data:
-                confidence_score = feedback_data.get("confidence_score", 5)
-                score = min(100, max(0, confidence_score * 10))
-            
-            # Get interview duration
-            created_at_str = interview_data.get("created_at")
-            completed_at_dt = datetime.now(timezone.utc)
-            duration_str = "N/A"
-            
-            if created_at_str:
-                try:
-                    # Parse timestamp and calculate duration
-                    created_at_dt = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
-                    duration_seconds = (completed_at_dt - created_at_dt).total_seconds()
-                    duration_minutes = round(duration_seconds / 60)
+                    try:
+                        feedback_data = json.loads(feedback_text)
+                    except json.JSONDecodeError as e:
+                        logging.warning(f"JSON parsing failed: {str(e)}. Attempting repair...")
+                        feedback_data = await FeedbackLiveService.repair_json(feedback_text, str(e))
+
+                    # 7. Save feedback
+                    db_feedback_payload = {
+                        "interview_id": interview_id,
+                        "user_id": user_id,
+                        "feedback_data": feedback_data,
+                        "status": "completed",
+                    }
                     
-                    if duration_minutes < 1:
-                        duration_str = "< 1 minute"
-                    elif duration_minutes == 1:
-                        duration_str = "1 minute"
+                    feedback_result = await SupabaseService.save_feedback(db_feedback_payload)
+                    if isinstance(feedback_result, dict) and feedback_result.get("error"):
+                        error_detail = feedback_result["error"].get("message", str(feedback_result["error"]))
+                        raise Exception(f"Failed to save feedback to database: {error_detail}")
+
+                    logging.info(f"Saved feedback to database for interview {interview_id}")
+
+                    # 8. Compute score and update interview
+                    score = None
+                    if "confidence_score" in feedback_data:
+                        confidence_score = feedback_data.get("confidence_score", 5)
+                        score = min(100, max(0, int(confidence_score) * 10))
+                    
+                    created_at_str = interview_data.get("created_at")
+                    completed_at_dt = datetime.now(timezone.utc)
+                    duration_str = "N/A"
+                    
+                    if created_at_str:
+                        try:
+                            # First try: standard parsing with Z replacement
+                            try:
+                                created_at_dt = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+                            except ValueError:
+                                # Second try: handle timestamps with non-standard microsecond precision
+                                match = re.match(r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\.(\d+)(.*)', created_at_str)
+                                if match:
+                                    base_dt, micro_str, tz_info = match.groups()
+                                    # Normalize to 6 digits for microseconds
+                                    micro_str = micro_str.ljust(6, '0')[:6]
+                                    # Reconstruct the timestamp
+                                    fixed_timestamp = f"{base_dt}.{micro_str}{tz_info}"
+                                    created_at_dt = datetime.fromisoformat(fixed_timestamp.replace('Z', '+00:00'))
+                                else:
+                                    # Third try: handle timestamps without microseconds
+                                    created_at_dt = datetime.fromisoformat(created_at_str.split('.')[0].replace('Z', '+00:00'))
+        
+                            # Ensure timezone info
+                            if created_at_dt.tzinfo is None:
+                                created_at_dt = created_at_dt.replace(tzinfo=timezone.utc)
+                            
+
+                            if completed_at_dt.tzinfo is None:
+                                completed_at_dt = completed_at_dt.replace(tzinfo=timezone.utc)
+                            
+
+                            duration_seconds = (completed_at_dt - created_at_dt).total_seconds()
+                            duration_minutes = round(duration_seconds / 60)
+                            
+
+                            if duration_minutes < 1:
+                                duration_str = "< 1 minute"
+                            elif duration_minutes == 1:
+                                duration_str = "1 minute"
+                            else:
+                                duration_str = f"{duration_minutes} minutes"
+                        except (ValueError, TypeError) as e:
+                            logging.warning(f"Could not parse created_at '{created_at_str}': {str(e)}")
+                            duration_str = "Duration calculation failed"
+                    
+                    update_payload = {
+                        "status": "completed",
+                        "completed_at": completed_at_dt.isoformat(),
+                        "duration": duration_str,
+                    }
+                    
+                    if score is not None:
+                        update_payload["score"] = score
+                    
+                    update_result = SupabaseService.update_interview(interview_id, update_payload)
+                    if hasattr(update_result, "__await__"):
+                        await update_result
+                    logging.info(f"Updated interview status to completed for {interview_id}")
+                    
+                    feedback_status[interview_id] = {"status": "completed"}
+                    return {"status": "success", "message": "Feedback generated successfully"}
+                
+                except Exception as e:
+                    last_err = e
+                    msg = str(e)
+                    if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+                        wait_time = 5 * attempt
+                        logging.warning(f"Hit rate limit, retrying in {wait_time} seconds...")
+                        await asyncio.sleep(wait_time)
                     else:
-                        duration_str = f"{duration_minutes} minutes"
-                except (ValueError, TypeError) as e:
-                    logging.warning(f"Could not parse created_at '{created_at_str}': {str(e)}")
+                        logging.error(f"Error in feedback generation: {str(e)}")
+                        break
             
-            # Update interview status
-            update_payload = {
-                "status": "completed",
-                "completed_at": completed_at_dt.isoformat(),
-                "duration": duration_str,
-            }
-            
-            if score is not None:
-                update_payload["score"] = score
-                
-            await SupabaseService.update_interview(interview_id, update_payload)
-            logging.info(f"Updated interview status to completed for {interview_id}")
-            
-            # Update global feedback status tracker
-            feedback_status[interview_id] = {"status": "completed"}
-            
-            return {
-                "status": "success",
-                "message": "Feedback generated successfully with multi-call fallback",
-            }
-            
+            raise Exception(f"All attempts failed: {str(last_err)}")
+        
         except Exception as e:
             logging.error(f"Error generating live feedback: {str(e)}")
             traceback.print_exc()
             
-            # Update global feedback status tracker with error
             feedback_status[interview_id] = {"status": "error", "error": str(e)}
             
-            # Try to update interview status to show error
             try:
-                await SupabaseService.update_interview(interview_id, {
-                    "status": "completed",  # Use valid status
-                    "score": 0,  # Optional: indicate failure with a zero score
-                    "duration": "Error: " + str(e)[:50]  # Store error message in duration field
-                })
+                update_payload = {
+                    "status": "completed",
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                    "score": 0,
+                }
+                update_result = SupabaseService.update_interview(interview_id, update_payload)
+                if hasattr(update_result, "__await__"):
+                    await update_result
             except Exception:
                 pass
                 

@@ -30,18 +30,77 @@ const InterviewCallContent = () => {
   const [isInterviewActive, setIsInterviewActive] = useState(false);
   const [isGeminiSpeaking, setIsGeminiSpeaking] = useState(false);
   const [audioQueue, setAudioQueue] = useState<Blob[]>([]);
-  const [reconnectAttempts, setReconnectAttempts] = useState(0); // New state for reconnect attempts
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [userSilenceTimer, setUserSilenceTimer] =
+    useState<NodeJS.Timeout | null>(null);
+  const [currentTranscription, setCurrentTranscription] = useState<string>("");
+  const [forcedEndCount, setForcedEndCount] = useState(0);
 
   // Refs
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const audioQueueRef = useRef<ArrayBuffer[]>([]);
-  const nextPlayTimeRef = useRef<number>(0);
+  const lastActivityTimeRef = useRef<number>(Date.now());
 
-  // VAD Hook Integration with streaming callbacks
-  // In InterviewCallContent.tsx
+  // Speech recognition for transcription backup
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
+  // Initialize speech recognition if available
+  useEffect(() => {
+    if ("SpeechRecognition" in window || "webkitSpeechRecognition" in window) {
+      const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+
+      recognitionRef.current.onresult = (event) => {
+        const transcript = Array.from(event.results)
+          .map((result) => result[0].transcript)
+          .join(" ");
+        setCurrentTranscription(transcript);
+      };
+    }
+  }, []);
+
+  // Start silence detection timer
+  const startSilenceDetection = () => {
+    // Clear any existing timer
+    if (userSilenceTimer) {
+      clearTimeout(userSilenceTimer);
+    }
+
+    // Set a new timer that will force USER_AUDIO_END after 2 seconds of silence
+    const timer = setTimeout(() => {
+      // Only force end if the user was speaking and now it's been silent for a while
+      const timeElapsed = Date.now() - lastActivityTimeRef.current;
+      if (timeElapsed > 2000 && isInterviewActive && !isGeminiSpeaking) {
+        console.log("Silence detected for 2 seconds, forcing USER_AUDIO_END");
+        forceSendUserAudioEnd();
+        setForcedEndCount((prev) => prev + 1);
+      }
+    }, 2000);
+
+    setUserSilenceTimer(timer);
+  };
+
+  // Function to force send USER_AUDIO_END with transcription
+  const forceSendUserAudioEnd = () => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: "USER_AUDIO_END",
+          transcription: currentTranscription,
+          forced: true,
+        })
+      );
+      console.log(
+        "Forced USER_AUDIO_END sent with transcription:",
+        currentTranscription.substring(0, 50) + "..."
+      );
+    }
+  };
+
+  // VAD Hook Integration with streaming callbacks and safety mechanisms
   const {
     isSpeaking: isUserSpeaking,
     start: startVAD,
@@ -49,8 +108,20 @@ const InterviewCallContent = () => {
   } = useVAD({
     onSpeechStart: () => {
       setStatus("Listening...");
+      // Start speech recognition when user starts speaking
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+        } catch (e) {
+          // Speech recognition might already be started
+        }
+      }
+      lastActivityTimeRef.current = Date.now();
     },
     onAudioChunk: (chunk: ArrayBufferLike) => {
+      // Update last activity time to prevent premature USER_AUDIO_END
+      lastActivityTimeRef.current = Date.now();
+
       // 1. Check connection state with more detailed error feedback
       if (!wsRef.current) {
         console.error("WebSocket connection not initialized");
@@ -95,11 +166,30 @@ const InterviewCallContent = () => {
           attemptReconnect();
           break;
       }
+
+      // Reset the silence detection timer since we have audio activity
+      startSilenceDetection();
     },
     onSpeechEnd: () => {
       setStatus("Thinking...");
+      // Stop speech recognition
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          // Speech recognition might already be stopped
+        }
+      }
+
+      // Send USER_AUDIO_END with transcription when speech ends
       if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: "USER_AUDIO_END" }));
+        console.log("Natural speech end detected, sending USER_AUDIO_END");
+        wsRef.current.send(
+          JSON.stringify({
+            type: "USER_AUDIO_END",
+            transcription: currentTranscription,
+          })
+        );
       }
     },
   });
@@ -275,14 +365,40 @@ const InterviewCallContent = () => {
 
   const finishInterview = async () => {
     if (!isInterviewActive) {
-      // If the interview is already over, just navigate
       router.push(`/Feedback?sessionId=${sessionId}`);
       return;
     }
 
-    // 1. Stop all client-side processes
+    // Always send USER_AUDIO_END before finishing, whether or not VAD detects user speaking
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      console.log("Interview ending, sending final USER_AUDIO_END");
+      wsRef.current.send(
+        JSON.stringify({
+          type: "USER_AUDIO_END",
+          transcription: currentTranscription,
+          final: true,
+        })
+      );
+
+      // Small delay to ensure message is sent before closing
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+
     setIsInterviewActive(false);
     stopVAD();
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        // Speech recognition might already be stopped
+      }
+    }
+
+    if (userSilenceTimer) {
+      clearTimeout(userSilenceTimer);
+    }
+
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.close();
     }
@@ -290,7 +406,6 @@ const InterviewCallContent = () => {
     setStatus("Finalizing and generating feedback...");
 
     try {
-      // 2. Use the API function instead of direct fetch
       const result = await triggerLiveFeedbackGeneration(sessionId as string);
 
       if (
@@ -298,20 +413,16 @@ const InterviewCallContent = () => {
         result.status === "already_processing" ||
         result.status === "exists"
       ) {
-        // Show success message
         toast({
           title: "Interview Completed",
           description:
             "Your feedback is being prepared. You'll be redirected in a moment.",
           duration: 5000,
         });
-
-        // Wait 2 seconds before redirecting to give user time to read the message
         setTimeout(() => {
           router.push(`/Feedback?sessionId=${sessionId}`);
         }, 2000);
       } else {
-        // Show error
         toast({
           title: "Error",
           description:
@@ -346,7 +457,7 @@ const InterviewCallContent = () => {
 
   // New function for reconnection logic
   const attemptReconnect = () => {
-    const MAX_RECONNECT_ATTEMPTS = 5; // Maximum number of reconnection attempts
+    const MAX_RECONNECT_ATTEMPTS = 3; // Maximum number of reconnection attempts
     if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
       setTimeout(() => {
         // Reconnection code here
@@ -358,8 +469,27 @@ const InterviewCallContent = () => {
     }
   };
 
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: "USER_AUDIO_END" }));
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen w-full bg-gray-100 flex items-center justify-center p-4">
+      {/* Add a debugging indicator for forced ends if needed */}
+      {forcedEndCount > 0 && (
+        <div className="absolute top-2 right-2 bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">
+          Audio safety triggers: {forcedEndCount}
+        </div>
+      )}
       <main className="w-full max-w-6xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[70vh] max-h-[700px]">
           <div className="bg-gray-900 rounded-lg overflow-hidden shadow-xl">
@@ -403,6 +533,60 @@ const InterviewCallContent = () => {
     </div>
   );
 };
+
+// TypeScript global declarations for the Speech Recognition API
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+  message: string;
+}
+
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+}
+
+interface SpeechRecognitionResultList {
+  readonly length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  readonly length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+  isFinal: boolean;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onerror: (event: SpeechRecognitionErrorEvent) => void;
+  onend: () => void;
+  onstart: () => void;
+}
+
+declare let SpeechRecognition: {
+  prototype: SpeechRecognition;
+  new (): SpeechRecognition;
+};
+
+declare global {
+  interface Window {
+    SpeechRecognition?: typeof SpeechRecognition;
+    webkitSpeechRecognition?: typeof SpeechRecognition;
+  }
+}
 
 const InterviewCallPage = () => <InterviewCallContent />;
 export default InterviewCallPage;

@@ -6,6 +6,7 @@ import time
 from datetime import datetime, timezone
 from gotrue.errors import AuthApiError
 from urllib.parse import urlparse
+import logging
 
 
 load_dotenv()
@@ -433,11 +434,23 @@ class SupabaseService:
             
             # Generate and return the public URL
             if "error" not in response:
-                file_url = supabase_client.storage.from_(bucket_name).get_public_url(
-                    storage_path
-                )
-                return file_url
-            return response
+                try:
+                    # Get public URL directly instead of relying on upload response
+                    file_url = supabase_client.storage.from_(bucket_name).get_public_url(storage_path)
+                    return file_url
+                except Exception as url_err:
+                    print(f"ERROR: Could not get public URL, trying signed URL: {url_err}")
+                    try:
+                        # Try signed URL as fallback
+                        signed_url = supabase_client.storage.from_(bucket_name).create_signed_url(
+                            storage_path, 
+                            60 * 60 * 24 # 24 hour expiry
+                        )
+                        return signed_url
+                    except Exception as signed_err:
+                        print(f"ERROR: Could not get signed URL either: {signed_err}")
+                        # Return upload response as last resort
+                        return response
         except Exception as e:
             return {"error": {"message": str(e)}}
     
@@ -511,7 +524,7 @@ class SupabaseService:
         """
         try:
             response = supabase_client.table("user_responses").update({"processed": True}).eq("interview_id", interview_id).execute()
-            return response.data if hasattr(response, "data") else response
+            return response.data if hasattr(response, "data") and response.data else {"message": "No records updated"}
         except Exception as e:
             return {"error": {"message": str(e)}}
 
@@ -670,7 +683,7 @@ class SupabaseService:
         if not bucket or not obj_path:
             return ""
         try:
-            signed = supabase_client.storage.from_(bucket).create_signed_url(obj_path, expires_in=expires_in)
+            signed = supabase_client.storage.from_(bucket).create_signed_url(obj_path, expires_in)
             # Pull out actual string URL from supabase response shapes
             out = None
             if hasattr(signed, "data") and isinstance(signed.data, dict):
@@ -684,47 +697,48 @@ class SupabaseService:
     @staticmethod
     async def upload_audio_to_storage(user_id: str, interview_id: str, audio_data: bytes, filename: str) -> str:
         """
-        Upload audio and return a fetchable URL. We return a signed URL to work with private buckets.
+        Uploads audio data to Supabase Storage and returns the URL.
         """
         try:
+            bucket_name = "recordings"
             storage_path = f"{user_id}/{interview_id}/{filename}"
-            # Upload to 'recordings' bucket
-            result = supabase_client.storage.from_("recordings").upload(
-                path=storage_path,
-                file=audio_data,
-                file_options={"content-type": "audio/wav", "upsert": True}
+            
+            # Upload the audio data
+            logging.info(f"Uploading {len(audio_data)} bytes to {storage_path}")
+            upload_response = supabase_client.storage.from_(bucket_name).upload(
+                storage_path,
+                audio_data
             )
-            if hasattr(result, 'error') and result.error:
-                print(f"Storage upload error: {result.error}")
-                return ""
-
-            # Prefer signed URL (works irrespective of bucket public setting)
-            signed = supabase_client.storage.from_("recordings").create_signed_url(storage_path, expires_in=60 * 60 * 24)
-            url = None
-            if hasattr(signed, "data") and isinstance(signed.data, dict):
-                url = signed.data.get("signedUrl")
-            elif isinstance(signed, dict):
-                url = signed.get("signedUrl")
-
-            # Fallback to public URL if signing failed
-            if not url:
-                public_resp = supabase_client.storage.from_("recordings").get_public_url(storage_path)
-                if hasattr(public_resp, "data") and isinstance(public_resp.data, dict):
-                    url = public_resp.data.get("publicUrl") or public_resp.data.get("public_url")
-                elif isinstance(public_resp, dict):
-                    url = public_resp.get("publicUrl") or public_resp.get("public_url")
-                elif isinstance(public_resp, str):
-                    url = public_resp
-
-            if not url:
-                print("No URL returned for uploaded audio")
-                return ""
-
-            url = SupabaseService.normalize_public_url(url)
-            print(f"Audio uploaded successfully: {url}")
-            return url
-        except Exception:
-            return ""
+            
+            # Check for error in response
+            if isinstance(upload_response, dict) and upload_response.get("error"):
+                logging.error(f"Upload error: {upload_response.get('error')}")
+                return None
+                
+            # Generate the public URL directly (don't try to extract from response)
+            try:
+                # For public buckets, get the public URL
+                public_url = supabase_client.storage.from_(bucket_name).get_public_url(storage_path)
+                logging.info(f"Generated public URL: {public_url}")
+                return public_url
+            except Exception as e:
+                logging.error(f"Error generating public URL: {str(e)}")
+                
+                # Try signed URL as backup
+                try:
+                    signed_url = supabase_client.storage.from_(bucket_name).create_signed_url(
+                        storage_path,
+                        3600  # 1 hour expiry
+                    )
+                    logging.info(f"Generated signed URL as fallback")
+                    return signed_url
+                except Exception as sign_err:
+                    logging.error(f"Error generating signed URL: {str(sign_err)}")
+                    
+            return None
+        except Exception as e:
+            logging.error(f"Error uploading audio to storage: {str(e)}")
+            return None
 
     @staticmethod
     async def save_conversation_turn(turn_data: dict):

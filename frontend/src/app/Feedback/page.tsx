@@ -146,41 +146,50 @@ const Feedback = () => {
       // Get the strengths and improvements from the feedback structure with safety checks
       let feedbackArray: string[] = [];
 
+      // Replace just the specific part handling the feedback array extraction (lines 143-184)
+
+      // Get the strengths and improvements from the feedback structure with safety checks
+      let strengthsArray: string[] = [];
+      let improvementsArray: string[] = [];
+
       if (Array.isArray(qa.feedback)) {
+        // Handle case where feedback is a simple array
         feedbackArray = qa.feedback;
+
+        // Separate strengths and improvements from simple array
+        strengthsArray = feedbackArray.filter(
+          (item) =>
+            item.toLowerCase().includes("strength") ||
+            item.toLowerCase().includes("good") ||
+            item.toLowerCase().includes("well")
+        );
+        improvementsArray = feedbackArray.filter(
+          (item) => !strengthsArray.includes(item)
+        );
       } else if (qa.feedback) {
-        // Convert object structure to array
+        // Handle structured feedback object
         const {
           strengths = [],
           areas_for_improvement = [],
           tips_for_improvement = [],
         } = qa.feedback;
-        feedbackArray = [
-          ...strengths,
-          ...areas_for_improvement,
-          ...tips_for_improvement,
-        ];
+
+        // Store arrays for later processing
+        strengthsArray = strengths;
+        improvementsArray = [...areas_for_improvement, ...tips_for_improvement];
       }
 
-      // Separate strengths and improvements
-      const strengthItems = feedbackArray.filter((item) =>
-        item.toLowerCase().includes("strength")
-      );
-
-      const improvementItems = feedbackArray.filter(
-        (item) => !item.toLowerCase().includes("strength")
-      );
-
+      // Convert arrays to strings for compatibility with existing code
       const strengths =
-        strengthItems.length > 0
-          ? strengthItems.join(". ")
+        strengthsArray.length > 0
+          ? strengthsArray.join(". ")
           : qa.tone_analysis ||
             qa.tone_and_style ||
             "Good effort on this response";
 
       const improvements =
-        improvementItems.length > 0
-          ? improvementItems.join(". ")
+        improvementsArray.length > 0
+          ? improvementsArray.join(". ")
           : "Continue practicing this area.";
 
       return {
@@ -345,6 +354,10 @@ const Feedback = () => {
 
   // Fetch feedback data when component loads
   useEffect(() => {
+    let pollingTimeout: NodeJS.Timeout | null = null;
+    let pollingAttempts = 0;
+    const MAX_ATTEMPTS = 60; // e.g., 3 minutes if polling every 3s
+
     const fetchFeedback = async () => {
       if (!sessionId) {
         setError("No interview session ID provided");
@@ -353,28 +366,23 @@ const Feedback = () => {
       }
 
       try {
-        // Check feedback status first
         const statusResponse = await getFeedbackStatus(sessionId);
 
         if (statusResponse.status === "processing") {
-          // If still processing and under 30 attempts, continue polling
-          if (pollingCount < 30) {
-            console.log("Feedback still processing, will check again soon...");
-            setTimeout(() => {
-              setPollingCount((prev) => prev + 1);
-            }, 3000); // Poll every 3 seconds
-            return;
+          // Keep polling, do not show error
+          if (pollingAttempts < MAX_ATTEMPTS) {
+            pollingTimeout = setTimeout(fetchFeedback, 3000);
+            pollingAttempts++;
           } else {
-            throw new Error(
-              "Feedback generation is taking longer than expected"
+            setError(
+              "Feedback generation is taking longer than expected. Please try refreshing in a minute."
             );
           }
+          return;
         } else if (statusResponse.status === "error") {
-          throw new Error(
-            statusResponse.message || "Error generating feedback"
-          );
-        } else if (statusResponse.status === "not_started") {
-          throw new Error("Feedback generation has not started yet");
+          setError(statusResponse.message || "Error generating feedback");
+          setLoading(false);
+          return;
         }
 
         // If status is completed or success, fetch the feedback data
@@ -384,23 +392,38 @@ const Feedback = () => {
           const transformedData = transformApiDataToUiFormat(response.feedback);
           setFeedback(transformedData);
           setLoading(false);
+        } else if (response.status === "processing") {
+          // Defensive: if backend returns processing here, keep polling
+          if (pollingAttempts < MAX_ATTEMPTS) {
+            pollingTimeout = setTimeout(fetchFeedback, 3000);
+            pollingAttempts++;
+          } else {
+            setError(
+              "Feedback generation is taking longer than expected. Please try refreshing in a minute."
+            );
+          }
+        } else if (response.status === "error") {
+          setError(response.message || "Error generating feedback");
+          setLoading(false);
         } else {
-          throw new Error("Invalid feedback data received");
+          setError("Invalid feedback data received");
+          setLoading(false);
         }
       } catch (err) {
-        console.error("Failed to fetch feedback:", err);
+        // Only show error if backend actually errored
         setError(
           err instanceof Error ? err.message : "Failed to load feedback data"
         );
-      } finally {
         setLoading(false);
       }
     };
 
-    if (loading || pollingCount > 0) {
-      fetchFeedback();
-    }
-  }, [sessionId, loading, pollingCount]);
+    fetchFeedback();
+
+    return () => {
+      if (pollingTimeout) clearTimeout(pollingTimeout);
+    };
+  }, [sessionId]);
 
   // Calculate the color for the score
   const getScoreColor = (score: number) => {
@@ -598,15 +621,33 @@ ${feedback.overallFeedback}
                       <h4 className="font-medium text-green-700 text-sm mb-1">
                         Strengths
                       </h4>
-                      <p className="text-sm text-gray-600">{item.strengths}</p>
+                      {/* Replace paragraph with bullet list */}
+                      <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
+                        {Array.isArray(item.strengths)
+                          ? item.strengths.map((strength, i) => (
+                              <li key={i}>{strength}</li>
+                            ))
+                          : item.strengths
+                              .split(". ")
+                              .filter((s) => s.trim())
+                              .map((s, i) => <li key={i}>{s}</li>)}
+                      </ul>
                     </div>
                     <div className="bg-amber-50 p-3 rounded-md">
                       <h4 className="font-medium text-amber-700 text-sm mb-1">
                         Improvements
                       </h4>
-                      <p className="text-sm text-gray-600">
-                        {item.improvements}
-                      </p>
+                      {/* Replace paragraph with bullet list */}
+                      <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
+                        {Array.isArray(item.improvements)
+                          ? item.improvements.map((improvement, i) => (
+                              <li key={i}>{improvement}</li>
+                            ))
+                          : item.improvements
+                              .split(". ")
+                              .filter((s) => s.trim())
+                              .map((s, i) => <li key={i}>{s}</li>)}
+                      </ul>
                     </div>
                   </div>
                 </CardContent>
@@ -620,8 +661,8 @@ ${feedback.overallFeedback}
             <AlertTitle>Missed Opportunities</AlertTitle>
             <AlertDescription>
               <p className="mb-2">
-                You didn't mention these keywords that might have strengthened
-                your answers:
+                You didn&apos;t mention these keywords that might have
+                strengthened your answers:
               </p>
               <div className="flex flex-wrap gap-2 mt-1">
                 {feedback.keywordsMissed.map((keyword, i) => (
