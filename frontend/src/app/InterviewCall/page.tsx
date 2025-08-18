@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Loader } from "@react-three/drei";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
-import { Mic, User, PhoneOff } from "lucide-react";
+import { Mic, User, PhoneOff, Info } from "lucide-react";
 import { lipsyncManager, resumeLipsyncAudio } from "@/lib/lipsync";
 import dynamic from "next/dynamic";
 import { useVAD } from "@/lib/useVAD";
@@ -19,6 +19,36 @@ const ClientOnlyInterviewScene = dynamic(
     ),
   { ssr: false, loading: () => <Loader /> }
 );
+
+const InstructionCard = ({ isVisible }: { isVisible: boolean }) => {
+  if (!isVisible) return null;
+
+  return (
+    <div className="absolute top-4 left-0 right-0 mx-auto w-full max-w-md z-10 animate-fadeIn">
+      <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-md shadow-md">
+        <div className="flex items-start">
+          <div className="flex-shrink-0">
+            <Info className="h-5 w-5 text-blue-500" />
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-blue-800">
+              Start the Interview
+            </h3>
+            <div className="mt-2 text-sm text-blue-700">
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Press the microphone button to begin</li>
+                <li>Greet the interviewer with a friendly introduction</li>
+                <li>
+                  Wait for the interviewer to respond with the first question
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const InterviewCallContent = () => {
   const router = useRouter();
@@ -35,6 +65,7 @@ const InterviewCallContent = () => {
     useState<NodeJS.Timeout | null>(null);
   const [currentTranscription, setCurrentTranscription] = useState<string>("");
   const [forcedEndCount, setForcedEndCount] = useState(0);
+  const [showInstructions, setShowInstructions] = useState(true);
 
   // Refs
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
@@ -242,7 +273,8 @@ const InterviewCallContent = () => {
     );
     wsRef.current = ws;
     ws.binaryType = "blob"; // Important: ensure we receive ArrayBuffers
-    ws.onopen = () => setStatus("Ready. Press mic to start the interview.");
+    ws.onopen = () =>
+      setStatus("Ready. Press mic and introduce yourself to start.");
 
     // --- THIS IS THE CORRECTED HANDLER ---
     ws.onmessage = (event) => {
@@ -452,6 +484,14 @@ const InterviewCallContent = () => {
     } else {
       setIsInterviewActive(true);
       startVAD();
+      setShowInstructions(false); // Hide instructions when interview starts
+
+      // Show toast reminder
+      toast({
+        title: "Interview Started",
+        description: "Begin by introducing yourself with a complete sentence.",
+        duration: 5000,
+      });
     }
   };
 
@@ -483,8 +523,11 @@ const InterviewCallContent = () => {
   }, []);
 
   return (
-    <div className="min-h-screen w-full bg-gray-100 flex items-center justify-center p-4">
-      {/* Add a debugging indicator for forced ends if needed */}
+    <div className="min-h-screen w-full bg-gray-100 flex items-center justify-center p-4 relative">
+      {/* Add the instruction card */}
+      <InstructionCard isVisible={!isInterviewActive && showInstructions} />
+
+      {/* Rest of the existing JSX */}
       {forcedEndCount > 0 && (
         <div className="absolute top-2 right-2 bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">
           Audio safety triggers: {forcedEndCount}
