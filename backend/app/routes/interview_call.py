@@ -41,6 +41,7 @@ class ConversationTurn:
 async def process_and_save_turn(turn: ConversationTurn, interview_id: str, turn_index: int, user_id: str = None):
     """Background task to process and save a conversation turn using the new ConversationService."""
     try:
+        print("this is the user and interview ids:", user_id, interview_id)
         # Modified check: Save if we have EITHER audio OR text content
         if not turn.audio_chunks and not turn.text:
             logging.warning(f"[{interview_id}] Skipping turn {turn_index} for {turn.speaker} due to no audio or text.")
@@ -94,8 +95,11 @@ async def process_and_save_turn(turn: ConversationTurn, interview_id: str, turn_
                     f"text length={len(turn_data.get('text', ''))}, " +
                     f"audio_chunks={len(turn_data.get('audio_chunks', []))}")
         
+        # At the end of successful processing:
         if result.get("status") == "success":
             logging.info(f"[{interview_id}] Successfully saved turn {turn_index} for {turn.speaker}.")
+            # Mark this turn as saved to prevent duplicate processing
+            setattr(turn, '_saved', True)
         else:
             logging.error(f"[{interview_id}] Failed to save turn {turn_index}: {result.get('reason')}")
     
@@ -136,24 +140,15 @@ async def client_to_gemini_task(websocket: WebSocket, session: genai.live.AsyncS
                     message = json.loads(event['text'])
                     if message.get("type") == "USER_AUDIO_END":
                         logging.info(f"[{interview_id}] User finished. Sending audio_stream_end signal.")
-                        
-                        # Save the user's turn when they finish speaking
                         if conversation_turns and conversation_turns[-1].speaker == "user":
                             user_turn = conversation_turns[-1]
-                            
-                            # Calculate total audio size for logging
                             total_audio_size = sum(len(chunk) for chunk in user_turn.audio_chunks) if user_turn.audio_chunks else 0
                             logging.info(f"[{interview_id}] User turn has {len(user_turn.audio_chunks)} chunks totaling {total_audio_size} bytes")
-                            
-                            # Only save if there's actual audio content
-                            if user_turn.audio_chunks:
+                            # Save even if audio is short, for debugging
+                            if user_turn.audio_chunks or user_turn.text:
                                 logging.info(f"[{interview_id}] Saving completed user turn {turn_index_ref['value']}.")
-                                
-                                # Get transcription from user message if available
                                 if message.get("transcription"):
                                     user_turn.text = message.get("transcription")
-                                
-                                # Save the user turn
                                 background_tasks.add_task(
                                     process_and_save_turn, 
                                     user_turn, 
@@ -161,8 +156,39 @@ async def client_to_gemini_task(websocket: WebSocket, session: genai.live.AsyncS
                                     turn_index_ref['value'],
                                     user_id
                                 )
-                                turn_index_ref['value'] += 1
-                        
+                            else:
+                                logging.warning(f"[{interview_id}] Skipping user turn {turn_index_ref['value']} due to no audio or text.")
+                            turn_index_ref['value'] += 1
+                            
+                            # Before appending a new AI turn, check if the previous user turn needs saving
+                            if message.get("type") == "USER_AUDIO_END":
+                                # This is where you currently process the USER_AUDIO_END message
+                                # Keep all the existing code...
+                                
+                                if conversation_turns and conversation_turns[-1].speaker == "user":
+                                    user_turn = conversation_turns[-1]
+                                    # ...existing code for checking and saving user turn...
+                                    
+                                # Add defensive check BEFORE creating new AI turn:
+                                elif conversation_turns and len(conversation_turns) > 1 and conversation_turns[-2].speaker == "user":
+                                    # The user turn might have been skipped - check the previous turn
+                                    user_turn = conversation_turns[-2]
+                                    if (user_turn.audio_chunks or user_turn.text) and not hasattr(user_turn, '_saved'):
+                                        logging.info(f"[{interview_id}] Defensive save: previous user turn had unsaved audio/text.")
+                                        background_tasks.add_task(
+                                            process_and_save_turn, 
+                                            user_turn, 
+                                            interview_id, 
+                                            turn_index_ref['value'] - 1,
+                                            user_id
+                                        )
+                                        # Mark as saved to prevent duplicate saves
+                                        setattr(user_turn, '_saved', True)
+                                
+                            # Then create the AI turn as you currently do:
+                            conversation_turns.append(ConversationTurn("ai"))
+                            logging.info(f"[{interview_id}] Created new AI turn {turn_index_ref['value']} for next response")
+    
                         try:
                             await session.send_realtime_input(audio_stream_end=True)
                         except Exception as end_err:
@@ -218,8 +244,20 @@ async def gemini_to_client_task(websocket: WebSocket, session: genai.live.AsyncS
                     
                     logging.info(f"[{interview_id}] Sent {len(wav_data)} bytes of WAV audio to client.")
                 
-                # When AI turn is complete, save it and prepare for user's turn
+                # When AI turn is complete, first ensure any previous user turn is saved
                 if message.server_content and message.server_content.turn_complete:
+                    # Check for any unsaved user turn first
+                    for i, turn in enumerate(conversation_turns):
+                        if turn.speaker == "user" and (turn.audio_chunks or turn.text) and not hasattr(turn, '_saved'):
+                            logging.info(f"[{interview_id}] Found unsaved user turn at index {i}, saving it now")
+                            try:
+                                await process_and_save_turn(turn, interview_id, i, user_id)
+                                # Mark as saved
+                                setattr(turn, '_saved', True)
+                            except Exception as user_save_err:
+                                logging.error(f"[{interview_id}] Error saving user turn: {user_save_err}", exc_info=True)
+        
+                    # Now proceed with handling the AI turn as normal
                     ai_turn = conversation_turns[-1]
                     
                     # Store text if available
@@ -283,7 +321,19 @@ async def websocket_endpoint(
     turn_index_ref = {'value': 0}
     
     try:
+        # Get the interview data
         interview_data = await SupabaseService.get_interview_data(current_user.id, interview_id)
+        
+        # IMPORTANT: Extract the correct user_id from the interview data
+        interview_owner_id = interview_data.get("user_id")
+        
+        # Log both IDs to debug
+        logging.info(f"[{interview_id}] Current user: {current_user.id}, Interview owner: {interview_owner_id}")
+        
+        # Use YOUR user ID (the one you created the interview with)
+        # This ensures consistent storage paths
+        storage_user_id = interview_owner_id if interview_owner_id else current_user.id
+        
         system_instruction_text = SYSTEM_PROMPT_TEMPLATE.format(
             resume=interview_data.get("resume", {}).get("extracted_text", ""),
             job_description=interview_data.get("job_description", {}).get("description", "")
@@ -308,14 +358,14 @@ async def websocket_endpoint(
                 keep_alive_websocket(websocket, interview_id)
             )
             
-            # Pass background_tasks and turn_index_ref to client_to_gemini_task
+            # Use storage_user_id instead of current_user.id
             c_to_g_task = asyncio.create_task(client_to_gemini_task(
                 websocket, 
                 gemini_session, 
                 interview_id, 
                 conversation_turns,
                 background_tasks,
-                current_user.id,
+                storage_user_id,  # Use the correct user ID here
                 turn_index_ref
             ))
             
@@ -325,7 +375,7 @@ async def websocket_endpoint(
                 interview_id, 
                 background_tasks, 
                 conversation_turns, 
-                user_id=current_user.id,
+                user_id=storage_user_id,  # Use the correct user ID here
                 turn_index_ref=turn_index_ref
             ))
             
@@ -341,16 +391,16 @@ async def websocket_endpoint(
         for task in tasks:
             if not task.done():
                 task.cancel()
-        
-        # Try to save the last turn if it has content and wasn't already saved
-        if conversation_turns and len(conversation_turns) > 0 and conversation_turns[-1].audio_chunks:
-            last_turn = conversation_turns[-1]
-            try:
-                logging.info(f"[{interview_id}] Saving final {last_turn.speaker} turn on disconnect.")
-                await process_and_save_turn(last_turn, interview_id, turn_index_ref['value'], current_user.id)
-            except Exception as save_err:
-                logging.error(f"[{interview_id}] Error saving final turn: {save_err}")
-        
+    
+        # Check ALL turns, not just the last one
+        for i, turn in enumerate(conversation_turns):
+            if (turn.audio_chunks or turn.text) and not hasattr(turn, '_saved'):
+                try:
+                    logging.info(f"[{interview_id}] Saving unsaved {turn.speaker} turn {i} on disconnect.")
+                    await process_and_save_turn(turn, interview_id, i, current_user.id)
+                except Exception as save_err:
+                    logging.error(f"[{interview_id}] Error saving turn on disconnect: {save_err}")
+    
         logging.info(f"[{interview_id}] Closing WebSocket connection.")
 
 

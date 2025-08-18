@@ -1,0 +1,43 @@
+{
+  "question_analysis": [
+    {
+      "question": "Tell me about yourself.",
+      "transcript": "My name is Mohamad, I am a fourth-year software engineering student at the University of Ottawa. I'm looking to complete my fifth co-op as I've completed four so far, most lately Nokia. What interests me in this position is the money. I'm looking to make some big bucks.",
+      "delivery_analysis": "The candidate begins with a clear and steady pace. However, his tone shifts from professional to overly casual and unprofessional when discussing his motivation. Confidence is present, but it's misplaced in a statement that is a major red flag for recruiters. Enthusiasm is expressed only for financial gain, not for the role or company.",
+      "feedback": {
+        "strengths": [
+          "Starts with a concise and clear introduction of his educational background and year of study."
+        ],
+        "areas_for_improvement": [
+          "Stating money as the primary motivator is highly unprofessional and demonstrates a lack of genuine interest in the company's mission or the technical challenges of the role.",
+          "The answer fails to connect his impressive resume experiences (Nokia, ECCC) to the specific requirements of the Software Engineering Intern position at Magnet Forensics.",
+          "Lacks any mention of the company or why he is specifically interested in their work in digital investigative software."
+        ],
+        "tips_for_improvement": [
+          "Structure your answer using the 'Present, Past, Future' framework. Present: who you are. Past: your relevant experience. Future: why you are interested in this specific role and company.",
+          "Align your motivation with the company's values and mission. For example, 'I'm drawn to Magnet Forensics' work in creating tools that have a real-world impact on fighting crime and ensuring public safety.'",
+          "Highlight a key achievement from your resume, like the project at Nokia, and connect it to the problem-solving skills mentioned in the job description."
+        ]
+      },
+      "tone_and_style": "Starts professionally but ends with a flippant and unprofessional tone."
+    },
+    {
+      "question": "Can you tell me about a project you're particularly proud of where you took ownership?",
+      "transcript": "For sure, yeah, I mean, uh, I've done a lot of projects in the past, uh, especially with the interview, yeah, I took ownership with a lot of stuff. I basically built that thing from the ground up.",
+      "delivery_analysis": "The delivery is very casual, with filler words ('uh', 'I mean') that detract from professionalism. The tone is disengaged and lacks enthusiasm for the work being described. While the speech is clear, the content is so vague that it conveys very little information.",
+      "feedback": {
+        "strengths": [
+          "Acknowledged the question and confirmed taking ownership in past projects."
+        ],
+        "areas_for_improvement": [
+          "The answer is extremely generic and provides no specific details. Phrases like 'a lot of stuff' and 'that thing' are meaningless to an interviewer.",
+          "Fails to leverage the concrete, quantifiable achievements listed on the resume (e.g., 'reducing setup time by 80%').",
+          "Does not follow the STAR (Situation, Task, Action, Result) method to structure the response, which is crucial for behavioral questions."
+        ],
+        "tips_for_improvement": [
+          "Select one specific project from your resume, such as the archive generator at Nokia.",
+          "Use the STAR method: Describe the Situation (the need for a faster setup process), your Task (to automate the conversion of topology data), the Actions you took (developed a Python script using REST APIs), and the quantifiable Result (reduced setup time by 80%).",
+          "Practice articulating the technical details and your specific contributions clearly and concisely."
+        ]
+      },
+      "tone_and_style": "Overly casual, vague, and uninformative."
