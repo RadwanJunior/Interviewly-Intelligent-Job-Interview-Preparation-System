@@ -276,7 +276,7 @@ const Dashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {!activePlan && (
                   <Button
-                    onClick={() => router.push("/create-plan")}
+                    onClick={() => router.push("/Plan")}
                     className="h-24 flex flex-col items-center justify-center space-y-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700">
                     <Target className="h-6 w-6" />
                     <div className="text-center">
