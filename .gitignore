@@ -1,7 +1,4 @@
 .venv/
-<<<<<<< Updated upstream
 venv/
 /frontend/.next/
-=======
-.qodo
->>>>>>> Stashed changes
+/infra/env/dev.n8n.env
