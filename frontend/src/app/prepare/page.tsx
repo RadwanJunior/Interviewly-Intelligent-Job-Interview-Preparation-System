@@ -16,6 +16,7 @@ const PrepareInterview = () => {
   // Remove the progress state
   // const [progress, setProgress] = useState(0);
   const [sessionId, setSessionId] = useState("");
+  const [isEnhancementComplete, setIsEnhancementComplete] = useState(false);
   const { jobDetailsData } = useWorkflow();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,16 +61,51 @@ const PrepareInterview = () => {
       // No finally block needed as we handle isGenerating in each path
     };
 
-    // The pollStatus function is no longer needed and can be removed.
+    // Add a polling function
+    let intervalId: NodeJS.Timeout;
 
-    startGeneration();
-  }, [jobDetailsData, toast, interviewType, router]);
+    const checkEnhancementStatus = async () => {
+      if (!sessionId || isEnhancementComplete) return;
+
+      try {
+        const response = await fetch(`/api/interview/status/${sessionId}`);
+        const data = await response.json();
+
+        if (data.status === "ready" || data.enhanced_prompt_available) {
+          setIsEnhancementComplete(true);
+          setIsGenerating(false);
+          clearInterval(intervalId);
+        }
+      } catch (error) {
+        console.error("Error checking interview status:", error);
+      }
+    };
+
+    if (sessionId && !isEnhancementComplete) {
+      // Poll every 3 seconds
+      intervalId = setInterval(checkEnhancementStatus, 3000);
+      // Initial check
+      checkEnhancementStatus();
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [
+    jobDetailsData,
+    toast,
+    interviewType,
+    router,
+    sessionId,
+    isEnhancementComplete,
+  ]);
 
   const handleStart = () => {
-    if (isGenerating) {
+    if (isGenerating || !isEnhancementComplete) {
       toast({
         title: "Please wait",
-        description: "We're still preparing your interview questions.",
+        description:
+          "We're still enhancing your interview questions with relevant data.",
         variant: "destructive",
       });
       return;
@@ -107,17 +143,20 @@ const PrepareInterview = () => {
 
             {/* Generation Status */}
             <div className="mb-8">
-              {/* The progress bar and percentage are removed */}
               <div className="flex justify-center mt-4">
                 {isGenerating ? (
                   <div className="flex items-center text-yellow-600">
                     <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                    <span>Preparing your tailored interview questions...</span>
+                    <span>
+                      {isEnhancementComplete
+                        ? "Interview questions ready!"
+                        : "Enhancing your questions with relevant data..."}
+                    </span>
                   </div>
                 ) : (
                   <div className="flex items-center text-green-600">
                     <CheckCircle className="h-5 w-5 mr-2" />
-                    <span>Your interview is ready!</span>
+                    <span>Interview questions are ready!</span>
                   </div>
                 )}
               </div>
@@ -172,7 +211,7 @@ const PrepareInterview = () => {
                     ? "bg-gray-400"
                     : "bg-primary hover:bg-primary/90"
                 }`}
-                disabled={isGenerating}>
+                disabled={isGenerating || !isEnhancementComplete}>
                 {isGenerating ? "Preparing Questions..." : "Start Interview"}
               </Button>
             </div>

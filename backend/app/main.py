@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routes import auth, resume, interview, audio, dashboard, job_description, interview_call, conversation, live_feedback
 import os
 import uvicorn
+import asyncio
+from app.services.redis_service import initialize_redis, setup_rag_listeners
 
 app = FastAPI()
 
@@ -32,6 +34,20 @@ app.include_router(live_feedback.router, prefix="/live_feedback", tags=["live_fe
 @app.get("/")
 def read_root():
     return {"message": "AI Mock Interview Backend is running!"}
+
+@app.on_event("startup")
+async def startup_event():
+    # Initialize Redis
+    await initialize_redis()
+    
+    # Setup RAG listeners
+    await setup_rag_listeners()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    # Close Redis connections
+    from app.services.redis_service import redis_client
+    await redis_client.close()
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

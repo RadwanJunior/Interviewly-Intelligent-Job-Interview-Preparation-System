@@ -812,6 +812,52 @@ class SupabaseService:
             return response.data if hasattr(response, "data") else response
         except Exception as e:
             return {"error": {"message": str(e)}}
+    @staticmethod
+    async def store_enhanced_prompt(interview_id, enhanced_prompt, source="rag"):
+        """Stores an enhanced prompt for an interview"""
+        try:
+            response = supabase_client.table("interview_enhanced_prompts").insert({
+                "interview_id": interview_id,
+                "prompt": enhanced_prompt,
+                "source": source
+            }).execute()
+            
+            return response.data[0] if response.data else None
+        except Exception as e:
+            logging.error(f"Error storing enhanced prompt: {str(e)}")
+            return {"error": {"message": str(e)}}
+
+    @staticmethod
+    async def get_enhanced_prompt(interview_id):
+        """Gets the RAG-enhanced prompt for an interview if available"""
+        try:
+            response = supabase_client.table("interview_enhanced_prompts") \
+                .select("prompt") \
+                .eq("interview_id", interview_id) \
+                .order("created_at", desc=True) \
+                .limit(1) \
+                .execute()
+            
+            if response.data and len(response.data) > 0:
+                return response.data[0]["prompt"]
+            return None
+        except Exception as e:
+            logging.error(f"Error fetching enhanced prompt: {str(e)}")
+            return None
+
+    @staticmethod
+    async def update_interview_status(interview_id, status):
+        """Updates the status of an interview"""
+        try:
+            response = supabase_client.table("interviews") \
+                .update({"status": status}) \
+                .eq("id", interview_id) \
+                .execute()
+            
+            return response.data[0] if response.data else None
+        except Exception as e:
+            logging.error(f"Error updating interview status: {str(e)}")
+            return {"error": {"message": str(e)}}
 supabase_service = SupabaseService()
 
 

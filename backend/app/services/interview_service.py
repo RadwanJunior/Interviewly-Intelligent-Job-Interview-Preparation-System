@@ -31,13 +31,14 @@ Please **strictly** output the questions in **valid JSON format** as an array, w
   "job_title": "{job_title}",
   "job_description": "{job_description}",
   "company_name": "{company_name}",
-  "location": "{location}"
+  "location": "{location}",
+  "extra_context": {prompt_context}"
 }}
 """
 
 class InterviewService:
     @staticmethod
-    def generate_questions(resume_text: str, job_title: str, job_description: str, company_name: str, location: str) -> list:
+    def generate_questions(resume_text: str, job_title: str, job_description: str, company_name: str, location: str, prompt_context) -> list:
         """
         Generates interview questions based on the resume text, job title, job description, company name, and location.
         """
@@ -47,12 +48,8 @@ class InterviewService:
             job_title=job_title,
             job_description=job_description,
             company_name=company_name,
-            location=location
-        )
-
-        # Count tokens using the new client method.
-        total_tokens = client.models.count_tokens(
-            model="gemini-2.0-flash", contents=prompt
+            location=location,
+            prompt_context=prompt_context if prompt_context else "None"
         )
 
         try:
