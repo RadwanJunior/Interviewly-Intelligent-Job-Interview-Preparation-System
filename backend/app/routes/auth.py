@@ -73,8 +73,6 @@ async def login(response: Response, payload: AuthPayload):
         samesite="Lax"
     )
 
-    print("session: ", session)
-
     return {"message": "Login successful", "user": session["user"]}
 
 @router.post("/refresh")

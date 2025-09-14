@@ -1,9 +1,12 @@
 import os
 from supabase import create_client, Client
 from dotenv import load_dotenv
-from fastapi import UploadFile, HTTPException, Request
+from fastapi import UploadFile, Request, WebSocket
 import time
 from datetime import datetime, timezone
+from gotrue.errors import AuthApiError
+from urllib.parse import urlparse
+import logging
 
 
 load_dotenv()
@@ -31,7 +34,6 @@ class SupabaseService:
         """Logs in a user and returns session tokens."""
         try:
             response = supabase_client.auth.sign_in_with_password({"email": email, "password": password})
-            print(response)
             if response and response.session:
                 return {
                     "access_token": response.session.access_token,
@@ -94,16 +96,27 @@ class SupabaseService:
             return None
         try:
             response = supabase_client.auth.get_user(token)
-            print("response: ", response.user)
             return response.user
         except Exception as e:
             return {"error": {"message": str(e)}}
     @staticmethod
+    def get_current_user_ws(websocket: WebSocket):
+        """
+        Retrieves the current user by extracting the token from WebSocket connection cookies.
+        """
+        token = websocket.cookies.get("access_token")
+        if not token:
+            return None
+        try:
+            response = supabase_client.auth.get_user(token)
+            return response.user
+        except (AuthApiError, Exception):
+            return None
+
+    @staticmethod
     def get_file_url(file_path: str, bucket_name: str = "public"):
         """Generates a public URL for a file in Supabase Storage."""
         try:
-            print("file_path: ", file_path)
-            print("bucket_name: ", bucket_name)
             response = supabase_client.storage.from_(bucket_name).create_signed_url(file_path, expiry, {"download": True})
             return response
         except Exception as e:
@@ -149,11 +162,9 @@ class SupabaseService:
         Updates the extracted text of an existing resume record.
         """
         try:
-            print(f"Updating resume with ID: {resume_id}, extracted_text: {extracted_text}")
             response = supabase_client.table("resumes").update({
                 "extracted_text": extracted_text
             }).eq("id", resume_id).execute()
-            print(f"Supabase response: {response}")
             return response
         except Exception as e:
             print(f"Error updating resume: {str(e)}")
@@ -211,7 +222,7 @@ class SupabaseService:
             return {"error": {"message": str(e)}}
     
     @staticmethod
-    def create_interview_session(user_id: str, resume_id: str, job_description_id: str, questions: list) -> dict:
+    def create_interview_session(user_id: str, resume_id: str, job_description_id: str, questions: list, ctype: str) -> dict:
         """
         Inserts a new interview session record into the 'interview_sessions' table.
         """
@@ -221,7 +232,8 @@ class SupabaseService:
                 "resume_id": resume_id,
                 "job_description_id": job_description_id,
                 "interview_questions": questions,
-                "status": "pending"
+                "status": "pending",
+                "type": ctype
             }).execute()
             print(f"Supabase response: {response}")
             return response
@@ -422,11 +434,23 @@ class SupabaseService:
             
             # Generate and return the public URL
             if "error" not in response:
-                file_url = supabase_client.storage.from_(bucket_name).get_public_url(
-                    storage_path
-                )
-                return file_url
-            return response
+                try:
+                    # Get public URL directly instead of relying on upload response
+                    file_url = supabase_client.storage.from_(bucket_name).get_public_url(storage_path)
+                    return file_url
+                except Exception as url_err:
+                    print(f"ERROR: Could not get public URL, trying signed URL: {url_err}")
+                    try:
+                        # Try signed URL as fallback
+                        signed_url = supabase_client.storage.from_(bucket_name).create_signed_url(
+                            storage_path, 
+                            60 * 60 * 24 # 24 hour expiry
+                        )
+                        return signed_url
+                    except Exception as signed_err:
+                        print(f"ERROR: Could not get signed URL either: {signed_err}")
+                        # Return upload response as last resort
+                        return response
         except Exception as e:
             return {"error": {"message": str(e)}}
     
@@ -500,7 +524,7 @@ class SupabaseService:
         """
         try:
             response = supabase_client.table("user_responses").update({"processed": True}).eq("interview_id", interview_id).execute()
-            return response.data if hasattr(response, "data") else response
+            return response.data if hasattr(response, "data") and response.data else {"message": "No records updated"}
         except Exception as e:
             return {"error": {"message": str(e)}}
 
@@ -613,4 +637,181 @@ class SupabaseService:
             print(f"Error updating preparation plan status: {str(e)}")
             return {"error": str(e)}
 
+    @staticmethod
+    def normalize_public_url(url: str) -> str:
+        if not isinstance(url, str) or not url:
+            return ""
+        # Remove empty query and collapse double slashes after domain
+        url = url.rstrip("?")
+        sentinel = "§§SCHEME§§"
+        url = url.replace("://", sentinel)
+        while "//" in url:
+            url = url.replace("//", "/")
+        url = url.replace(sentinel, "://")
+        return url
+
+    @staticmethod
+    def _parse_storage_object_from_url(url: str):
+        """
+        Parse bucket and object path from a Supabase Storage URL.
+        Supports /storage/v1/object/public/<bucket>/<key> and /storage/v1/object/sign/<bucket>/<key>?token=...
+        """
+        try:
+            path = urlparse(url).path
+            # Find segment after '/object/'
+            marker = "/storage/v1/object/"
+            if marker not in path:
+                return None, None
+            after = path.split(marker, 1)[1]  # e.g. 'public/recordings/user/.../file.wav'
+            parts = after.split("/")
+            if len(parts) < 3:
+                return None, None
+            # parts[0] = 'public' or 'sign'
+            bucket = parts[1]
+            obj_path = "/".join(parts[2:])
+            return bucket, obj_path
+        except Exception:
+            return None, None
+
+    @staticmethod
+    def to_signed_url_from_public_url(url: str, expires_in: int = 60 * 60) -> str:
+        """
+        Convert any stored public URL into a fresh signed URL (works even if bucket is private).
+        """
+        clean = SupabaseService.normalize_public_url(url)
+        bucket, obj_path = SupabaseService._parse_storage_object_from_url(clean)
+        if not bucket or not obj_path:
+            return ""
+        try:
+            signed = supabase_client.storage.from_(bucket).create_signed_url(obj_path, expires_in)
+            # Pull out actual string URL from supabase response shapes
+            out = None
+            if hasattr(signed, "data") and isinstance(signed.data, dict):
+                out = signed.data.get("signedUrl")
+            elif isinstance(signed, dict):
+                out = signed.get("signedUrl")
+            return SupabaseService.normalize_public_url(out or "")
+        except Exception:
+            return ""
+
+    @staticmethod
+    async def upload_audio_to_storage(user_id: str, interview_id: str, audio_data: bytes, filename: str) -> str:
+        """
+        Uploads audio data to Supabase Storage and returns the URL.
+        """
+        try:
+            bucket_name = "recordings"
+            storage_path = f"{user_id}/{interview_id}/{filename}"
+            
+            # Upload the audio data
+            logging.info(f"Uploading {len(audio_data)} bytes to {storage_path}")
+            upload_response = supabase_client.storage.from_(bucket_name).upload(
+                storage_path,
+                audio_data
+            )
+            
+            # Check for error in response
+            if isinstance(upload_response, dict) and upload_response.get("error"):
+                logging.error(f"Upload error: {upload_response.get('error')}")
+                return None
+                
+            # Generate the public URL directly (don't try to extract from response)
+            try:
+                # For public buckets, get the public URL
+                public_url = supabase_client.storage.from_(bucket_name).get_public_url(storage_path)
+                logging.info(f"Generated public URL: {public_url}")
+                return public_url
+            except Exception as e:
+                logging.error(f"Error generating public URL: {str(e)}")
+                
+                # Try signed URL as backup
+                try:
+                    signed_url = supabase_client.storage.from_(bucket_name).create_signed_url(
+                        storage_path,
+                        3600  # 1 hour expiry
+                    )
+                    logging.info(f"Generated signed URL as fallback")
+                    return signed_url
+                except Exception as sign_err:
+                    logging.error(f"Error generating signed URL: {str(sign_err)}")
+                    
+            return None
+        except Exception as e:
+            logging.error(f"Error uploading audio to storage: {str(e)}")
+            return None
+
+    @staticmethod
+    async def save_conversation_turn(turn_data: dict):
+        """
+        Saves a conversation turn to the database. Normalizes audio_url and includes user_id if present.
+        """
+        try:
+            record = {
+                "interview_id": turn_data.get("interview_id"),
+                "turn_index": turn_data.get("turn_index"),
+                "speaker": turn_data.get("speaker"),
+                "text_content": turn_data.get("text_content", ""),
+                "audio_url": SupabaseService.normalize_public_url(turn_data.get("audio_url") or ""),
+                "audio_duration_seconds": turn_data.get("audio_duration_seconds"),
+            }
+            if turn_data.get("user_id"):
+                record["user_id"] = turn_data.get("user_id")
+
+            print(f"Saving conversation turn: {record}")
+            response = supabase_client.table("conversation_turns").insert(record).execute()
+            return response.data if hasattr(response, "data") else {"message": "Turn saved successfully"}
+        except Exception as e:
+            print(f"Error saving conversation turn: {str(e)}")
+            return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    async def get_all_conversation_turns(interview_id: str):
+        """
+        Retrieves all conversation turns for an interview, sorted by turn_index.
+        """
+        try:
+            response = supabase_client.table("conversation_turns")\
+                .select("*")\
+                .eq("interview_id", interview_id)\
+                .order("turn_index")\
+                .execute()
+            return response.data if hasattr(response, "data") else []
+        except Exception as e:
+            print(f"Error fetching conversation turns: {str(e)}")
+            return []
+
+    @staticmethod
+    async def update_conversation_turn(turn_id: str, update_data: dict):
+        """
+        Updates a conversation turn record by id.
+        """
+        try:
+            response = supabase_client.table("conversation_turns")\
+                .update(update_data)\
+                .eq("id", turn_id)\
+                .execute()
+            return response.data if hasattr(response, "data") else {"message": "updated"}
+        except Exception as e:
+            print(f"Error updating conversation turn: {str(e)}")
+            return {"error": {"message": str(e)}}
+
+    @staticmethod
+    async def save_feedback(feedback: dict) -> dict:
+        """
+        Saves feedback for a specific interview. (Async to match callers)
+        """
+        try:
+            response = supabase_client.table("feedback").insert({
+                "interview_id": feedback.get("interview_id"),
+                "user_id": feedback.get("user_id"),
+                "feedback_data": feedback.get("feedback_data"),
+                "status": feedback.get("status", "pending"),
+                "error_msg": feedback.get("error_msg", ""),
+                "updated_at": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+            }).execute()
+            return response.data if hasattr(response, "data") else response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
 supabase_service = SupabaseService()
+
+

@@ -7,19 +7,20 @@ import asyncio
 router = APIRouter()
 
 # Global dictionary to simulate progress storage (in production, use persistent storage)
-PROGRESS_STORE = {}
+# PROGRESS_STORE = {}
 
 class CreateInterviewRequest(BaseModel):
-        job_description_id: str
+    job_description_id: str
+    type: str
 
-async def simulate_progress(session_id: str):
-    progress = 0
-    while progress < 100:
-        await asyncio.sleep(1)
-        progress += 10
-        PROGRESS_STORE[session_id] = progress
-    # Mark as complete when done
-    PROGRESS_STORE[session_id] = 100
+# async def simulate_progress(session_id: str):
+#     progress = 0
+#     while progress < 100:
+#         await asyncio.sleep(1)
+#         progress += 10
+#         PROGRESS_STORE[session_id] = progress
+#     # Mark as complete when done
+#     PROGRESS_STORE[session_id] = 100
 
 @router.post("/create")
 async def create_interview_session(
@@ -68,7 +69,7 @@ async def create_interview_session(
     
     # Create the interview session record with an empty questions list initially
     interview_session_response = SupabaseService.create_interview_session(
-        user_id, resume_record["id"], request_data.job_description_id, []
+        user_id, resume_record["id"], request_data.job_description_id, [], request_data.type
     )
     if "error" in interview_session_response or not interview_session_response.data:
         raise HTTPException(status_code=500, detail="Failed to create interview session")
@@ -96,8 +97,8 @@ async def create_interview_session(
         raise HTTPException(status_code=500, detail="Failed to update interview session with questions")
 
     # Start background task to simulate progress updates
-    PROGRESS_STORE[session_id] = 0
-    background_tasks.add_task(simulate_progress, session_id)
+    # PROGRESS_STORE[session_id] = 0
+    # background_tasks.add_task(simulate_progress, session_id)
     return {"session": interview_session, "question_ids": question_ids}
 
 # get questions for a specific interview session
@@ -108,7 +109,7 @@ async def get_questions(session_id: str):
         raise HTTPException(status_code=404, detail="Questions not found")
     return questions_response.data
 
-@router.get("/status/{session_id}")
-async def get_status(session_id: str):
-    prog = PROGRESS_STORE.get(session_id, 0)
-    return {"progress": prog, "completed": prog >= 100}
+# @router.get("/status/{session_id}")
+# async def get_status(session_id: str):
+#     prog = PROGRESS_STORE.get(session_id, 0)
+#     return {"progress": prog, "completed": prog >= 100}

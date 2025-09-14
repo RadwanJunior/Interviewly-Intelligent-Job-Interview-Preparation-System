@@ -1,6 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import auth, resume, interview, audio, dashboard, job_description
+from app.routes import auth, resume, interview, audio, dashboard, job_description, interview_call, conversation, live_feedback
 import os
 import uvicorn
 
@@ -25,6 +25,9 @@ app.include_router(job_description.router, prefix="/job_description", tags=["job
 app.include_router(interview.router, prefix="/interview", tags=["interview"])
 app.include_router(audio.router, prefix="/audio", tags=["audio"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+app.include_router(interview_call.router, prefix="/interview_call", tags=["interview_call"])
+app.include_router(conversation.router, prefix="/conversation", tags=["conversation"])
+app.include_router(live_feedback.router, prefix="/live_feedback", tags=["live_feedback"])
 
 @app.get("/")
 def read_root():

@@ -17,7 +17,6 @@ async def upload_resume(
     Uploads a new resume to Supabase Storage, parses it, 
     and inserts a record in the 'resumes' table.
     """
-    print("current_user: ", current_user)
     #  check if current user is None
     if not current_user or not getattr(current_user, "id", None):
         return {"error": "Unauthorized or invalid user"}

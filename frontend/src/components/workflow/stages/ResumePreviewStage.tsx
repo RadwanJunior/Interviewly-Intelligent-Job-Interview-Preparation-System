@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,13 +17,19 @@ const ResumePreviewStage = () => {
     completeCurrentStage,
     goToNextStage,
     goToPreviousStage,
+    setInterviewType,
   } = useWorkflow();
 
   const [isSaving, setIsSaving] = useState(false);
+  const searchParams = useSearchParams();
 
   // Fetch the extracted text if not already loaded
   useEffect(() => {
     const fetchResume = async () => {
+      const type = searchParams.get("type");
+      if (type === "call" || type === "text") {
+        setInterviewType(type);
+      }
       if (!resumeData.text) {
         try {
           const response = await getResume();
@@ -43,28 +50,28 @@ const ResumePreviewStage = () => {
     };
 
     fetchResume();
-  }, [resumeData.text, updateResumeData]);
+  }, [resumeData.text, updateResumeData, searchParams, setInterviewType]);
 
   const handleTextUpdate = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     updateResumeData({ text: e.target.value });
   };
 
   const confirmResume = async () => {
-      try {
-        setIsSaving(true);
-        await updateResume(resumeData.text);
-        toast.success("Resume updated successfully!");
-      } catch (error: unknown) {
-        if (error instanceof Error) {
-          console.error("Error updating resume:", error.message);
-        } else {
-          console.error("Error updating resume:", error);
-        }
-        toast.error("Failed to update resume.");
-      } finally {
-        setIsSaving(false);
+    try {
+      setIsSaving(true);
+      await updateResume(resumeData.text);
+      toast.success("Resume updated successfully!");
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error("Error updating resume:", error.message);
+      } else {
+        console.error("Error updating resume:", error);
       }
-    
+      toast.error("Failed to update resume.");
+    } finally {
+      setIsSaving(false);
+    }
+
     completeCurrentStage();
 
     // Scroll to the next section smoothly
@@ -80,7 +87,7 @@ const ResumePreviewStage = () => {
   };
 
   const goBack = () => {
-        const prevSection = document.getElementById("stage-resume-upload");
+    const prevSection = document.getElementById("stage-resume-upload");
     if (prevSection) {
       prevSection.scrollIntoView({ behavior: "smooth" });
     }

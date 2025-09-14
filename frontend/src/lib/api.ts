@@ -97,6 +97,7 @@ export async function createJobDescription(
 
 export async function createInterviewSession(data: {
   job_description_id: string;
+  type: "text" | "call";
 }) {
   const response = await api.post("/interview/create", data);
   return response.data;
@@ -202,5 +203,27 @@ export async function updatePreparationPlan(planId, updateData) {
     `/dashboard/preparation-plan/${planId}`,
     updateData
   );
+  return response.data;
+}
+
+// Add these helper functions
+
+// Trigger live feedback generation
+export async function triggerLiveFeedbackGeneration(interview_id: string) {
+  const response = await api.post(
+    `/live_feedback/generate_live_feedback/${interview_id}`
+  );
+  return response.data;
+}
+
+// Get live feedback generation status
+export async function getLiveFeedbackStatus(interview_id: string) {
+  const response = await api.get(`/live_feedback/status/${interview_id}`);
+  return response.data;
+}
+
+// Get generated live feedback
+export async function getLiveFeedback(interview_id: string) {
+  const response = await api.get(`/live_feedback/feedback/${interview_id}`);
   return response.data;
 }

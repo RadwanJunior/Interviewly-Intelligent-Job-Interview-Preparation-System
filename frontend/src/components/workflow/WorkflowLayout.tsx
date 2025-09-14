@@ -10,7 +10,10 @@ type WorkflowLayoutProps = {
   title?: string;
 };
 
-const WorkflowLayout = ({ children, title = "Application Workflow" }: WorkflowLayoutProps) => {
+const WorkflowLayout = ({
+  children,
+  title = "Application Workflow",
+}: WorkflowLayoutProps) => {
   const { stages, currentStageIndex } = useWorkflow();
   const progress = ((currentStageIndex + 1) / stages.length) * 100;
 
@@ -27,7 +30,9 @@ const WorkflowLayout = ({ children, title = "Application Workflow" }: WorkflowLa
             <span className="text-sm font-medium text-foreground/80">
               Step {currentStageIndex + 1} of {stages.length}
             </span>
-            <span className="text-sm font-medium text-primary">{Math.round(progress)}%</span>
+            <span className="text-sm font-medium text-primary">
+              {Math.round(progress)}%
+            </span>
           </div>
           <Progress value={progress} className="h-2" />
         </div>
