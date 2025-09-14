@@ -511,7 +511,7 @@ ${feedback.overallFeedback}
           <h2 className="mt-4 text-2xl font-bold">Error Loading Feedback</h2>
           <p className="mt-2">{error}</p>
           <Button
-            onClick={() => router.push("/Interview?sessionId=" + sessionId)}
+            onClick={() => router.push("/interview?sessionId=" + sessionId)}
             className="mt-6">
             Return to Interview
           </Button>
