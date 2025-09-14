@@ -295,7 +295,7 @@ const Dashboard = () => {
                 </Button>
                 <Button
                   onClick={() => handleStartInterview("call")}
-                  className="h-24 flex flex-col items-center justify-center space-y-2 bg-secondary hover:bg-secondary/90">
+                  className="h-24 flex flex-col items-center justify-center space-y-2 bg-orange-500 hover:bg-orange-600 text-white">
                   <Phone className="h-6 w-6" />
                   <div className="text-center">
                     <div className="font-medium">Call Interview</div>
