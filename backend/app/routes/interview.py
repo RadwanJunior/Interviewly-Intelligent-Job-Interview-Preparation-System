@@ -7,21 +7,10 @@ import asyncio
 
 router = APIRouter()
 
-# Global dictionary to simulate progress storage (in production, use persistent storage)
-# PROGRESS_STORE = {}
 
 class CreateInterviewRequest(BaseModel):
     job_description_id: str
     type: str
-
-# async def simulate_progress(session_id: str):
-#     progress = 0
-#     while progress < 100:
-#         await asyncio.sleep(1)
-#         progress += 10
-#         PROGRESS_STORE[session_id] = progress
-#     # Mark as complete when done
-#     PROGRESS_STORE[session_id] = 100
 
 @router.post("/create")
 async def create_interview_session(

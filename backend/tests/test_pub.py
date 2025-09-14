@@ -16,5 +16,5 @@ test_data = {
 }
 
 # Publish to the channel that n8n is listening to
-redis.publish("interviewly:request-rag", json.dumps(test_data))
+redis.publish("interviewly:request-rag-test", json.dumps(test_data))
 print("Test message published!") 
