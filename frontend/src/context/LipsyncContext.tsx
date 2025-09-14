@@ -1,91 +1,3 @@
-// "use client";
-// import React, { createContext, useContext, useState, useRef } from "react";
-// import { Lipsync, VISEMES } from "wawa-lipsync";
-
-// // Context type with initialize function
-// type LipsyncContextType = {
-//   lipsyncManager: Lipsync | null;
-//   initialize: () => void;
-//   isInitialized: boolean;
-// };
-
-// const LipsyncContext = createContext<LipsyncContextType>({
-//   lipsyncManager: null,
-//   initialize: () => {},
-//   isInitialized: false,
-// });
-
-// export const LipsyncProvider = ({
-//   children,
-// }: {
-//   children: React.ReactNode;
-// }) => {
-//   const [lipsyncManager, setLipsyncManager] = useState<Lipsync | null>(null);
-//   const [isInitialized, setIsInitialized] = useState(false);
-//   const initAttemptedRef = useRef(false);
-
-//   const initialize = () => {
-//     // Only initialize once and only after user interaction
-//     if (initAttemptedRef.current || typeof window === "undefined") return;
-
-//     try {
-//       console.log("Initializing lipsync manager...");
-//       initAttemptedRef.current = true;
-
-//       // Create the manager with more explicit options
-//       const manager = new Lipsync({
-//         fftSize: 1024, // Larger FFT size for better frequency resolution
-//         historySize: 4, // Increased history for smoother transitions
-//       });
-
-//       setLipsyncManager(manager);
-//       setIsInitialized(true);
-//       console.log("Lipsync manager initialized successfully");
-
-//       // Log available visemes for debugging
-//       console.log("Available visemes:", Object.values(VISEMES));
-//     } catch (error) {
-//       console.error("Failed to initialize lipsync manager:", error);
-//     }
-//   };
-
-//   // Ensure cleanup on unmount to prevent memory leaks
-//   React.useEffect(() => {
-//     return () => {
-//       if (lipsyncManager) {
-//         try {
-//           // Clean up AudioContext if possible
-//           const audioContext = (lipsyncManager as any).audioContext;
-//           if (audioContext && audioContext.state !== "closed") {
-//             audioContext
-//               .close()
-//               .catch((e) => console.warn("Error closing AudioContext:", e));
-//           }
-//         } catch (e) {
-//           console.warn("Error during lipsync manager cleanup:", e);
-//         }
-//       }
-//     };
-//   }, [lipsyncManager]);
-
-//   return (
-//     <LipsyncContext.Provider
-//       value={{ lipsyncManager, initialize, isInitialized }}>
-//       {children}
-//     </LipsyncContext.Provider>
-//   );
-// };
-
-// export const useLipsync = () => {
-//   // Only check for provider in client context
-//   const context = useContext(LipsyncContext);
-//   if (typeof window !== "undefined" && !context) {
-//     console.warn("useLipsync must be used within a LipsyncProvider");
-//   }
-//   return context;
-// };
-
-// src/context/LipsyncContext.tsx
 "use client";
 import React, {
   createContext,
@@ -111,16 +23,11 @@ export const LipsyncProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
-  // REASONING: We use a ref to hold the Lipsync instance.
-  // This ensures that we create it ONLY ONCE and it remains stable
-  // across re-renders, preventing AudioContext errors and broken references.
   const lipsyncManagerRef = useRef<Lipsync | null>(null);
 
   // We use state just to let consumers know when the ref is populated.
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // REASONING: We create the manager instance here, once, when the provider mounts.
-  // This avoids re-creating it on every button click.
   useEffect(() => {
     if (!lipsyncManagerRef.current) {
       console.log("Initializing lipsync manager for the first time...");
