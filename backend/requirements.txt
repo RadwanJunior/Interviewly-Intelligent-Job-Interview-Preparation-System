@@ -8,3 +8,6 @@ pdfminer.six
 python-docx
 google-genai
 google
+google-api-core
+gotrue
+json5
