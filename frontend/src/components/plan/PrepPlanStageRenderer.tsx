@@ -6,7 +6,7 @@ import CompanyResearchStage from "./stages/CompanyResearchStage";
 import AdditionalNotesStage from "./stages/AdditionalNotesStage";
 import { CardContent } from "@/components/ui/card";
 
-const stageComponents: Record<string, React.ComponentType> = {
+const stageComponents: Record<string, React.ComponentType<{ isActive: boolean }>> = {
   "interview-details": InterviewDetailsStage,
   "company-research": CompanyResearchStage,
   "additional-notes": AdditionalNotesStage,
@@ -18,7 +18,10 @@ const PrepPlanStageRenderer = () => {
 
   useEffect(() => {
     if (stageRefs.current[currentStageIndex]) {
-      stageRefs.current[currentStageIndex]?.scrollIntoView({ behavior: "smooth", block: "start" });
+      stageRefs.current[currentStageIndex]?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     }
   }, [currentStageIndex]);
 
@@ -32,9 +35,23 @@ const PrepPlanStageRenderer = () => {
         const isPrevious = index < currentStageIndex;
 
         return (
-          <section key={stage.id} ref={(el) => { stageRefs.current[index] = el; }} className={`transition-all duration-500 ${isActive ? "opacity-100" : isPrevious ? "opacity-75" : "opacity-40"}`}>
-            <CardContent className={`pt-6 transition-all duration-300 ${isActive ? "border-l-4 border-primary pl-5 bg-primary/5 rounded-md" : ""}`}>
-              <StageComponent />
+          <section
+            key={stage.id}
+            ref={(el) => {
+              stageRefs.current[index] = el;
+            }}
+            className={`transition-all duration-500 ${
+              isActive ? "opacity-100" : isPrevious ? "opacity-75" : "opacity-40"
+            }`}
+          >
+            <CardContent
+              className={`pt-6 transition-all duration-300 ${
+                isActive
+                  ? "border-l-4 border-primary pl-5 bg-primary/5 rounded-md"
+                  : ""
+              }`}
+            >
+              <StageComponent isActive={isActive} />
             </CardContent>
 
             {index < stages.length - 1 && (

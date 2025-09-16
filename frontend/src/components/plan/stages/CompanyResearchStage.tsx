@@ -5,33 +5,44 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { usePrepPlan } from "@/context/plan/PrepPlanContext";
 
+const CompanyResearchStage = ({isActive}:{isActive:boolean}) => {
+  const { data, updateData, nextStage, prevStage } = usePrepPlan();
+  const [notes, setNotes] = useState(data.researchNotes || "");
+  const [error, setError] = useState("");
 
-const CompanyResearchStage = () => {
-const { data, updateData, nextStage, prevStage } = usePrepPlan();
-const [notes, setNotes] = useState(data.researchNotes || "");
+  useEffect(() => {
+    updateData({ researchNotes: notes });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notes]);
 
+  const handleNext = () => {
+    if (!notes.trim()) {
+      setError("Job description is required.");
+      return;
+    }
+    setError("");
+    nextStage();
+  };
 
-useEffect(() => {
-updateData({ researchNotes: notes });
-// eslint-disable-next-line react-hooks/exhaustive-deps
-}, [notes]);
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label>Job Description *</Label>
+        <Textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="e.g., Describe the role, responsibilities, required skills/years of experience... "
+          disabled={!isActive}
+        />
+        {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+      </div>
 
-
-return (
-<div className="space-y-4">
-<div>
-<Label>Job Description</Label>
-<Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g., Describe the role, responsibilities, required skills/years of experience... " />
-</div>
-
-
-<div className="flex gap-3 pt-3">
-<Button onClick={prevStage}>Back</Button>
-<Button onClick={nextStage}>Next</Button>
-</div>
-</div>
-);
+      <div className="flex gap-3 pt-3">
+        <Button onClick={prevStage} disabled={!isActive}>Back</Button>
+        <Button onClick={handleNext} disabled={!isActive}>Next</Button>
+      </div>
+    </div>
+  );
 };
-
 
 export default CompanyResearchStage;
