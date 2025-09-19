@@ -23,6 +23,7 @@ https://interviewly-presentation.vercel.app/
 * Adham Radwan: aradw009@uottawa.ca | 300224504
 * Marwan Mashaly: mmash102@uottawa.ca | 300228296
 * Mohamad Bayaa: mbaya053@gmail.ca | 300251448
+* Anas Taimah: ataim047@uottawa.ca | 300228842
 
 ## Client Info
 
