@@ -3,12 +3,14 @@ import json
 from app.services.supabase_service import SupabaseService
 
 class DashboardService:
-    @staticmethod
-    def get_interview_history(user_id: str):
+    def __init__(self, supabase_service: SupabaseService):
+        self.supabase_service = supabase_service
+
+    def get_interview_history(self, user_id: str):
         """Get interview history with joined feedback data"""
         try:
             # Get all interviews for the user using SupabaseService
-            interview_data = SupabaseService.get_interview_history(user_id)
+            interview_data = self.supabase_service.get_interview_history(user_id)
             if isinstance(interview_data, dict) and "error" in interview_data:
                 return interview_data
                 
@@ -24,7 +26,7 @@ class DashboardService:
                 
                 # Get job description details
                 job_id = interview.get("job_description_id")
-                job_data = SupabaseService.get_job_description_details(job_id)
+                job_data = self.supabase_service.get_job_description_details(job_id)
                 
                 if isinstance(job_data, dict) and "error" in job_data:
                     job_data = {}
@@ -52,12 +54,11 @@ class DashboardService:
         except Exception as e:
             print(f"Error getting interview history: {str(e)}")
             return {"error": str(e)}
-    
-    @staticmethod
-    def get_dashboard_stats(user_id: str):
+
+    def get_dashboard_stats(self, user_id: str):
         """Get dashboard statistics"""
         try:
-            interviews = DashboardService.get_interview_history(user_id)
+            interviews = self.get_interview_history(user_id)
             
             if isinstance(interviews, dict) and "error" in interviews:
                 return {"error": interviews["error"]}
@@ -98,12 +99,11 @@ class DashboardService:
         except Exception as e:
             print(f"Error getting dashboard stats: {str(e)}")
             return {"error": str(e)}
-    
-    @staticmethod
-    def get_active_plan(user_id: str):
+
+    def get_active_plan(self, user_id: str):
         """Get active preparation plan"""
         try:
-            plan = SupabaseService.get_active_preparation_plan(user_id)
+            plan = self.supabase_service.get_active_preparation_plan(user_id)
             
             if isinstance(plan, dict) and "error" in plan:
                 return plan
@@ -123,13 +123,12 @@ class DashboardService:
         except Exception as e:
             print(f"Error getting active plan: {str(e)}")
             return {"error": str(e)}
-    
-    @staticmethod
-    def create_preparation_plan(user_id: str, plan_data: dict):
+
+    def create_preparation_plan(self, user_id: str, plan_data: dict):
         """Create a new preparation plan"""
         try:
             # Mark any existing active plans as inactive
-            SupabaseService.update_preparation_plan_status_by_user(user_id, "inactive")
+            self.supabase_service.update_preparation_plan_status_by_user(user_id, "inactive")
             
             # Create new plan
             plan_record = {
@@ -142,7 +141,7 @@ class DashboardService:
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }
             
-            result = SupabaseService.create_preparation_plan(plan_record)
+            result = self.supabase_service.create_preparation_plan(plan_record)
             
             if isinstance(result, dict) and "error" in result:
                 return result
@@ -152,13 +151,12 @@ class DashboardService:
         except Exception as e:
             print(f"Error creating preparation plan: {str(e)}")
             return {"error": str(e)}
-    
-    @staticmethod
-    def update_preparation_plan(user_id: str, plan_id: str, update_data: dict):
+
+    def update_preparation_plan(self, user_id: str, plan_id: str, update_data: dict):
         """Update a preparation plan after verifying ownership"""
         try:
             # First check if the plan belongs to the user
-            if not SupabaseService.check_plan_ownership(plan_id, user_id):
+            if not self.supabase_service.check_plan_ownership(plan_id, user_id):
                 return {"error": "Plan not found or not authorized"}
                 
             # Continue with update if ownership is verified
@@ -181,7 +179,7 @@ class DashboardService:
                 
             db_update["updated_at"] = datetime.now(timezone.utc).isoformat()
             
-            result = SupabaseService.update_preparation_plan(plan_id, db_update)
+            result = self.supabase_service.update_preparation_plan(plan_id, db_update)
             
             if isinstance(result, dict) and "error" in result:
                 return result

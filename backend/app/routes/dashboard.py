@@ -6,6 +6,8 @@ from app.services.dashboard_service import DashboardService
 from app.services.supabase_service import SupabaseService
 
 router = APIRouter()
+supabase_service = SupabaseService()
+dashboard_service = DashboardService(supabase_service)
 
 class PreparationPlanModel(BaseModel):
     jobTitle: str
@@ -23,12 +25,13 @@ class UpdatePlanModel(BaseModel):
     status: Optional[str] = None
 
 @router.get("/stats")
-async def get_dashboard_stats(current_user: dict = Depends(SupabaseService.get_current_user)):
+async def get_dashboard_stats(current_user: dict = Depends(supabase_service.get_current_user)):
     """Get dashboard statistics"""
     if not current_user or not getattr(current_user, "id", None):
         raise HTTPException(status_code=401, detail="Unauthorized")
-        
-    stats = DashboardService.get_dashboard_stats(current_user.id)
+    
+    print("current_user: ", current_user.id)
+    stats = dashboard_service.get_dashboard_stats(current_user.id)
     
     if isinstance(stats, dict) and "error" in stats:
         raise HTTPException(status_code=500, detail=stats["error"])
@@ -36,12 +39,12 @@ async def get_dashboard_stats(current_user: dict = Depends(SupabaseService.get_c
     return stats
 
 @router.get("/history")
-async def get_interview_history(current_user: dict = Depends(SupabaseService.get_current_user)):
+async def get_interview_history(current_user: dict = Depends(supabase_service.get_current_user)):
     """Get interview history"""
     if not current_user or not getattr(current_user, "id", None):
         raise HTTPException(status_code=401, detail="Unauthorized")
         
-    history = DashboardService.get_interview_history(current_user.id)
+    history = dashboard_service.get_interview_history(current_user.id)
     
     if isinstance(history, dict) and "error" in history:
         raise HTTPException(status_code=500, detail=history["error"])
@@ -49,12 +52,12 @@ async def get_interview_history(current_user: dict = Depends(SupabaseService.get
     return history
 
 @router.get("/active-plan")
-async def get_active_plan(response: Response, current_user: dict = Depends(SupabaseService.get_current_user)):
+async def get_active_plan(response: Response, current_user: dict = Depends(supabase_service.get_current_user)):
     """Get active preparation plan"""
     if not current_user or not getattr(current_user, "id", None):
         raise HTTPException(status_code=401, detail="Unauthorized")
-        
-    plan = DashboardService.get_active_plan(current_user.id)
+    
+    plan = dashboard_service.get_active_plan(current_user.id)
     
     if plan is None:
         response.status_code = status.HTTP_404_NOT_FOUND
@@ -68,13 +71,13 @@ async def get_active_plan(response: Response, current_user: dict = Depends(Supab
 @router.post("/preparation-plan", status_code=status.HTTP_201_CREATED)
 async def create_preparation_plan(
     plan: PreparationPlanModel, 
-    current_user: dict = Depends(SupabaseService.get_current_user)
+    current_user: dict = Depends(supabase_service.get_current_user)
 ):
     """Create a new preparation plan"""
     if not current_user or not getattr(current_user, "id", None):
         raise HTTPException(status_code=401, detail="Unauthorized")
         
-    result = DashboardService.create_preparation_plan(current_user.id, plan.dict())
+    result = dashboard_service.create_preparation_plan(current_user.id, plan.dict())
     
     if isinstance(result, dict) and "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
@@ -85,14 +88,14 @@ async def create_preparation_plan(
 async def update_preparation_plan(
     plan_id: str,
     update_data: UpdatePlanModel,
-    current_user: dict = Depends(SupabaseService.get_current_user)
+    current_user: dict = Depends(supabase_service.get_current_user)
 ):
     """Update a preparation plan"""
     if not current_user or not getattr(current_user, "id", None):
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     # Use the service to update the plan (which now handles ownership verification)
-    result = DashboardService.update_preparation_plan(
+    result = dashboard_service.update_preparation_plan(
         current_user.id, 
         plan_id, 
         update_data.dict(exclude_unset=True)
