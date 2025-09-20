@@ -8,19 +8,16 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 class ResumeParserService:
-    @staticmethod
-    def parse_pdf(file_path: str) -> str:
+    def parse_pdf(self, file_path: str) -> str:
         """Extract text from a PDF file."""
         return extract_text(file_path)
 
-    @staticmethod
-    def parse_docx(file_path: str) -> str:
+    def parse_docx(self, file_path: str) -> str:
         """Extract text from a DOCX file."""
         doc = Document(file_path)
         return "\n".join([para.text for para in doc.paragraphs])
 
-    @staticmethod
-    async def parse_resume(file: UploadFile):
+    async def parse_resume(self, file: UploadFile):
         """Handles resume file upload and parsing."""
         file_path = os.path.join(UPLOAD_DIR, file.filename)
 
@@ -28,9 +25,9 @@ class ResumeParserService:
             shutil.copyfileobj(file.file, buffer)
 
         if file.filename.endswith(".pdf"):
-            extracted_text = ResumeParserService.parse_pdf(file_path)
+            extracted_text = self.parse_pdf(file_path)
         elif file.filename.endswith(".docx"):
-            extracted_text = ResumeParserService.parse_docx(file_path)
+            extracted_text = self.parse_docx(file_path)
         else:
             os.remove(file_path)  # Cleanup
             return {"error": "Unsupported file format"}

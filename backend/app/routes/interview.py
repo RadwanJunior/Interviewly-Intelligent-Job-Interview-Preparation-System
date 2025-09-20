@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from pydantic import BaseModel
 from app.services.interview_service import InterviewService
-from app.services.supabase_service import SupabaseService
+from app.services.supabase_service import supabase_service
 import asyncio
 
 router = APIRouter()
-
+interview_service = InterviewService()
 # Global dictionary to simulate progress storage (in production, use persistent storage)
 PROGRESS_STORE = {}
 
@@ -25,14 +25,14 @@ async def simulate_progress(session_id: str):
 async def create_interview_session(
     request_data: CreateInterviewRequest,
     background_tasks: BackgroundTasks,
-    current_user: dict = Depends(SupabaseService.get_current_user)
+    current_user: dict = Depends(supabase_service.get_current_user)
 ):
 # Validate user authentication
     if not current_user or not getattr(current_user, "id", None):
         raise HTTPException(status_code=401, detail="Unauthorized")
     user_id = current_user.id
 
-    resume_response = SupabaseService.get_resume_table(user_id)
+    resume_response = supabase_service.get_resume_table(user_id)
     if "error" in resume_response or not resume_response.data:
         raise HTTPException(status_code=404, detail="Resume not found")
     resume_record = resume_response.data[0]
@@ -40,7 +40,7 @@ async def create_interview_session(
         raise HTTPException(status_code=403, detail="Invalid resume for this user")
 
     # Fetch the specific job description using its ID
-    job_response = SupabaseService.get_job_description(request_data.job_description_id)
+    job_response = supabase_service.get_job_description(request_data.job_description_id)
     if "error" in job_response or not job_response.data:
         raise HTTPException(status_code=404, detail="Job description not found")
     job_record = job_response.data
@@ -67,7 +67,7 @@ async def create_interview_session(
         raise HTTPException(status_code=500, detail="Failed to generate interview questions")
     
     # Create the interview session record with an empty questions list initially
-    interview_session_response = SupabaseService.create_interview_session(
+    interview_session_response = supabase_service.create_interview_session(
         user_id, resume_record["id"], request_data.job_description_id, []
     )
     if "error" in interview_session_response or not interview_session_response.data:
@@ -87,11 +87,11 @@ async def create_interview_session(
                 "question": question_text,
                 "order": count
             })
-    question_insert_response = SupabaseService.insert_interview_questions(question_records)
+    question_insert_response = supabase_service.insert_interview_questions(question_records)
     if "error" in question_insert_response or not question_insert_response.data:
         raise HTTPException(status_code=500, detail="Failed to insert interview questions")
     question_ids = [record["id"] for record in question_insert_response.data]
-    update_response = SupabaseService.update_interview_session_questions(session_id, question_ids)
+    update_response = supabase_service.update_interview_session_questions(session_id, question_ids)
     if "error" in update_response:
         raise HTTPException(status_code=500, detail="Failed to update interview session with questions")
 
@@ -103,7 +103,7 @@ async def create_interview_session(
 # get questions for a specific interview session
 @router.get("/questions/{session_id}")
 async def get_questions(session_id: str):
-    questions_response = SupabaseService.get_interview_question_table(session_id)
+    questions_response = supabase_service.get_interview_question_table(session_id)
     if "error" in questions_response or not questions_response.data:
         raise HTTPException(status_code=404, detail="Questions not found")
     return questions_response.data

@@ -90,7 +90,6 @@ class SupabaseService:
             return None
         try:
             response = self.client.auth.get_user(token)
-            print("response: ", response.user)
             return response.user
         except Exception as e:
             return {"error": {"message": str(e)}}
