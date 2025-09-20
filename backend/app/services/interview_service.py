@@ -36,7 +36,6 @@ Please **strictly** output the questions in **valid JSON format** as an array, w
 """
 
 class InterviewService:
-    @staticmethod
     def generate_questions(resume_text: str, job_title: str, job_description: str, company_name: str, location: str) -> list:
         """
         Generates interview questions based on the resume text, job title, job description, company name, and location.

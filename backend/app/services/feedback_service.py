@@ -4,7 +4,6 @@ import json
 import tempfile
 import os
 from typing import List, Dict
-from app.services.supabase_service import SupabaseService
 from fastapi import UploadFile, HTTPException
 import io
 from google.api_core.exceptions import GoogleAPIError, BadRequest, Unauthorized, Forbidden, ClientError # NEW: Import specific API exceptions
@@ -84,6 +83,9 @@ Return the entire analysis as a single, valid JSON object. Adhere strictly to th
 """
 
 class FeedbackService:
+    def __init__(self, supabase_service):
+        self.supabase_service = supabase_service
+
     def repair_json(self, json_text, error_message=None):
         """Advanced JSON repair function with multiple strategies for fixing common Gemini API errors"""
         try:
@@ -139,8 +141,7 @@ class FeedbackService:
             return f'"{field}": "{value}"'
             
         return re.sub(pattern, replacer, text)
-    @staticmethod
-    async def upload_audio_file(file: UploadFile, interview_id: str, question_id: str, question_text: str, question_order: int, user_id: str, mime_type: str) -> dict:
+    async def upload_audio_file(self, file: UploadFile, interview_id: str, question_id: str, question_text: str, question_order: int, user_id: str, mime_type: str) -> dict:
         """
         Uploads the audio file to Supabase storage service and Gemini.
         This function now converts the audio to a compatible WAV format for Gemini upload
@@ -238,7 +239,7 @@ class FeedbackService:
             # --- Step 4: Upload original file to Supabase ---
             # Supabase receives the path to the original, unconverted file
             print(f"DEBUG: Uploading original temp file to Supabase: {original_temp_file_path}")
-            response = await SupabaseService.upload_recording_file(user_id, original_temp_file_path, "recordings", interview_id)
+            response = await self.supabase_service.upload_recording_file(user_id, original_temp_file_path, "recordings", interview_id)
 
             # Handle different response types
             file_url = None
@@ -265,7 +266,7 @@ class FeedbackService:
                 "processed": False,
             }
 
-            user_response = await SupabaseService.insert_user_response(file_data)
+            user_response = await self.supabase_service.insert_user_response(file_data)
             if "error" in user_response:
                 raise Exception(f"Failed to save file data to the database: {user_response.get('error', {})}")
 
@@ -295,14 +296,13 @@ class FeedbackService:
                 except Exception as cleanup_e:
                     print(f"ERROR: Error during converted temporary file cleanup: {cleanup_e}")
 
-    @staticmethod
     async def generate_feedback(self, interview_id: str, user_id: str) -> dict:
         """
         Generates feedback by sending interview context, questions, and audio responses to Gemini.
         """
         try:
             # Fetch interview data (context and questions)
-            interview_data = await SupabaseService.get_interview_data(user_id, interview_id)
+            interview_data = await self.supabase_service.get_interview_data(user_id, interview_id)
             if not isinstance(interview_data, dict) or ("error" in interview_data and interview_data["error"]):
                 error_msg = interview_data.get("error", {}).get("message", "Unknown error") if isinstance(interview_data, dict) else "Invalid data"
                 raise Exception(f"Failed to fetch interview data: {error_msg}")
@@ -325,7 +325,7 @@ class FeedbackService:
             for question in interview_questions_ids:
                 # query supabase to get question text and order
                 # print(f"Fetching question data for ID: {question}")
-                supabase_question = SupabaseService.get_interview_question(question)
+                supabase_question = self.supabase_service.get_interview_question(question)
                 if not supabase_question or ("error" in supabase_question and supabase_question["error"]):
                     error_msg = supabase_question.get("error", {}).get("message", "Unknown error") if isinstance(supabase_question, dict) else "Invalid data"
                     raise Exception(f"Failed to fetch question data for ID {question}: {error_msg}")
@@ -338,7 +338,7 @@ class FeedbackService:
             
             # # Fetch user responses (audio file IDs and associated question info)
             # # Ensure get_user_responses returns question_text and question_order, or fetch questions separately and map
-            user_responses_data = SupabaseService.get_user_responses(interview_id)
+            user_responses_data = self.supabase_service.get_user_responses(interview_id)
             if not user_responses_data or ("error" in user_responses_data and user_responses_data["error"]):
                 error_msg = user_responses_data.get("error", {}).get("message", "Unknown error") if isinstance(user_responses_data, dict) else "Invalid data"
                 raise Exception(f"Failed to fetch user responses: {error_msg}")
@@ -486,7 +486,7 @@ class FeedbackService:
                 "status": "completed",  
             }
             
-            feedback_result = SupabaseService.save_feedback(db_feedback_payload)
+            feedback_result = self.supabase_service.save_feedback(db_feedback_payload)
             if "error" in feedback_result and feedback_result["error"]:
                 error_detail = feedback_result["error"].get("message", str(feedback_result["error"]))
                 raise Exception(f"Failed to save feedback to the database: {error_detail}")
@@ -529,7 +529,7 @@ class FeedbackService:
             if score is not None:
                 update_payload["score"] = score
                 
-            SupabaseService.update_interview(interview_id, update_payload)
+            self.supabase_service.update_interview(interview_id, update_payload)
 
             return {
                 "status": "success",

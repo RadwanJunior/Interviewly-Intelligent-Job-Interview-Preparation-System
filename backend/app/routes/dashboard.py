@@ -3,10 +3,9 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from app.services.dashboard_service import DashboardService
-from app.services.supabase_service import SupabaseService
+from app.services.supabase_service import supabase_service
 
 router = APIRouter()
-supabase_service = SupabaseService()
 dashboard_service = DashboardService(supabase_service)
 
 class PreparationPlanModel(BaseModel):

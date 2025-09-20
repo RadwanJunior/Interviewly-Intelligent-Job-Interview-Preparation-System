@@ -1,10 +1,11 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Form, Depends, Request
 from typing import Dict, Optional
 from app.services.feedback_service import FeedbackService
-from app.services.supabase_service import SupabaseService
+from app.services.supabase_service import supabase_service
 import traceback
 
 router = APIRouter()
+feedback_service = FeedbackService(supabase_service)
 
 # A shared in-memory store for tracking feedback generation status
 feedback_status = {}
@@ -28,7 +29,7 @@ async def upload_audio(
     """
     try:
         # Get current user from Supabase authentication
-        user = SupabaseService.get_current_user(request)
+        user = supabase_service.get_current_user(request)
         if not user or "error" in user:
             raise HTTPException(status_code=401, detail="Authentication required")
         
@@ -36,7 +37,7 @@ async def upload_audio(
         
         # Upload the audio file using the FeedbackService
         # This will upload to Gemini and Supabase storage, and create user_responses record
-        recording_data = await FeedbackService.upload_audio_file(
+        recording_data = await feedback_service.upload_audio_file(
             file, interview_id, question_id, question_text, question_order, user_id, mime_type
         )
         
@@ -78,9 +79,9 @@ async def generate_feedback_background(interview_id: str, user_id: str):
     """
     try:
         # Call the service to generate feedback
-        await FeedbackService.generate_feedback(interview_id, user_id) 
+        await feedback_service.generate_feedback(interview_id, user_id) 
         # Update user_responses to mark as processed
-        SupabaseService.update_user_responses_processed(interview_id)
+        supabase_service.update_user_responses_processed(interview_id)
 
         feedback_status[interview_id] = {
             "status": "completed",
@@ -100,7 +101,7 @@ async def check_feedback_status(interview_id: str, request: Request):
     """
     try:
         # Get current user from Supabase authentication
-        user = SupabaseService.get_current_user(request)
+        user = supabase_service.get_current_user(request)
         if not user or "error" in user:
             raise HTTPException(status_code=401, detail="Authentication required")
             
@@ -109,7 +110,7 @@ async def check_feedback_status(interview_id: str, request: Request):
             return feedback_status[interview_id]
         
         # If no status found, check if feedback exists in Supabase
-        feedback = SupabaseService.get_feedback(interview_id)
+        feedback = supabase_service.get_feedback(interview_id)
         
         if feedback:
             # Handle feedback whether it's a list or a dictionary
@@ -139,7 +140,7 @@ async def get_feedback(interview_id: str, request: Request):
     """
     try:
         # Get current user from Supabase authentication
-        user = SupabaseService.get_current_user(request)
+        user = supabase_service.get_current_user(request)
         if not user or "error" in user:
             raise HTTPException(status_code=401, detail="Authentication required")
         
@@ -153,7 +154,7 @@ async def get_feedback(interview_id: str, request: Request):
                 return {"status": "error", "message": f"Error generating feedback: {error_msg}"}
         
         # Try to fetch feedback from Supabase
-        feedback = SupabaseService.get_feedback(interview_id)
+        feedback = supabase_service.get_feedback(interview_id)
         
         if not feedback:
             return {
@@ -188,7 +189,7 @@ async def trigger_feedback_generation(
     """
     try:
         # Get current user from Supabase authentication
-        user = SupabaseService.get_current_user(request)
+        user = supabase_service.get_current_user(request)
         if not user or "error" in user:
             raise HTTPException(status_code=401, detail="Authentication required")
         
@@ -229,7 +230,7 @@ async def feedback_generation_test(interview_id: str, user_id: str):
     """
     try:
         # Start background task
-        feedback_result = await FeedbackService.generate_feedback(user_id, interview_id)
+        feedback_result = await feedback_service.generate_feedback(user_id, interview_id)
         
         return {
             "status": "success",
