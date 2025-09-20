@@ -3,8 +3,10 @@ from app.services.parser_service import ResumeParserService
 import os
 import shutil
 
+resume_parser_service = ResumeParserService()
+
 class WorkflowService:
-    def upload_resume(self, user_id, file):
+    async def upload_resume(self, user_id, file):
         # 1. Upload file to Supabase Storage
         upload_response = supabase_service.upload_file(user_id, file, "resumes")
         if not upload_response:
