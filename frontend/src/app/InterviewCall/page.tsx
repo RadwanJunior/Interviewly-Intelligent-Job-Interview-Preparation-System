@@ -276,7 +276,6 @@ const InterviewCallContent = () => {
     ws.onopen = () =>
       setStatus("Ready. Press mic and introduce yourself to start.");
 
-    // --- THIS IS THE CORRECTED HANDLER ---
     ws.onmessage = (event) => {
       console.log("WebSocket message received:", {
         dataType: typeof event.data,

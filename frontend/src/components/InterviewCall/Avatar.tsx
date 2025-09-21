@@ -5,7 +5,7 @@ import { useGLTF, useAnimations } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { VISEMES } from "wawa-lipsync";
-// FIX: Import the singleton manager directly
+// Import the singleton manager directly
 import { lipsyncManager } from "@/lib/lipsync";
 
 export function Avatar({ animation, ...props }: any) {
