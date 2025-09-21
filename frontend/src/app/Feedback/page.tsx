@@ -454,7 +454,7 @@ ${feedback.overallFeedback}
 
   // Retry the interview
   const handleRetry = () => {
-    router.push("/prepare-interview");
+    router.push("/Workflow");
   };
 
   // Loading state - show different message when actively polling
