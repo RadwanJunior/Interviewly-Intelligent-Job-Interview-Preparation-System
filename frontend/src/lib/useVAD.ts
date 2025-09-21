@@ -62,9 +62,9 @@ export function useVAD({
           }
         },
         // Adjusted VAD sensitivity parameters
-        positiveSpeechThreshold: 0.4, // Increase to reduce sensitivity to noise
+        positiveSpeechThreshold: 0.8, // Increase to reduce sensitivity to noise
         negativeSpeechThreshold: 0.3, // Decrease to avoid premature cut-offs
-        redemptionFrames: 48000, // Wait longer before transitioning to non-speech (3 seconds at 16kHz)
+        redemptionFrames: 80000, // Wait longer before transitioning to non-speech (3 seconds at 16kHz)
         preSpeechPadFrames: 16000, // Add buffer to capture the start of speech (1 second at 16kHz)
       });
       vadRef.current = vad;
