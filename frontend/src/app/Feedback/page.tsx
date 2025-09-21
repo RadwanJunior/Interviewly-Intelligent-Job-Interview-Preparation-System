@@ -716,7 +716,7 @@ ${feedback.overallFeedback}
           <div className="flex justify-between">
             <Button
               variant="outline"
-              onClick={() => router.push(`interview?sessionId==${sessionId}`)}>
+              onClick={() => router.push(`interview?sessionId=${sessionId}`)}>
               Back to Interview
             </Button>
             <Button onClick={handleRetry}>Try Another Interview</Button>
