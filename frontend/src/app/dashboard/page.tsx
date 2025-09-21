@@ -119,9 +119,9 @@ const Dashboard = () => {
 
   const handleStartInterview = (type: "text" | "call") => {
     if (type === "text") {
-      router.push("/prepare-interview");
+      router.push("/Workflow");
     } else {
-      router.push("/prepare-interview");
+      router.push("/Workflow");
     }
   };
 
