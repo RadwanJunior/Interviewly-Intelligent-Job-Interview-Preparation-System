@@ -8,7 +8,7 @@ resume_parser_service = ResumeParserService()
 class WorkflowService:
     async def upload_resume(self, user_id, file):
         # 1. Upload file to Supabase Storage
-        upload_response = supabase_service.upload_file(user_id, file, "resumes")
+        upload_response = await supabase_service.upload_file(user_id, file, "resumes")
         if not upload_response:
             return upload_response
 
@@ -22,9 +22,9 @@ class WorkflowService:
                 shutil.copyfileobj(file.file, buffer)
 
             if file.filename.endswith(".pdf"):
-                extracted_text = ResumeParserService.parse_pdf(local_path)
+                extracted_text = resume_parser_service.parse_pdf(local_path)
             elif file.filename.endswith(".docx"):
-                extracted_text = ResumeParserService.parse_docx(local_path)
+                extracted_text = resume_parser_service.parse_docx(local_path)
             else:
                 os.remove(local_path)
                 return {"error": "Unsupported file format"}
