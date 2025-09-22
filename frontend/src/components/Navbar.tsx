@@ -24,12 +24,15 @@ const useScrollHandler = () => {
 const Navbar = React.memo(() => {
   const isScrolled = useScrollHandler();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, loading } = useAuth(); // <-- include loading
 
   const handleScrollToSection = useCallback((id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    setIsMobileMenuOpen(false); // Close mobile menu after clicking
+    setIsMobileMenuOpen(false);
   }, []);
+
+  // Don't render links until auth is initialized
+  if (loading) return null;
 
   return (
     <nav
@@ -116,4 +119,3 @@ const Navbar = React.memo(() => {
 Navbar.displayName = "Navbar";
 
 export default Navbar;
-

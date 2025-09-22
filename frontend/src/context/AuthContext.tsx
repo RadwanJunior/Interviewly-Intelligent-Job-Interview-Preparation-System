@@ -9,6 +9,7 @@ import React, {
   useMemo,
 } from "react";
 import { login, logout, refreshToken } from "@/lib/api";
+import { useRouter } from "next/navigation";
 
 interface AuthContextType {
   user: { id: string; email: string } | null;
@@ -22,23 +23,22 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<{ id: string; email: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
+  // Initialize auth on mount
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        setLoading(true);
-        const response = await refreshToken(); // Attempt to refresh session
+        const response = await refreshToken();
         if (response.user) {
           setUser(response.user);
         }
       } catch (error) {
         console.error("Error refreshing token:", error);
-        setUser(null);
       } finally {
         setLoading(false);
       }
     };
-
     initializeAuth();
   }, []);
 
@@ -51,6 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (error) {
       console.error("Login error:", error);
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -58,12 +59,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logoutUser = async () => {
     try {
-      await logout();
-      setUser(null);
+      await logout(); // call API to clear cookies
     } catch (error) {
+      // Even if the API call fails, force client logout
       console.error("Logout error:", error);
+    } finally {
+      setUser(null); // make sure context is cleared
+      router.push("/auth/login"); // redirect to login instead of home (optional)
     }
   };
+
 
   const contextValue = useMemo(
     () => ({ user, loading, loginUser, logoutUser }),
@@ -71,7 +76,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 
   return (
-    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={contextValue}>
+      {children}
+    </AuthContext.Provider>
   );
 };
 
