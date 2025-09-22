@@ -76,8 +76,8 @@ class SupabaseService:
     def get_profile(self, user_id: str):
         """Retrieves a profile record from the profiles table."""
         try:
-            response = self.client.from_("profiles").select("*").eq("id", user_id).single()
-            return response
+            response = self.client.from_("profiles").select("*").eq("id", user_id).single().execute()
+            return response.data if hasattr(response, "data") else None
         except Exception as e:
             return {"error": {"message": str(e)}}
     
@@ -236,6 +236,17 @@ class SupabaseService:
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
+        
+    def update_profile(self, user_id: str, updates: dict):
+        """Updates updated_at field for a given user profile."""
+        try:
+            updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+            response = self.client.from_("profiles").update(updates).eq("id", user_id).execute()
+            return response.data if hasattr(response, "data") else None
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+
+
     
     def get_latest_interview_session(self, user_id: str) -> dict:
         """
@@ -347,6 +358,18 @@ class SupabaseService:
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
+    
+    def get_user_from_access_token(self, access_token: str):
+        """
+        Returns user object from an access token.
+        Raises Exception if token is invalid.
+        """
+        try:
+            user = self.client.auth.get_user(access_token)
+            return user
+        except Exception as e:
+            print("Error decoding access token:", e)
+            return None
 
     def update_user_response(self, response_id: str, processed: bool) -> dict:
         """
