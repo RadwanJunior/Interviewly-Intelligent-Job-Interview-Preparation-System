@@ -27,7 +27,7 @@ const Profile = () => {
   const { toast } = useToast();
   const router = useRouter();
 
-  // Keep editableProfile in sync with profile
+  // Sync editableProfile when profile is fetched
   useEffect(() => {
     setEditableProfile(profile);
   }, [profile]);
@@ -48,7 +48,6 @@ const Profile = () => {
         });
         setProfile(null);
 
-        // Optional: redirect after short delay
         setTimeout(() => {
           router.push("/auth/login");
         }, 100);
@@ -90,14 +89,23 @@ const Profile = () => {
 
   const handleSave = async () => {
     try {
-      if (!editableProfile) return;
+      if (!editableProfile || !profile) return;
 
-      const res = await api.put("/auth/profile", {
+      await api.put("/auth/profile", {
         first_name: editableProfile.first_name,
         last_name: editableProfile.last_name,
       });
 
-      setProfile(res.data); // editableProfile will auto-sync via useEffect
+      // Merge updated fields into profile, keeping other fields intact
+      const updatedProfile = {
+        ...profile,
+        first_name: editableProfile.first_name,
+        last_name: editableProfile.last_name,
+        updated_at: new Date().toISOString(), // optionally update timestamp locally
+      };
+
+      setProfile(updatedProfile);
+      setEditableProfile(updatedProfile);
       setIsEditing(false);
 
       toast({
@@ -113,6 +121,7 @@ const Profile = () => {
       });
     }
   };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-secondary/10 to-white">
