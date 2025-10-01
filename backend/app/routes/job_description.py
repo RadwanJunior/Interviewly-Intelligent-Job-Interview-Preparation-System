@@ -13,11 +13,28 @@ class JobDescriptionRequest(BaseModel):
     job_type: str
     description: str
 
-@router.post("/")
+"""
+Job Description Router: Handles creation of job descriptions for users.
+"""
+router.post("/")
 async def create_job_description(
     request: JobDescriptionRequest,
     current_user: dict = Depends(supabase_service.get_current_user)
 ):
+    """
+    Create a new job description for the current user.
+
+    Args:
+        request (JobDescriptionRequest): The job description details.
+        current_user (dict): The authenticated user.
+
+    Returns:
+        dict: The created job description or error message.
+
+    Raises:
+        HTTPException: If the user is unauthorized or creation fails.
+    """
+    # Check for valid user authentication
     if not current_user or not getattr(current_user, "id", None):
         return {"error": "Unauthorized or invalid user"}
     user_id = getattr(current_user, "id", None)
