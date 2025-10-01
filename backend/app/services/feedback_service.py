@@ -1,3 +1,9 @@
+
+"""
+FeedbackService: Handles the generation and storage of interview feedback using Gemini and Supabase.
+Includes audio upload, prompt construction, and robust JSON repair for Gemini responses.
+"""
+
 from google import genai
 from google.genai import types
 import json
@@ -6,7 +12,7 @@ import os
 from typing import List, Dict
 from fastapi import UploadFile, HTTPException
 import io
-from google.api_core.exceptions import GoogleAPIError, BadRequest, Unauthorized, Forbidden, ClientError # NEW: Import specific API exceptions
+from google.api_core.exceptions import GoogleAPIError, BadRequest, Unauthorized, Forbidden, ClientError
 import traceback
 import time
 import re
@@ -86,19 +92,23 @@ class FeedbackService:
     def __init__(self, supabase_service):
         self.supabase_service = supabase_service
 
-    def repair_json(self, json_text, error_message=None):
-        """Advanced JSON repair function with multiple strategies for fixing common Gemini API errors"""
+    def repair_json(self, json_text: str, error_message: str = None) -> dict:
+        """
+        Advanced JSON repair function that attempts to repair and parse any malformed JSON returned by Gemini.
+        Args:
+            json_text (str): The raw JSON string.
+            error_message (str, optional): Error message from previous parse attempt.
+        Returns:
+            dict: Parsed JSON object.
+        """
         try:
             # Strategy 1: Basic cleanup - remove markdown blocks, leading/trailing whitespace
             text = re.sub(r'```json|```', '', json_text).strip()
-            
             # Strategy 2: Fix missing closing quotes at the end of values
             text = re.sub(r'": "([^"\n]*)(?=\n\s*")', '": "\\1"', text)
             text = re.sub(r'": "([^"\n]*)(?=\n\s*})', '": "\\1"', text)
-            
             # Strategy 3: Fix missing quotes before commas
             text = re.sub(r'([^"])\s*,\s*"', '\\1",\n"', text)
-            
             # Strategy 4: Target specific position if error message contains line and column info
             if error_message and "Unterminated string" in error_message and "line" in error_message and "column" in error_message:
                 # Extract line and column from error message
@@ -123,16 +133,22 @@ class FeedbackService:
                 return json5.loads(text)
             except Exception:
                 # If json5 fails, one last attempt with custom quotes balancing
-                text = self.balance_quotes(text)
+                text = self._balance_quotes(text)
                 return json5.loads(text)
                 
         except Exception as e:
             print(f"All JSON repair strategies failed: {str(e)}")
             raise
 
-    def balance_quotes(text):
-        """Balance quotes in each JSON field by ensuring each field has matching quotes"""
-        # Find patterns like "field": "value with potentially unmatched quotes
+    @staticmethod
+    def _balance_quotes(text: str) -> str:
+        """
+        Balance quotes in each JSON field by ensuring each field has matching quotes.
+        Args:
+            text (str): The JSON string to repair.
+        Returns:
+            str: The repaired JSON string.
+        """
         pattern = r'"([^"]+)":\s*"([^"]*)'
         
         def replacer(match):
