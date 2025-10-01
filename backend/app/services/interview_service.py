@@ -63,11 +63,11 @@ class InterviewService:
             location=location
         )
 
-        # Count tokens using the new client method.
-        # Can be printed if neeeded for debugging or monitoring token usage
-        total_tokens = client.models.count_tokens(
-            model="gemini-2.0-flash", contents=prompt
-        )
+        # # Count tokens using the new client method.
+        # # Can be printed if neeeded for debugging or monitoring token usage
+        # total_tokens = client.models.count_tokens(
+        #     model="gemini-2.0-flash", contents=prompt
+        # )
 
         try:
           # Generate questions using gemini API
