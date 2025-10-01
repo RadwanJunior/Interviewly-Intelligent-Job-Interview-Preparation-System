@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: "http://localhost:8000", // Change this for production
   withCredentials: true, // Ensures cookies (tokens) are sent
   headers: { "Content-Type": "application/json" },
@@ -31,7 +31,9 @@ export async function login(email: string, password: string) {
 
 export async function refreshToken() {
   try {
-    const response = await api.post("/auth/refresh", {});
+    const response = await api.post("/auth/refresh", {}, {
+      withCredentials: true, // <-- add this to send cookies
+    });
     return response.data;
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
@@ -190,17 +192,4 @@ export async function fetchActivePlan() {
     console.error("Error fetching active plan:", error);
     return null;
   }
-}
-
-export async function createPreparationPlan(planData) {
-  const response = await api.post("/dashboard/preparation-plan", planData);
-  return response.data;
-}
-
-export async function updatePreparationPlan(planId, updateData) {
-  const response = await api.put(
-    `/dashboard/preparation-plan/${planId}`,
-    updateData
-  );
-  return response.data;
 }
