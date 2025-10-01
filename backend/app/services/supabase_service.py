@@ -1,21 +1,37 @@
+
+# Standard library imports
 import os
+import time
+from datetime import datetime, timezone
+# Third-party imports
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from fastapi import UploadFile, HTTPException, Request
-import time
-from datetime import datetime, timezone
 
 
+
+# Load environment variables from .env file
 load_dotenv()
 
+
+# Retrieve Supabase credentials from environment
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
 
+
+# Initialize Supabase client
 supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Expiry time for signed URLs (30 days)
 expiry = 60 * 60 * 24 * 30  # 30 days in seconds
 
+
 class SupabaseService:
+    """
+    Service class for interacting with Supabase authentication, storage, and database tables.
+    Provides methods for user management, file storage, resume/job/interview CRUD, and more.
+    """
     def __init__(self, client=None):
+        # Use provided client or default to global supabase_client
         self.client = client or supabase_client 
 
     def create_user(self, email: str, password: str):
@@ -579,4 +595,5 @@ class SupabaseService:
             print(f"Error updating preparation plan status: {str(e)}")
             return {"error": str(e)}
 
+# Singleton instance of SupabaseService for use throughout the app
 supabase_service = SupabaseService()
