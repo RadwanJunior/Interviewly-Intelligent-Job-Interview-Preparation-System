@@ -472,7 +472,8 @@ class FeedbackLiveService:
             stream.name = display_name
             # Fix: Create a valid Gemini file name (only lowercase alphanumeric chars and dashes)
             # Remove dots, underscores, spaces and other invalid characters
-            clean_name = re.sub(r'[^a-z0-9-]', '', f"{interview_id[:8]}-answer-{display_name.replace('.wav', '').replace('_', '')}")
+            base_name = f"{interview_id[:8]}-answer-{display_name.replace('.wav', '').replace('_', '')}"
+            clean_name = re.sub(r'[^a-z0-9-]', '', base_name)
             gem_file = genai_client.files.upload(
                 file=stream,
                 config=types.UploadFileConfig(
