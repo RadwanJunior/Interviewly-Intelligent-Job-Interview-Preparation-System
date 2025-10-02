@@ -1,8 +1,14 @@
+# =============================
+# auth.py - FastAPI router for authentication endpoints
+# Handles user signup, login, token refresh, and logout using Supabase as backend.
+# =============================
+
 from fastapi import APIRouter, HTTPException, Response, Request, Depends
 from pydantic import BaseModel, EmailStr
 import os
 from app.services.supabase_service import supabase_service
 
+# Create a router for all authentication-related endpoints
 router = APIRouter()
 
 # Cookie keys
@@ -16,10 +22,12 @@ COOKIE_SECURE = True if IS_PRODUCTION else False
 
 # Define Pydantic models for the request body
 class AuthPayload(BaseModel):
+    """Pydantic model for login request payload."""
     email: EmailStr
     password: str
 
 class SignupPayload(BaseModel):
+    """Pydantic model for signup request payload."""
     firstName: str
     lastName: str
     email: EmailStr
