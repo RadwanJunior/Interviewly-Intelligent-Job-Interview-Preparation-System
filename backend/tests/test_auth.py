@@ -1,5 +1,13 @@
+# =============================
+# test_auth.py - Integration tests for authentication API endpoints
+# Tests signup and login flows using the FastAPI test client fixture.
+# =============================
+
 import uuid
 def test_signup_success(client):
+    """
+    Test that a user can successfully sign up with valid credentials.
+    """
     payload = {
         "firstName": "Test",
         "lastName": "User",
@@ -12,6 +20,9 @@ def test_signup_success(client):
     assert "message" in response.json()
 
 def test_signup_invalid_email(client):
+    """
+    Test that signup fails with an invalid email address.
+    """
     payload = {
         "firstName": "Test",
         "lastName": "User",
@@ -22,6 +33,9 @@ def test_signup_invalid_email(client):
     assert response.status_code in [400, 422], response.text
 
 def test_login_success(client):
+    """
+    Test that a user can log in after signing up with valid credentials.
+    """
     email = f"testuser_{uuid.uuid4().hex[:8]}@gmail.com"
     password = "StrongPassword123"
     signup_payload = {
@@ -40,6 +54,9 @@ def test_login_success(client):
     assert "message" in response.json()
 
 def test_login_invalid_credentials(client):
+    """
+    Test that login fails with invalid credentials.
+    """
     payload = {
         "email": "testuser@gmail.com",
         "password": "WrongPassword"
