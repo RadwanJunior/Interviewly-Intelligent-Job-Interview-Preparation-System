@@ -1,13 +1,20 @@
+# =============================
+# audio.py - FastAPI router for audio upload and feedback endpoints
+# Handles audio uploads, feedback generation, and feedback status for interview sessions.
+# =============================
+
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Form, Depends, Request
 from typing import Dict, Optional
 from app.services.feedback_service import FeedbackService
 from app.services.supabase_service import supabase_service
 import traceback
 
+# Create a router for all audio/feedback-related endpoints
 router = APIRouter()
+# Instantiate the feedback service, passing in the supabase service for DB operations
 feedback_service = FeedbackService(supabase_service)
 
-# A shared in-memory store for tracking feedback generation status
+# A shared in-memory store for tracking feedback generation status (not persistent; for demo/testing only)
 feedback_status = {}
 
 @router.post("/upload")
