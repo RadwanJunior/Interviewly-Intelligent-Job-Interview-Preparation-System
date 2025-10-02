@@ -1,3 +1,9 @@
+/**
+ * useWorkflowState.ts - Custom React hook for workflow state management
+ * Manages workflow stages, resume/job data, and provides navigation and update actions.
+ * Used by WorkflowContext to provide state to the app.
+ */
+
 "use client";
 import { useState } from "react";
 import { WorkflowStage, WorkflowContextType } from "./types";
@@ -7,6 +13,10 @@ import {
   initialJobDetailsData,
 } from "./initialState";
 
+/**
+ * Custom React hook to manage workflow state and actions.
+ * @returns {WorkflowContextType} State and actions for workflow navigation and data updates.
+ */
 export const useWorkflowState = (): WorkflowContextType => {
   const [stages, setStages] = useState<WorkflowStage[]>(initialStages);
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
