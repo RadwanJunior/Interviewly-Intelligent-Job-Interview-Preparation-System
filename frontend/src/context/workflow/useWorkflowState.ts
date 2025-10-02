@@ -29,6 +29,11 @@ export const useWorkflowState = (): WorkflowContextType => {
   //   jobDescriptionId: "",
   // });
 
+  /**
+   * Advances the workflow to the next stage.
+   * Deactivates the current stage and activates the next one.
+   * Does nothing if already at the last stage.
+   */
   const goToNextStage = () => {
     if (currentStageIndex < stages.length - 1) {
       setStages((prevStages) => {
@@ -47,6 +52,11 @@ export const useWorkflowState = (): WorkflowContextType => {
     }
   };
 
+  /**
+   * Moves the workflow back to the previous stage.
+   * Deactivates the current stage and activates the previous one.
+   * Does nothing if already at the first stage.
+   */
   const goToPreviousStage = () => {
     if (currentStageIndex > 0) {
       setStages((prevStages) => {
@@ -65,6 +75,11 @@ export const useWorkflowState = (): WorkflowContextType => {
     }
   };
 
+  /**
+   * Jumps to a specific stage in the workflow by index.
+   * Deactivates the current stage and activates the target stage.
+   * @param {number} index - The index of the stage to activate.
+   */
   const goToStage = (index: number) => {
     if (index >= 0 && index < stages.length) {
       setStages((prevStages) => {
@@ -83,6 +98,10 @@ export const useWorkflowState = (): WorkflowContextType => {
     }
   };
 
+  /**
+   * Marks the current stage as completed.
+   * Does not advance to the next stage automatically.
+   */
   const completeCurrentStage = () => {
     setStages((prevStages) => {
       const newStages = [...prevStages];
@@ -94,10 +113,20 @@ export const useWorkflowState = (): WorkflowContextType => {
     });
   };
 
+  /**
+   * Updates the resume data in the workflow state.
+   * Merges new data with the existing resume data.
+   * @param {Partial<typeof resumeData>} data - Partial resume data to update.
+   */
   const updateResumeData = (data: Partial<typeof resumeData>) => {
     setResumeData((prev) => ({ ...prev, ...data }));
   };
 
+  /**
+   * Updates the job details data in the workflow state.
+   * Merges new data with the existing job details data.
+   * @param {Partial<typeof jobDetailsData>} data - Partial job details data to update.
+   */
   const updateJobDetailsData = (data: Partial<typeof jobDetailsData>) => {
     setJobDetailsData((prev) => ({ ...prev, ...data }));
   };
