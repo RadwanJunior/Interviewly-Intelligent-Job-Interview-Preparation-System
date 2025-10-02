@@ -1,3 +1,8 @@
+# =============================
+# dashboard.py - FastAPI router for dashboard-related endpoints
+# Handles statistics, interview history, and preparation plans for users.
+# =============================
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -5,16 +10,22 @@ from datetime import datetime
 from app.services.dashboard_service import DashboardService
 from app.services.supabase_service import supabase_service
 
+
+# Create a router for all dashboard-related endpoints
 router = APIRouter()
+
+# Instantiate the dashboard service, passing in the supabase service for DB operations
 dashboard_service = DashboardService(supabase_service)
 
 class PreparationPlanModel(BaseModel):
+    """Pydantic model for creating a new preparation plan."""
     jobTitle: str
     company: Optional[str] = None
     interviewDate: Optional[str] = None
     steps: Optional[List[Dict[str, Any]]] = []
 
 class UpdatePlanModel(BaseModel):
+    """Pydantic model for updating an existing preparation plan."""
     jobTitle: Optional[str] = None
     company: Optional[str] = None
     interviewDate: Optional[str] = None
