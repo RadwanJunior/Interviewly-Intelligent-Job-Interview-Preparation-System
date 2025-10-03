@@ -18,10 +18,10 @@ import {
  * @returns {WorkflowContextType} State and actions for workflow navigation and data updates.
  */
 export const useWorkflowState = (): WorkflowContextType => {
-  const [stages, setStages] = useState<WorkflowStage[]>(initialStages);
+  const [stages, setStages] = useState<WorkflowStage[]>(() => JSON.parse(JSON.stringify(initialStages)));
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
-  const [resumeData, setResumeData] = useState(initialResumeData);
-  const [jobDetailsData, setJobDetailsData] = useState(initialJobDetailsData);
+  const [resumeData, setResumeData] = useState(() => ({ ...initialResumeData }));
+  const [jobDetailsData, setJobDetailsData] = useState(() => ({ ...initialJobDetailsData }));
   // const [loaderState, setLoaderState] = useState({
   //   isVisible: false,
   //   progress: 0,
@@ -131,6 +131,18 @@ export const useWorkflowState = (): WorkflowContextType => {
     setJobDetailsData((prev) => ({ ...prev, ...data }));
   };
 
+  /**
+   * Resets the entire workflow to its initial state.
+   * This includes resetting stages, resume data, and job details data.
+   * Useful when starting a new interview from scratch.
+   */
+  const resetWorkflow = () => {
+    setStages(JSON.parse(JSON.stringify(initialStages)));
+    setCurrentStageIndex(0);
+    setResumeData({ ...initialResumeData });
+    setJobDetailsData({ ...initialJobDetailsData });
+  };
+
   return {
     stages,
     currentStageIndex,
@@ -138,6 +150,7 @@ export const useWorkflowState = (): WorkflowContextType => {
     goToPreviousStage,
     goToStage,
     completeCurrentStage,
+    resetWorkflow,
     resumeData,
     updateResumeData,
     jobDetailsData,
