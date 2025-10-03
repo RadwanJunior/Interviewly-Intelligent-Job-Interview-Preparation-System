@@ -25,6 +25,7 @@ import {
 } from "@/lib/api";
 import Navbar from "@/components/Navbar";
 import { InterviewCard } from "@/components/dashboard/InterviewCard";
+import { useWorkflow } from "@/context/WorkflowContext";
 
 interface InterviewHistoryItem {
   id: string;
@@ -59,6 +60,7 @@ interface PreparationPlan {
 
 const Dashboard = () => {
   const router = useRouter();
+  const { resetWorkflow } = useWorkflow();
   const [activePlan, setActivePlan] = useState<PreparationPlan | null>(null);
   const [interviewHistory, setInterviewHistory] = useState<
     InterviewHistoryItem[]
@@ -118,6 +120,8 @@ const Dashboard = () => {
   };
 
   const handleStartInterview = (type: "text" | "call") => {
+    // Reset workflow state before starting a new interview
+    resetWorkflow();
     if (type === "text") {
       router.push("/Workflow");
     } else {
