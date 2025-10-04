@@ -123,7 +123,9 @@ const Dashboard = () => {
   };
 
   const handleViewFeedback = (interviewId: string) => {
-    router.push(`/Feedback?sessionId=${interviewId}`);
+    // Default to text type for backward compatibility with existing interviews
+    // TODO: Store interview type in database and retrieve it for proper routing
+    router.push(`/Feedback?sessionId=${interviewId}&type=text`);
   };
 
   if (loading) {

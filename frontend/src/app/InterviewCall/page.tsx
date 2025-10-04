@@ -396,11 +396,11 @@ const InterviewCallContent = () => {
 
   const finishInterview = async () => {
     if (!isInterviewActive) {
-      router.push(`/Feedback?sessionId=${sessionId}`);
+      router.push(`/Feedback?sessionId=${sessionId}&type=live`);
       return;
     }
 
-    // Always send USER_AUDIO_END before finishing, whether or not VAD detects user speaking
+    // Send final audio end and close WebSocket
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       console.log("Interview ending, sending final USER_AUDIO_END");
       wsRef.current.send(
@@ -410,8 +410,6 @@ const InterviewCallContent = () => {
           final: true,
         })
       );
-
-      // Small delay to ensure message is sent before closing
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
@@ -423,6 +421,7 @@ const InterviewCallContent = () => {
         recognitionRef.current.stop();
       } catch (e) {
         // Speech recognition might already be stopped
+        console.warn("Speech recognition stop error:", e);
       }
     }
 
@@ -434,9 +433,10 @@ const InterviewCallContent = () => {
       wsRef.current.close();
     }
 
-    setStatus("Finalizing and generating feedback...");
+    setStatus("Triggering feedback generation...");
 
     try {
+      // Trigger feedback generation
       const result = await triggerLiveFeedbackGeneration(sessionId as string);
 
       if (
@@ -446,13 +446,12 @@ const InterviewCallContent = () => {
       ) {
         toast({
           title: "Interview Completed",
-          description:
-            "Your feedback is being prepared. You'll be redirected in a moment.",
-          duration: 5000,
+          description: "Redirecting to feedback page...",
+          duration: 3000,
         });
-        setTimeout(() => {
-          router.push(`/Feedback?sessionId=${sessionId}`);
-        }, 2000);
+
+        // Redirect immediately to feedback page with live interview type - let it handle the polling
+        router.push(`/Feedback?sessionId=${sessionId}&type=live`);
       } else {
         toast({
           title: "Error",

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Head from "next/head";
 import {
@@ -26,7 +26,15 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { getFeedback, getFeedbackStatus } from "@/lib/api";
+import {
+  getFeedback,
+  getFeedbackStatus,
+  checkLiveFeedbackStatus,
+  getLiveFeedback,
+  triggerLiveFeedbackGeneration,
+  triggerFeedbackGeneration,
+  clearFeedbackStatus as clearFeedbackStatusAPI,
+} from "@/lib/api";
 
 // Update the ApiFeedback interface to handle both structures
 interface ApiFeedback {
@@ -84,6 +92,15 @@ const Feedback = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("sessionId");
+  const interviewType = searchParams.get("type") as "text" | "live" | null;
+
+  console.log(
+    `DEBUG: Feedback component loaded with sessionId: ${sessionId}, interviewType: ${interviewType}`
+  );
+  
+  // Log helpful debug info
+  console.log("DEBUG: Available debugging commands:");
+  console.log("  - window.clearFeedbackStatus() - Clear feedback status and reload page");
   const { toast } = useToast();
 
   const [feedback, setFeedback] = useState<FormattedFeedback>(INITIAL_FEEDBACK);
@@ -91,6 +108,25 @@ const Feedback = () => {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [pollingCount, setPollingCount] = useState(0);
+
+  // Debug function to clear feedback status (accessible from browser console)
+  const clearFeedbackStatus = useCallback(async () => {
+    if (!sessionId) return;
+    try {
+      await clearFeedbackStatusAPI(sessionId);
+      console.log("Feedback status cleared");
+      setError(null);
+      setLoading(true);
+      window.location.reload();
+    } catch (e) {
+      console.error("Failed to clear status:", e);
+    }
+  }, [sessionId]);
+
+  // Make clearFeedbackStatus available globally for debugging
+  useEffect(() => {
+    (window as unknown as { clearFeedbackStatus: () => void }).clearFeedbackStatus = clearFeedbackStatus;
+  }, [sessionId, clearFeedbackStatus]);
 
   // Transform API data to UI format
   const transformApiDataToUiFormat = (
@@ -352,67 +388,219 @@ const Feedback = () => {
     };
   };
 
-  // Fetch feedback data when component loads
+  // Fetch feedback data when component loads - handles both interview types
   useEffect(() => {
     let pollingTimeout: NodeJS.Timeout | null = null;
     let pollingAttempts = 0;
-    const MAX_ATTEMPTS = 60; // e.g., 3 minutes if polling every 3s
+    const MAX_ATTEMPTS = 60; // 3 minutes if polling every 3s
 
     const fetchFeedback = async () => {
       if (!sessionId) {
+        console.error("DEBUG: No sessionId provided");
         setError("No interview session ID provided");
         setLoading(false);
         return;
       }
 
+      // Determine interview type - default to 'text' for backward compatibility
+      const currentType = interviewType || "text";
+      console.log(
+        `DEBUG: fetchFeedback called - sessionId: ${sessionId}, currentType: ${currentType}, pollingAttempts: ${pollingAttempts}`
+      );
+      setPollingCount(pollingAttempts + 1);
+
       try {
-        const statusResponse = await getFeedbackStatus(sessionId);
+        console.log(
+          `DEBUG: Starting API call logic for currentType: ${currentType}`
+        );
 
-        if (statusResponse.status === "processing") {
-          // Keep polling, do not show error
-          if (pollingAttempts < MAX_ATTEMPTS) {
-            pollingTimeout = setTimeout(fetchFeedback, 3000);
-            pollingAttempts++;
-          } else {
+        if (currentType === "live") {
+          // Handle live/video interview feedback
+          const statusResponse = await checkLiveFeedbackStatus(sessionId);
+
+          if (statusResponse.status === "processing") {
+            if (pollingAttempts < MAX_ATTEMPTS) {
+              pollingTimeout = setTimeout(fetchFeedback, 3000);
+              pollingAttempts++;
+            } else {
+              setError(
+                "Feedback generation is taking longer than expected. Please try refreshing in a minute."
+              );
+              setLoading(false);
+            }
+            return;
+          } else if (statusResponse.status === "error") {
             setError(
-              "Feedback generation is taking longer than expected. Please try refreshing in a minute."
+              statusResponse.error || statusResponse.message || "Error generating live feedback"
             );
+            setLoading(false);
+            return;
+          } else if (statusResponse.status === "not_started") {
+            // Try to trigger feedback generation if not started
+            try {
+              await triggerLiveFeedbackGeneration(sessionId);
+              pollingTimeout = setTimeout(fetchFeedback, 3000);
+              pollingAttempts++;
+            } catch (triggerError) {
+              console.error(
+                "Failed to trigger live feedback generation:",
+                triggerError
+              );
+              setError("Failed to start live feedback generation");
+              setLoading(false);
+            }
+            return;
           }
-          return;
-        } else if (statusResponse.status === "error") {
-          setError(statusResponse.message || "Error generating feedback");
-          setLoading(false);
-          return;
-        }
 
-        // If status is completed or success, fetch the feedback data
-        const response = await getFeedback(sessionId);
+          // If status is completed, fetch the actual live feedback data
+          if (statusResponse.status === "completed") {
+            const feedbackResponse = await getLiveFeedback(sessionId);
 
-        if (response.status === "success" && response.feedback) {
-          const transformedData = transformApiDataToUiFormat(response.feedback);
-          setFeedback(transformedData);
-          setLoading(false);
-        } else if (response.status === "processing") {
-          // Defensive: if backend returns processing here, keep polling
-          if (pollingAttempts < MAX_ATTEMPTS) {
-            pollingTimeout = setTimeout(fetchFeedback, 3000);
-            pollingAttempts++;
-          } else {
-            setError(
-              "Feedback generation is taking longer than expected. Please try refreshing in a minute."
-            );
+            if (
+              feedbackResponse.status === "success" &&
+              feedbackResponse.feedback
+            ) {
+              const transformedData = transformApiDataToUiFormat(
+                feedbackResponse.feedback
+              );
+              setFeedback(transformedData);
+              setLoading(false);
+            } else if (feedbackResponse.status === "processing") {
+              // Still processing, continue polling
+              if (pollingAttempts < MAX_ATTEMPTS) {
+                pollingTimeout = setTimeout(fetchFeedback, 3000);
+                pollingAttempts++;
+              } else {
+                setError("Live feedback generation timeout");
+                setLoading(false);
+              }
+            } else {
+              setError(
+                feedbackResponse.message || "Error retrieving live feedback"
+              );
+              setLoading(false);
+            }
           }
-        } else if (response.status === "error") {
-          setError(response.message || "Error generating feedback");
-          setLoading(false);
         } else {
-          setError("Invalid feedback data received");
-          setLoading(false);
+          // Handle text interview feedback (existing logic)
+          console.log(
+            `DEBUG: Handling text interview feedback for sessionId: ${sessionId}`
+          );
+          console.log(`DEBUG: Calling getFeedbackStatus...`);
+
+          const statusResponse = await getFeedbackStatus(sessionId);
+          console.log(`DEBUG: getFeedbackStatus response:`, statusResponse);
+
+          if (statusResponse.status === "processing") {
+            console.log(
+              `DEBUG: Status is processing, polling attempt ${
+                pollingAttempts + 1
+              }/${MAX_ATTEMPTS}`
+            );
+            if (pollingAttempts < MAX_ATTEMPTS) {
+              pollingTimeout = setTimeout(fetchFeedback, 3000);
+              pollingAttempts++;
+            } else {
+              setError(
+                "Feedback generation is taking longer than expected. Please try refreshing in a minute."
+              );
+              setLoading(false);
+            }
+            return;
+          } else if (statusResponse.status === "error") {
+            const errorMessage = statusResponse.error || statusResponse.message || "Error generating feedback";
+            console.log(`DEBUG: Status is error. Full response:`, statusResponse);
+            console.log(`DEBUG: Setting error message to user: "${errorMessage}"`);
+            setError(errorMessage);
+            setLoading(false);
+            return;
+          } else if (statusResponse.status === "not_started") {
+            console.log(`DEBUG: Status is not_started, triggering feedback generation`);
+            // Try to trigger feedback generation for text interviews
+            try {
+              const triggerResponse = await triggerFeedbackGeneration(sessionId);
+              console.log(`DEBUG: Trigger response:`, triggerResponse);
+              
+              if (triggerResponse.status === "already_processing") {
+                console.log(`DEBUG: Feedback generation already in progress`);
+                // Continue polling
+                pollingTimeout = setTimeout(fetchFeedback, 3000);
+                pollingAttempts++;
+              } else if (triggerResponse.status === "already_exists") {
+                console.log(`DEBUG: Feedback already exists, refreshing status`);
+                // Feedback already exists, refresh to get it
+                pollingTimeout = setTimeout(fetchFeedback, 1000);
+                pollingAttempts++;
+              } else if (triggerResponse.status === "success") {
+                console.log(`DEBUG: Successfully triggered feedback generation for sessionId: ${sessionId}`);
+                // Continue polling to check the status
+                pollingTimeout = setTimeout(fetchFeedback, 3000);
+                pollingAttempts++;
+              } else {
+                console.error("Unexpected trigger response:", triggerResponse);
+                setError("Failed to start feedback generation. Please return to the interview and complete it again.");
+                setLoading(false);
+              }
+            } catch (triggerError) {
+              console.error("Failed to trigger feedback generation:", triggerError);
+              setError("Failed to start feedback generation. Please return to the interview and complete it again.");
+              setLoading(false);
+            }
+            return;
+          }
+
+          // If status is completed or success, fetch the feedback data
+          console.log(
+            `DEBUG: Status check passed, calling getFeedback for sessionId: ${sessionId}`
+          );
+          const response = await getFeedback(sessionId);
+          console.log(`DEBUG: getFeedback response:`, response);
+
+          if (response.status === "success" && response.feedback) {
+            const transformedData = transformApiDataToUiFormat(
+              response.feedback
+            );
+            setFeedback(transformedData);
+            setLoading(false);
+          } else if (response.status === "processing") {
+            // Defensive: if backend returns processing here, keep polling
+            if (pollingAttempts < MAX_ATTEMPTS) {
+              pollingTimeout = setTimeout(fetchFeedback, 3000);
+              pollingAttempts++;
+            } else {
+              setError(
+                "Feedback generation is taking longer than expected. Please try refreshing in a minute."
+              );
+              setLoading(false);
+            }
+          } else if (response.status === "error") {
+            const errorMessage = response.error || response.message || "Error generating feedback";
+            console.log(`DEBUG: getFeedback error. Full response:`, response);
+            console.log(`DEBUG: Setting error message to user: "${errorMessage}"`);
+            setError(errorMessage);
+            setLoading(false);
+          } else {
+            setError("Invalid feedback data received");
+            setLoading(false);
+          }
         }
       } catch (err) {
-        // Only show error if backend actually errored
+        console.error(
+          `DEBUG: ${currentType} feedback fetch error for sessionId ${sessionId}:`,
+          err
+        );
+        console.error(`DEBUG: Error details:`, {
+          name: err instanceof Error ? err.name : "Unknown",
+          message: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+          pollingAttempts,
+          currentType,
+          sessionId,
+        });
         setError(
-          err instanceof Error ? err.message : "Failed to load feedback data"
+          err instanceof Error
+            ? err.message
+            : `Failed to load ${currentType} feedback data`
         );
         setLoading(false);
       }
@@ -423,7 +611,7 @@ const Feedback = () => {
     return () => {
       if (pollingTimeout) clearTimeout(pollingTimeout);
     };
-  }, [sessionId]);
+  }, [sessionId, interviewType]);
 
   // Calculate the color for the score
   const getScoreColor = (score: number) => {
@@ -488,8 +676,12 @@ ${feedback.overallFeedback}
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-lg">
             {pollingCount > 0
-              ? `Generating your feedback... (${pollingCount}/30)`
-              : "Loading your feedback..."}
+              ? `Generating your ${
+                  interviewType === "live" ? "video interview" : "interview"
+                } feedback... (${pollingCount}/60)`
+              : `Loading your ${
+                  interviewType === "live" ? "video interview" : "interview"
+                } feedback...`}
           </p>
           {pollingCount > 0 && (
             <div className="flex items-center justify-center mt-2 text-sm text-gray-500">
@@ -504,17 +696,40 @@ ${feedback.overallFeedback}
 
   // Error state
   if (error) {
+    const isApiQuotaError = error.includes("high demand") || error.includes("quota") || error.includes("try again");
+    
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-gray-50 to-white">
         <div className="text-center max-w-md">
           <AlertTriangle className="h-12 w-12 text-red-500 mx-auto" />
-          <h2 className="mt-4 text-2xl font-bold">Error Loading Feedback</h2>
-          <p className="mt-2">{error}</p>
-          <Button
-            onClick={() => router.push("/interview?sessionId=" + sessionId)}
-            className="mt-6">
-            Return to Interview
-          </Button>
+          <h2 className="mt-4 text-2xl font-bold">
+            {isApiQuotaError ? "Service Temporarily Unavailable" : "Error Loading Feedback"}
+          </h2>
+          <p className="mt-2 text-gray-600">{error}</p>
+          
+          <div className="mt-6 flex flex-col gap-3">
+            {isApiQuotaError && (
+              <Button
+                onClick={() => {
+                  setError(null);
+                  setLoading(true);
+                  // Restart the feedback fetching process
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 100);
+                }}
+                className="w-full">
+                Try Again
+              </Button>
+            )}
+            
+            <Button
+              variant="outline"
+              onClick={() => router.push("/interview?sessionId=" + sessionId)}
+              className="w-full">
+              Return to Interview
+            </Button>
+          </div>
         </div>
       </div>
     );
