@@ -1,0 +1,188 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Compute SHA256 content hash (per item)\nconst crypto = require('crypto');\nconst docText = $json.doc_text || $json.content || '';\nconst hash = crypto.createHash('sha256').update(docText).digest('hex');\nreturn { json: { ...$json, content_hash: hash } };"
+      },
+      "id": "37b9eeb8-1d44-4925-982f-4789de0d049f",
+      "name": "Compute Content Hash",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [144, 16]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Extract Doc Embedding - runs per item\nconst resp = $input.item.json || {};\nlet embedding = resp.embedding ?? resp.body?.embedding ?? resp.body?.embeddings?.[0]?.values ?? resp.body?.candidates?.[0]?.content?.parts?.[0]?.embedding ?? null;\n\nif (embedding && embedding.values) embedding = embedding.values;\nif (typeof embedding === 'string') {\n  try { embedding = JSON.parse(embedding); } catch (e) {}\n}\n\nif (!Array.isArray(embedding)) {\n  console.log('Embed raw body (truncated):', JSON.stringify(resp).slice(0,2000));\n  throw new Error('Extract Doc Embedding: embedding not found or not an array');\n}\n\nreturn { json: { ...$json, embedding } };\n"
+      },
+      "id": "af0bb781-f449-44ed-b8fe-4b7e7f221db7",
+      "name": "Extract Doc Embedding2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-80, 16]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://jdtuplcyczhtpljofwjg.supabase.co/rest/v1/context_documents?on_conflict=content_hash",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=={{\n  {\n    \"content\": $json.content,\n    \"doc_type\": $json.doc_type,\n    \"source_url\": $json.source_url || 'unknown URL',\n    \"company\": $json.company,\n    \"job_title\": $json.job_title,\n    \"batch_id\": $json.batch_id,\n    \"content_hash\": $json.content_hash,\n    \"embedding_1536\": $json.embedding\n  }\n}}\n",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "e36e3ce0-7315-4f39-a1b5-37266e83fbc9",
+      "name": "Upsert Content to Supabase1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [368, 16]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1/models/embedding-001:embedContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"model\": \"embedding-001\",\n  \"content\": {\n    \"parts\": [\n      {\n        \"text\": \"{{$json.extractedContent[0].content + ' | Doc Type: ' + $json.extractedContent[0].doc_type}}\"\n      }\n    ]\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "1590fa71-b386-4dbb-8e11-fa1ca84c7415",
+      "name": "Generate Doc Embedding2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [-304, 16],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "J2zPWzwsjjf1IbNn",
+          "name": "Google Gemini(PaLM) Api account MM"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channels": "interviewly:process-embedding",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.redisTrigger",
+      "typeVersion": 1,
+      "position": [-976, 16],
+      "id": "a212a0fd-c22f-43d1-85f3-aebc5a6e06f6",
+      "name": "Redis Trigger",
+      "credentials": {
+        "redis": {
+          "id": "bWGrVbuj0Hi8Mhlb",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 10,
+        "unit": "seconds"
+      },
+      "id": "5e175239-0086-4954-aa57-b7bc8c8826ae",
+      "name": "Wait Between Requests",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [-752, 16],
+      "webhookId": "722ffd3e-71d6-4688-940b-4027764389ed"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = JSON.parse($input.item.json.message || '{}');\nreturn { json: data };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-528, 16],
+      "id": "88f0648f-8c73-4e26-b1af-ca6bf315159a",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "connections": {
+    "Compute Content Hash": {
+      "main": [
+        [
+          {
+            "node": "Upsert Content to Supabase1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Doc Embedding2": {
+      "main": [
+        [
+          {
+            "node": "Compute Content Hash",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Doc Embedding2": {
+      "main": [
+        [
+          {
+            "node": "Extract Doc Embedding2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis Trigger": {
+      "main": [
+        [
+          {
+            "node": "Wait Between Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Between Requests": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Generate Doc Embedding2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b4e6356340a5ffed9d47f619ec5d0af6291b4db54be51654b52515a0fce37134"
+  }
+}
