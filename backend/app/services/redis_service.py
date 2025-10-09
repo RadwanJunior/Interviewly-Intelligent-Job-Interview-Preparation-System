@@ -76,6 +76,29 @@ class UpstashRedisService:
         except Exception as e:
             logging.error(f"Error subscribing to channel {channel}: {str(e)}")
     
+    async def unsubscribe(self, channel: str, callback: Optional[Callable] = None):
+        """Unsubscribe from a channel"""
+        try:
+            if callback and channel in self._subscribers:
+                # Remove specific callback
+                if callback in self._subscribers[channel]:
+                    self._subscribers[channel].remove(callback)
+                    logging.info(f"Removed callback from channel: {channel}")
+                
+                # If no more callbacks, unsubscribe from channel
+                if not self._subscribers[channel]:
+                    await self.pubsub.unsubscribe(channel)
+                    del self._subscribers[channel]
+                    logging.info(f"Unsubscribed from channel: {channel}")
+            elif not callback and channel in self._subscribers:
+                # Remove all callbacks and unsubscribe
+                await self.pubsub.unsubscribe(channel)
+                del self._subscribers[channel]
+                logging.info(f"Unsubscribed from channel: {channel}")
+                
+        except Exception as e:
+            logging.error(f"Error unsubscribing from channel {channel}: {str(e)}")
+    
     async def _message_listener(self):
         """Listen for messages in the background"""
         try:
@@ -169,20 +192,87 @@ async def setup_rag_listeners():
             interview_id = data.get("interview_id")
             enhanced_prompt = data.get("enhanced_prompt")
             
-            if interview_id and enhanced_prompt:
-                # Store the enhanced prompt in the database
-                await SupabaseService.store_enhanced_prompt(
-                    interview_id=interview_id,
-                    prompt=enhanced_prompt,
-                    source=data.get("source", "rag")
+            logging.info(f"[Redis] Received prompt-ready message for interview {interview_id}")
+            
+            if not interview_id:
+                logging.error("[Redis] Missing interview_id in prompt-ready message")
+                return
+            
+            if not enhanced_prompt:
+                logging.warning(f"[Redis] No enhanced_prompt in message for interview {interview_id}")
+                # Mark as failed if no prompt provided
+                status_update = await SupabaseService.update_interview_status(interview_id, "failed")
+                if not status_update.get("success"):
+                    logging.error(f"[Redis] Failed to update status to 'failed' for interview {interview_id}")
+                return
+            
+            # Use atomic operation to store prompt AND update status
+            # This prevents race conditions where prompt is stored but status update fails
+            result = await SupabaseService.store_enhanced_prompt_and_update_status(
+                interview_id=interview_id,
+                enhanced_prompt=enhanced_prompt,
+                source=data.get("source", "rag"),
+                target_status="ready"
+            )
+            
+            # Check the result
+            if result.get("success"):
+                logging.info(
+                    f"[Redis] Successfully stored prompt and updated status to 'ready' "
+                    f"for interview {interview_id}"
+                )
+            else:
+                error_msg = result.get("error", "Unknown error")
+                was_rolled_back = result.get("rollback", False)
+                orphaned_prompt_id = result.get("orphaned_prompt_id")
+                
+                logging.error(
+                    f"[Redis] Failed atomic operation for interview {interview_id}: {error_msg}. "
+                    f"Rollback: {was_rolled_back}"
                 )
                 
-                # Update interview status
-                await SupabaseService.update_interview_status(interview_id, "ready")
-                logging.info(f"Stored enhanced prompt for interview {interview_id} from RAG")
+                # If there's an orphaned prompt, log critical error
+                if orphaned_prompt_id:
+                    logging.critical(
+                        f"[Redis] ORPHANED PROMPT DETECTED for interview {interview_id}. "
+                        f"Prompt ID: {orphaned_prompt_id}. Manual cleanup may be required."
+                    )
+                
+                # Mark interview as failed
+                status_update = await SupabaseService.update_interview_status(interview_id, "failed")
+                if not status_update.get("success"):
+                    logging.critical(
+                        f"[Redis] CRITICAL: Failed to mark interview {interview_id} as 'failed' "
+                        f"after atomic operation failure. Interview may be stuck."
+                    )
+                
         except Exception as e:
-            logging.error(f"Error handling prompt-ready message: {str(e)}")
+            logging.error(f"[Redis] Error handling prompt-ready message: {str(e)}")
+            # Try to mark interview as failed if we have the ID
+            try:
+                if "interview_id" in message.get("data", {}):
+                    await SupabaseService.update_interview_status(
+                        message["data"]["interview_id"],
+                        "failed"
+                    )
+            except:
+                pass
     
-    # Subscribe to the prompt-ready channel
+    async def handle_rag_status(message):
+        """Handle RAG status updates from n8n workflow"""
+        try:
+            data = message["data"]
+            interview_id = data.get("interview_id")
+            status = data.get("status")
+            
+            if interview_id and status:
+                logging.info(f"[Redis] RAG status update for {interview_id}: {status}")
+                await SupabaseService.update_interview_status(interview_id, status)
+        except Exception as e:
+            logging.error(f"[Redis] Error handling rag-status message: {str(e)}")
+    
+    # Subscribe to both channels
     await redis_client.subscribe("interviewly:prompt-ready", handle_prompt_ready)
-    logging.info("RAG listeners setup complete")
+    await redis_client.subscribe("interviewly:rag-status", handle_rag_status)
+    
+    logging.info("[Redis] RAG listeners setup complete - listening on interviewly:prompt-ready and interviewly:rag-status")
