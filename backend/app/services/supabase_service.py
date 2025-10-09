@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from gotrue.errors import AuthApiError
 from urllib.parse import urlparse
 import logging
+from typing import Dict, Any, Optional
 
 
 load_dotenv()
@@ -222,9 +223,9 @@ class SupabaseService:
             return {"error": {"message": str(e)}}
     
     @staticmethod
-    def create_interview_session(user_id: str, resume_id: str, job_description_id: str, questions: list, ctype: str) -> dict:
+    def create_interview_session(user_id: str, resume_id: str, job_description_id: str, questions: list, ctype: str, status: str = "pending") -> dict:
         """
-        Inserts a new interview session record into the 'interview_sessions' table.
+        Inserts a new interview session record into the 'interviews' table.
         """
         try:
             response = supabase_client.table("interviews").insert({
@@ -232,22 +233,33 @@ class SupabaseService:
                 "resume_id": resume_id,
                 "job_description_id": job_description_id,
                 "interview_questions": questions,
-                "status": "pending",
+                "status": status,
                 "type": ctype
             }).execute()
-            print(f"Supabase response: {response}")
+            logging.info(f"Created interview session: {response}")
             return response
         except Exception as e:
-            print(f"Error creating interview session: {str(e)}")
+            logging.error(f"Error creating interview session: {str(e)}")
+            return {"error": {"message": str(e)}}
+    
+    @staticmethod
+    def get_interview_session(interview_id: str) -> dict:
+        """
+        Retrieves a single interview session by ID.
+        """
+        try:
+            response = supabase_client.table("interviews").select("*").eq("id", interview_id).execute()
+            return response
+        except Exception as e:
             return {"error": {"message": str(e)}}
     
     @staticmethod
     def get_interview_sessions(user_id: str) -> dict:
         """
-        Retrieves all interview session records for a user from the 'interview_sessions' table.
+        Retrieves all interview session records for a user from the 'interviews' table.
         """
         try:
-            response = supabase_client.table("interview_sessions").select("*").eq("user_id", user_id).execute()
+            response = supabase_client.table("interviews").select("*").eq("user_id", user_id).execute()
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
@@ -813,19 +825,54 @@ class SupabaseService:
         except Exception as e:
             return {"error": {"message": str(e)}}
     @staticmethod
-    async def store_enhanced_prompt(interview_id, enhanced_prompt, source="rag"):
-        """Stores an enhanced prompt for an interview"""
+    async def store_enhanced_prompt(
+        interview_id: str,
+        enhanced_prompt: str,
+        source: str = "rag"
+    ) -> Dict[str, Any]:
+        """
+        Stores an enhanced prompt for an interview.
+        
+        Args:
+            interview_id: UUID of the interview
+            enhanced_prompt: Text content of the enhanced prompt (max 50KB recommended)
+            source: Source of the prompt (rag, existing_data, new_data)
+        
+        Returns:
+            dict: {"success": True, "data": {...}} or {"success": False, "error": "..."}
+        """
         try:
+            # Validate inputs
+            if not interview_id:
+                logging.error("[Supabase] store_enhanced_prompt: Missing interview_id")
+                return {"success": False, "error": "Missing interview_id"}
+            
+            if not enhanced_prompt:
+                logging.error(f"[Supabase] store_enhanced_prompt: Missing enhanced_prompt for interview {interview_id}")
+                return {"success": False, "error": "Missing enhanced_prompt"}
+            
+            if not isinstance(enhanced_prompt, str):
+                logging.error(f"[Supabase] store_enhanced_prompt: enhanced_prompt must be string, got {type(enhanced_prompt)}")
+                return {"success": False, "error": f"Invalid type for enhanced_prompt: {type(enhanced_prompt).__name__}"}
+            
+            # Execute insert
             response = supabase_client.table("interview_enhanced_prompts").insert({
                 "interview_id": interview_id,
                 "prompt": enhanced_prompt,
                 "source": source
             }).execute()
             
-            return response.data[0] if response.data else None
+            # Check response
+            if not response.data or len(response.data) == 0:
+                logging.error(f"[Supabase] store_enhanced_prompt: No data returned from insert for interview {interview_id}")
+                return {"success": False, "error": "Insert failed - no data returned"}
+            
+            logging.info(f"[Supabase] Successfully stored enhanced prompt for interview {interview_id}")
+            return {"success": True, "data": response.data[0]}
+            
         except Exception as e:
-            logging.error(f"Error storing enhanced prompt: {str(e)}")
-            return {"error": {"message": str(e)}}
+            logging.error(f"[Supabase] store_enhanced_prompt: Exception for interview {interview_id}: {str(e)}")
+            return {"success": False, "error": str(e)}
 
     @staticmethod
     async def get_enhanced_prompt(interview_id):
@@ -846,18 +893,178 @@ class SupabaseService:
             return None
 
     @staticmethod
-    async def update_interview_status(interview_id, status):
-        """Updates the status of an interview"""
+    async def update_interview_status(interview_id: str, status: str) -> Dict[str, Any]:
+        """
+        Updates the status of an interview.
+        
+        Args:
+            interview_id: UUID of the interview
+            status: New status value
+            
+        Returns:
+            dict: {"success": True, "data": {...}} or {"success": False, "error": "..."}
+        """
         try:
+            if not interview_id:
+                logging.error("[Supabase] update_interview_status: Missing interview_id")
+                return {"success": False, "error": "Missing interview_id"}
+            
+            if not status:
+                logging.error(f"[Supabase] update_interview_status: Missing status for interview {interview_id}")
+                return {"success": False, "error": "Missing status"}
+            
             response = supabase_client.table("interviews") \
                 .update({"status": status}) \
                 .eq("id", interview_id) \
                 .execute()
             
-            return response.data[0] if response.data else None
+            if not response.data or len(response.data) == 0:
+                logging.error(f"[Supabase] update_interview_status: No data returned for interview {interview_id}")
+                return {"success": False, "error": "Status update failed - no data returned"}
+            
+            logging.info(f"[Supabase] Successfully updated interview {interview_id} status to '{status}'")
+            return {"success": True, "data": response.data[0]}
+            
         except Exception as e:
-            logging.error(f"Error updating interview status: {str(e)}")
-            return {"error": {"message": str(e)}}
+            logging.error(f"[Supabase] update_interview_status: Exception for interview {interview_id}: {str(e)}")
+            return {"success": False, "error": str(e)}
+    
+    @staticmethod
+    async def store_enhanced_prompt_and_update_status(
+        interview_id: str,
+        enhanced_prompt: str,
+        source: str = "rag",
+        target_status: str = "ready"
+    ) -> Dict[str, Any]:
+        """
+        Atomically stores an enhanced prompt AND updates interview status.
+        This prevents race conditions where prompt is stored but status update fails.
+        
+        Args:
+            interview_id: UUID of the interview
+            enhanced_prompt: Text content of the enhanced prompt
+            source: Source of the prompt (rag, existing_data, new_data)
+            target_status: Status to set after successful storage (default: "ready")
+            
+        Returns:
+            dict: {"success": True, "data": {...}} or {"success": False, "error": "...", "rollback": bool}
+        """
+        prompt_stored = False
+        prompt_record = None
+        
+        try:
+            # Step 1: Store the enhanced prompt
+            store_result = await SupabaseService.store_enhanced_prompt(
+                interview_id=interview_id,
+                enhanced_prompt=enhanced_prompt,
+                source=source
+            )
+            
+            if not store_result.get("success"):
+                # Prompt storage failed - nothing to rollback
+                logging.error(
+                    f"[Supabase] store_enhanced_prompt_and_update_status: "
+                    f"Failed to store prompt for interview {interview_id}: {store_result.get('error')}"
+                )
+                return {
+                    "success": False,
+                    "error": f"Prompt storage failed: {store_result.get('error')}",
+                    "rollback": False
+                }
+            
+            prompt_stored = True
+            prompt_record = store_result.get("data")
+            logging.info(f"[Supabase] Prompt stored successfully for interview {interview_id}, updating status...")
+            
+            # Step 2: Update the interview status
+            status_result = await SupabaseService.update_interview_status(
+                interview_id=interview_id,
+                status=target_status
+            )
+            
+            if not status_result.get("success"):
+                # Status update failed - prompt is orphaned!
+                logging.error(
+                    f"[Supabase] store_enhanced_prompt_and_update_status: "
+                    f"CRITICAL - Prompt stored but status update failed for interview {interview_id}. "
+                    f"Prompt ID: {prompt_record.get('id')}, Error: {status_result.get('error')}"
+                )
+                
+                # Attempt to delete the orphaned prompt (rollback)
+                try:
+                    logging.warning(f"[Supabase] Attempting to rollback orphaned prompt for interview {interview_id}")
+                    delete_response = supabase_client.table("interview_enhanced_prompts") \
+                        .delete() \
+                        .eq("id", prompt_record.get("id")) \
+                        .execute()
+                    
+                    if delete_response.data:
+                        logging.info(f"[Supabase] Successfully rolled back orphaned prompt for interview {interview_id}")
+                        return {
+                            "success": False,
+                            "error": f"Status update failed: {status_result.get('error')}",
+                            "rollback": True
+                        }
+                    else:
+                        logging.error(f"[Supabase] Rollback failed - orphaned prompt remains for interview {interview_id}")
+                        return {
+                            "success": False,
+                            "error": f"Status update failed AND rollback failed: {status_result.get('error')}",
+                            "rollback": False,
+                            "orphaned_prompt_id": prompt_record.get("id")
+                        }
+                except Exception as rollback_error:
+                    logging.critical(
+                        f"[Supabase] Rollback exception for interview {interview_id}: {str(rollback_error)}. "
+                        f"MANUAL CLEANUP REQUIRED for prompt ID: {prompt_record.get('id')}"
+                    )
+                    return {
+                        "success": False,
+                        "error": f"Status update failed AND rollback crashed: {str(rollback_error)}",
+                        "rollback": False,
+                        "orphaned_prompt_id": prompt_record.get("id"),
+                        "requires_manual_cleanup": True
+                    }
+            
+            # Both operations succeeded!
+            logging.info(
+                f"[Supabase] Successfully stored prompt and updated status to '{target_status}' "
+                f"for interview {interview_id}"
+            )
+            return {
+                "success": True,
+                "data": {
+                    "prompt_record": prompt_record,
+                    "interview_status": status_result.get("data"),
+                    "final_status": target_status
+                }
+            }
+            
+        except Exception as e:
+            logging.error(
+                f"[Supabase] store_enhanced_prompt_and_update_status: Unexpected exception "
+                f"for interview {interview_id}: {str(e)}"
+            )
+            
+            # If prompt was stored, try to rollback
+            if prompt_stored and prompt_record:
+                try:
+                    logging.warning(f"[Supabase] Exception occurred, attempting rollback for interview {interview_id}")
+                    supabase_client.table("interview_enhanced_prompts") \
+                        .delete() \
+                        .eq("id", prompt_record.get("id")) \
+                        .execute()
+                    return {"success": False, "error": str(e), "rollback": True}
+                except:
+                    return {
+                        "success": False,
+                        "error": str(e),
+                        "rollback": False,
+                        "orphaned_prompt_id": prompt_record.get("id")
+                    }
+            
+            return {"success": False, "error": str(e), "rollback": False}
+
 supabase_service = SupabaseService()
 
 
