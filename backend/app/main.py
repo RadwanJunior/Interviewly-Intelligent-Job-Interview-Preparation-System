@@ -35,6 +35,29 @@ app.include_router(live_feedback.router, prefix="/live_feedback", tags=["live_fe
 def read_root():
     return {"message": "AI Mock Interview Backend is running!"}
 
+@app.get("/health/redis")
+async def redis_health_check():
+    """
+    Health check endpoint for Redis listener.
+    Returns detailed metrics for monitoring and alerting.
+    """
+    from app.services.redis_service import redis_client
+    health_status = await redis_client.get_health_status()
+    return health_status
+
+@app.post("/admin/redis/reset-circuit-breaker")
+async def reset_redis_circuit_breaker():
+    """
+    Administrative endpoint to manually reset the circuit breaker.
+    Use this when you've fixed the underlying Redis issue.
+    """
+    from app.services.redis_service import redis_client
+    success = await redis_client.reset_circuit_breaker()
+    if success:
+        return {"message": "Circuit breaker reset successfully", "success": True}
+    else:
+        return {"message": "Failed to reset circuit breaker", "success": False}
+
 @app.on_event("startup")
 async def startup_event():
     # Initialize Redis

@@ -2,11 +2,22 @@ import os
 import json
 import logging
 import asyncio
+import time
 from typing import Any, Callable, Dict, Optional
+from enum import Enum
 import redis.asyncio as redis
 
+
+class ListenerHealth(str, Enum):
+    """Health status of Redis listener"""
+    HEALTHY = "healthy"
+    DEGRADED = "degraded"
+    UNHEALTHY = "unhealthy"
+    STOPPED = "stopped"
+
+
 class UpstashRedisService:
-    """Service for interacting with Upstash Redis"""
+    """Service for interacting with Upstash Redis with health monitoring and circuit breaker"""
     
     def __init__(self, url: str = None):
         """Initialize with optional URL override"""
@@ -18,6 +29,19 @@ class UpstashRedisService:
         self.pubsub = None
         self._subscribers = {}
         self._listener_task = None
+        
+        # Health monitoring
+        self._listener_failures = 0
+        self._max_failures = 10
+        self._last_health_check = None
+        self._last_message_received = None
+        self._total_messages_processed = 0
+        self._health_status = ListenerHealth.STOPPED
+        
+        # Circuit breaker
+        self._circuit_open = False
+        self._circuit_open_time = None
+        self._circuit_reset_timeout = 60  # Reset circuit after 60 seconds
     
     async def connect(self):
         """Connect to Upstash Redis"""
@@ -100,38 +124,127 @@ class UpstashRedisService:
             logging.error(f"Error unsubscribing from channel {channel}: {str(e)}")
     
     async def _message_listener(self):
-        """Listen for messages in the background"""
+        """
+        Listen for messages in the background with health monitoring and circuit breaker.
+        Implements exponential backoff on failures.
+        """
         try:
+            self._health_status = ListenerHealth.HEALTHY
+            logging.info("[Redis Listener] Starting message listener with health monitoring")
+            
             while True:
-                message = await self.pubsub.get_message(ignore_subscribe_messages=True)
-                if message:
-                    channel = message["channel"]
-                    data = message["data"]
+                # Check circuit breaker
+                if self._circuit_open:
+                    elapsed = time.time() - self._circuit_open_time
+                    if elapsed < self._circuit_reset_timeout:
+                        logging.warning(
+                            f"[Redis Listener] Circuit breaker OPEN. "
+                            f"Waiting {self._circuit_reset_timeout - elapsed:.1f}s before retry"
+                        )
+                        await asyncio.sleep(10)
+                        continue
+                    else:
+                        # Try to reset circuit
+                        logging.info("[Redis Listener] Attempting to reset circuit breaker")
+                        self._circuit_open = False
+                        self._listener_failures = 0
+                
+                try:
+                    message = await self.pubsub.get_message(ignore_subscribe_messages=True)
                     
-                    # Parse JSON if possible
-                    if isinstance(data, str):
-                        try:
-                            if data.startswith("{") or data.startswith("["):
-                                data = json.loads(data)
-                        except json.JSONDecodeError:
-                            pass  # Keep as string if not valid JSON
-                    
-                    # Invoke callbacks
-                    if channel in self._subscribers:
-                        for callback in self._subscribers[channel]:
+                    if message:
+                        # Message received - update health metrics
+                        self._listener_failures = 0  # Reset failure count on success
+                        self._last_health_check = time.time()
+                        self._last_message_received = time.time()
+                        self._total_messages_processed += 1
+                        self._health_status = ListenerHealth.HEALTHY
+                        
+                        channel = message["channel"]
+                        data = message["data"]
+                        
+                        # Parse JSON if possible
+                        if isinstance(data, str):
                             try:
-                                await callback({"channel": channel, "data": data})
-                            except Exception as e:
-                                logging.error(f"Error in callback for {channel}: {str(e)}")
+                                if data.startswith("{") or data.startswith("["):
+                                    data = json.loads(data)
+                            except json.JSONDecodeError:
+                                pass  # Keep as string if not valid JSON
+                        
+                        # Invoke callbacks
+                        if channel in self._subscribers:
+                            for callback in self._subscribers[channel]:
+                                try:
+                                    await callback({"channel": channel, "data": data})
+                                except Exception as e:
+                                    logging.error(
+                                        f"[Redis Listener] Error in callback for {channel}: {str(e)}"
+                                    )
+                                    # Callback errors don't count as listener failures
+                    else:
+                        # No message - update health check timestamp
+                        self._last_health_check = time.time()
+                    
+                    # Small sleep to prevent CPU hogging
+                    await asyncio.sleep(0.01)
+                    
+                except asyncio.CancelledError:
+                    # Task was cancelled - clean shutdown
+                    logging.info("[Redis Listener] Message listener cancelled")
+                    self._health_status = ListenerHealth.STOPPED
+                    raise
+                    
+                except Exception as e:
+                    # Connection or processing error
+                    self._listener_failures += 1
+                    self._last_health_check = time.time()
+                    
+                    # Update health status based on failures
+                    if self._listener_failures >= self._max_failures:
+                        self._health_status = ListenerHealth.UNHEALTHY
+                    elif self._listener_failures >= 3:
+                        self._health_status = ListenerHealth.DEGRADED
+                    
+                    logging.error(
+                        f"[Redis Listener] Error in message listener "
+                        f"(failure {self._listener_failures}/{self._max_failures}): {str(e)}"
+                    )
+                    
+                    # Check if we should open circuit breaker
+                    if self._listener_failures >= self._max_failures:
+                        self._circuit_open = True
+                        self._circuit_open_time = time.time()
+                        self._health_status = ListenerHealth.UNHEALTHY
+                        
+                        logging.critical(
+                            f"[Redis Listener] Circuit breaker OPENED after {self._max_failures} "
+                            f"consecutive failures. Will retry after {self._circuit_reset_timeout}s. "
+                            f"MANUAL INTERVENTION MAY BE REQUIRED."
+                        )
+                        continue
+                    
+                    # Exponential backoff (1s, 2s, 4s, 8s, 16s, max 30s)
+                    backoff = min(2 ** self._listener_failures, 30)
+                    logging.warning(
+                        f"[Redis Listener] Backing off for {backoff}s before retry "
+                        f"(attempt {self._listener_failures}/{self._max_failures})"
+                    )
+                    await asyncio.sleep(backoff)
                 
-                # Small sleep to prevent CPU hogging
-                await asyncio.sleep(0.01)
-                
+        except asyncio.CancelledError:
+            # Clean shutdown
+            self._health_status = ListenerHealth.STOPPED
+            logging.info("[Redis Listener] Message listener stopped cleanly")
+            raise
+            
         except Exception as e:
-            logging.error(f"Error in message listener: {str(e)}")
-            # Restart listener after a short delay
-            await asyncio.sleep(1)
-            self._listener_task = asyncio.create_task(self._message_listener())
+            # Unexpected fatal error
+            self._health_status = ListenerHealth.STOPPED
+            logging.critical(
+                f"[Redis Listener] FATAL ERROR in message listener: {str(e)}. "
+                f"Listener has STOPPED. Manual restart required."
+            )
+            raise
     
     async def get(self, key: str) -> Any:
         """Get a value from Redis"""
@@ -162,13 +275,78 @@ class UpstashRedisService:
             logging.error(f"Error setting key {key}: {str(e)}")
             return False
     
-    async def close(self):
-        """Close Redis connections"""
+    async def get_health_status(self) -> Dict[str, Any]:
+        """
+        Get comprehensive health status of Redis listener.
+        Returns detailed metrics for monitoring and alerting.
+        """
+        now = time.time()
+        
+        # Calculate time since last message
+        time_since_last_message = None
+        if self._last_message_received:
+            time_since_last_message = now - self._last_message_received
+        
+        # Determine if listener is running
+        listener_running = (
+            self._listener_task is not None 
+            and not self._listener_task.done()
+        )
+        
+        # Calculate uptime
+        uptime = None
+        if self._last_health_check and listener_running:
+            uptime = now - self._last_health_check
+        
+        return {
+            "status": self._health_status.value,
+            "listener_running": listener_running,
+            "circuit_breaker_open": self._circuit_open,
+            "failures": self._listener_failures,
+            "max_failures": self._max_failures,
+            "total_messages_processed": self._total_messages_processed,
+            "last_health_check": self._last_health_check,
+            "last_message_received": self._last_message_received,
+            "time_since_last_message_seconds": time_since_last_message,
+            "uptime_seconds": uptime,
+            "subscribed_channels": list(self._subscribers.keys()),
+            "timestamp": now
+        }
+    
+    async def reset_circuit_breaker(self) -> bool:
+        """
+        Manually reset the circuit breaker.
+        Use this for administrative recovery.
+        """
         try:
+            self._circuit_open = False
+            self._circuit_open_time = None
+            self._listener_failures = 0
+            self._health_status = ListenerHealth.HEALTHY
+            
+            logging.warning("[Redis Listener] Circuit breaker manually reset")
+            return True
+        except Exception as e:
+            logging.error(f"[Redis Listener] Error resetting circuit breaker: {str(e)}")
+            return False
+    
+    async def close(self):
+        """Close Redis connections and stop listener"""
+        try:
+            # Cancel listener task if running
+            if self._listener_task and not self._listener_task.done():
+                self._listener_task.cancel()
+                try:
+                    await self._listener_task
+                except asyncio.CancelledError:
+                    pass
+            
             if self.pubsub:
                 await self.pubsub.close()
             if self.client:
                 await self.client.close()
+            
+            self._health_status = ListenerHealth.STOPPED
             logging.info("Upstash Redis connection closed")
         except Exception as e:
             logging.error(f"Error closing Redis connection: {str(e)}")
