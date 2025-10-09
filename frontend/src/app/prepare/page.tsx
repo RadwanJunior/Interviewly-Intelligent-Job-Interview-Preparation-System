@@ -1,32 +1,67 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
 import Head from "next/head";
-import { CheckCircle, Loader2, AlertCircle } from "lucide-react";
+import { CheckCircle, Loader2, AlertCircle, Search, Globe, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkflow } from "@/context/WorkflowContext";
-// Remove getInterviewStatus as it's no longer needed
 import { createInterviewSession } from "@/lib/api";
 import { useRouter, useSearchParams } from "next/navigation";
 
+// Status enum matching backend RAGStatus
+enum InterviewStatus {
+  NOT_STARTED = "not_started",
+  ENHANCING = "enhancing",
+  VECTOR_SEARCH = "vector_search",
+  WEB_SCRAPING = "web_scraping",
+  PROCESSING = "processing",
+  READY = "ready",
+  FAILED = "failed",
+  TIMEOUT = "timeout"
+}
+
 const PrepareInterview = () => {
   const { toast } = useToast();
-  const [isGenerating, setIsGenerating] = useState(true);
-  // Remove the progress state
-  // const [progress, setProgress] = useState(0);
+  const [currentStatus, setCurrentStatus] = useState<string>(InterviewStatus.NOT_STARTED);
+  const [statusMessage, setStatusMessage] = useState<string>("Initializing...");
   const [sessionId, setSessionId] = useState("");
-  const [isEnhancementComplete, setIsEnhancementComplete] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const { jobDetailsData } = useWorkflow();
   const router = useRouter();
   const searchParams = useSearchParams();
   const interviewType = searchParams.get("type") || "text";
   const isRequestInProgress = useRef(false);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Get status icon and color
+  const getStatusDisplay = (status: string) => {
+    switch (status) {
+      case InterviewStatus.ENHANCING:
+        return { icon: Sparkles, color: "text-blue-600", spin: true };
+      case InterviewStatus.VECTOR_SEARCH:
+        return { icon: Search, color: "text-purple-600", spin: true };
+      case InterviewStatus.WEB_SCRAPING:
+        return { icon: Globe, color: "text-green-600", spin: true };
+      case InterviewStatus.PROCESSING:
+        return { icon: Loader2, color: "text-yellow-600", spin: true };
+      case InterviewStatus.READY:
+        return { icon: CheckCircle, color: "text-green-600", spin: false };
+      case InterviewStatus.FAILED:
+      case InterviewStatus.TIMEOUT:
+        return { icon: AlertCircle, color: "text-red-600", spin: false };
+      default:
+        return { icon: Loader2, color: "text-gray-600", spin: true };
+    }
+  };
+
+  const isReady = currentStatus === InterviewStatus.READY;
+  const isFailed = currentStatus === InterviewStatus.FAILED || currentStatus === InterviewStatus.TIMEOUT;
+
+  // Create interview session on mount
   useEffect(() => {
     const startGeneration = async () => {
-      if (isRequestInProgress.current || !jobDetailsData?.JobDescriptionId)
-        return;
+      if (isRequestInProgress.current || !jobDetailsData?.JobDescriptionId) return;
       isRequestInProgress.current = true;
 
       try {
@@ -37,16 +72,17 @@ const PrepareInterview = () => {
 
         if (response.session && response.session.id) {
           setSessionId(response.session.id);
-          // Once the session is created, we're ready. Stop the loading state.
-          setIsGenerating(false);
+          setCurrentStatus(InterviewStatus.ENHANCING);
+          setStatusMessage("Enhancing your interview questions...");
         } else {
           toast({
             title: "Error",
             description: "Could not create interview session.",
             variant: "destructive",
           });
-          // Also stop loading on error
-          setIsGenerating(false);
+          setHasError(true);
+          setCurrentStatus(InterviewStatus.FAILED);
+          setStatusMessage("Failed to create interview session");
         }
       } catch (error: unknown) {
         toast({
@@ -56,56 +92,67 @@ const PrepareInterview = () => {
           }`,
           variant: "destructive",
         });
-        setIsGenerating(false);
+        setHasError(true);
+        setCurrentStatus(InterviewStatus.FAILED);
+        setStatusMessage("Failed to create interview session");
       }
-      // No finally block needed as we handle isGenerating in each path
     };
 
-    // Add a polling function
-    let intervalId: NodeJS.Timeout;
+    if (!isRequestInProgress.current) {
+      startGeneration();
+    }
+  }, [jobDetailsData, toast, interviewType]);
 
-    const checkEnhancementStatus = async () => {
-      if (!sessionId || isEnhancementComplete) return;
+  // Poll for status updates
+  useEffect(() => {
+    const checkStatus = async () => {
+      if (!sessionId || isReady || isFailed) return;
 
       try {
         const response = await fetch(`/api/interview/status/${sessionId}`);
         const data = await response.json();
 
-        if (data.status === "ready" || data.enhanced_prompt_available) {
-          setIsEnhancementComplete(true);
-          setIsGenerating(false);
-          clearInterval(intervalId);
+        if (data.status) {
+          setCurrentStatus(data.status);
+          setStatusMessage(data.message || "Processing...");
+
+          // Clear polling when ready or failed
+          if (data.status === InterviewStatus.READY || 
+              data.status === InterviewStatus.FAILED || 
+              data.status === InterviewStatus.TIMEOUT) {
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
+          }
         }
       } catch (error) {
         console.error("Error checking interview status:", error);
+        // Don't set error state on polling failures - continue trying
       }
     };
 
-    if (sessionId && !isEnhancementComplete) {
-      // Poll every 3 seconds
-      intervalId = setInterval(checkEnhancementStatus, 3000);
+    if (sessionId && !isReady && !isFailed) {
       // Initial check
-      checkEnhancementStatus();
+      checkStatus();
+      
+      // Poll every 3 seconds
+      pollIntervalRef.current = setInterval(checkStatus, 3000);
     }
 
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
     };
-  }, [
-    jobDetailsData,
-    toast,
-    interviewType,
-    router,
-    sessionId,
-    isEnhancementComplete,
-  ]);
+  }, [sessionId, isReady, isFailed]);
 
   const handleStart = () => {
-    if (isGenerating || !isEnhancementComplete) {
+    if (!isReady) {
       toast({
         title: "Please wait",
-        description:
-          "We're still enhancing your interview questions with relevant data.",
+        description: statusMessage || "We're still preparing your interview questions.",
         variant: "destructive",
       });
       return;
@@ -118,6 +165,9 @@ const PrepareInterview = () => {
       router.push(`/Interview?sessionId=${sessionId}`);
     }
   };
+
+  const statusDisplay = getStatusDisplay(currentStatus);
+  const StatusIcon = statusDisplay.icon;
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
@@ -141,22 +191,42 @@ const PrepareInterview = () => {
               </p>
             </div>
 
-            {/* Generation Status */}
+            {/* Enhanced Status Display */}
             <div className="mb-8">
-              <div className="flex justify-center mt-4">
-                {isGenerating ? (
-                  <div className="flex items-center text-yellow-600">
-                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                    <span>
-                      {isEnhancementComplete
-                        ? "Interview questions ready!"
-                        : "Enhancing your questions with relevant data..."}
-                    </span>
+              <div className="flex flex-col items-center space-y-4">
+                {/* Status Icon and Message */}
+                <div className={`flex items-center ${statusDisplay.color}`}>
+                  <StatusIcon 
+                    className={`h-6 w-6 mr-2 ${statusDisplay.spin ? 'animate-spin' : ''}`} 
+                  />
+                  <span className="text-lg font-medium">{statusMessage}</span>
+                </div>
+
+                {/* Progress Indicator */}
+                {!isReady && !isFailed && (
+                  <div className="w-full max-w-md">
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-primary animate-pulse" style={{ width: "70%" }}></div>
+                    </div>
                   </div>
-                ) : (
-                  <div className="flex items-center text-green-600">
-                    <CheckCircle className="h-5 w-5 mr-2" />
-                    <span>Interview questions are ready!</span>
+                )}
+
+                {/* Success Message */}
+                {isReady && (
+                  <div className="text-green-600 text-center">
+                    <CheckCircle className="h-8 w-8 mx-auto mb-2" />
+                    <p className="font-semibold">Your personalized interview is ready!</p>
+                  </div>
+                )}
+
+                {/* Error Message */}
+                {isFailed && (
+                  <div className="text-yellow-600 text-center bg-yellow-50 p-4 rounded-lg">
+                    <AlertCircle className="h-8 w-8 mx-auto mb-2" />
+                    <p className="font-semibold">Using standard interview questions</p>
+                    <p className="text-sm mt-1">
+                      Enhanced context wasn&apos;t available, but we&apos;ve prepared quality questions for you.
+                    </p>
                   </div>
                 )}
               </div>
@@ -207,12 +277,14 @@ const PrepareInterview = () => {
               <Button
                 onClick={handleStart}
                 className={`px-8 py-3 text-lg ${
-                  isGenerating
+                  !isReady && !hasError
                     ? "bg-gray-400"
                     : "bg-primary hover:bg-primary/90"
                 }`}
-                disabled={isGenerating || !isEnhancementComplete}>
-                {isGenerating ? "Preparing Questions..." : "Start Interview"}
+                disabled={!isReady && !hasError}>
+                {isReady ? "Start Interview" : 
+                 isFailed ? "Continue Anyway" : 
+                 "Preparing Questions..."}
               </Button>
             </div>
           </Card>
