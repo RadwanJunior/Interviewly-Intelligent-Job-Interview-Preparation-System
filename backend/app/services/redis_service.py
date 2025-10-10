@@ -5,6 +5,7 @@ import asyncio
 import time
 from typing import Any, Callable, Dict, Optional
 from enum import Enum
+from pydantic import ValidationError
 import redis.asyncio as redis
 
 
@@ -362,26 +363,72 @@ async def initialize_redis():
 async def setup_rag_listeners():
     """Setup listeners for RAG-related channels"""
     from app.services.supabase_service import SupabaseService
+    from app.models.redis_messages import PromptReadyMessage
     
     async def handle_prompt_ready(message):
-        """Handle prompt-ready messages from n8n workflow"""
+        """
+        Handle prompt-ready messages from n8n workflow.
+        Now with Pydantic validation for security and data integrity.
+        """
+        interview_id = None  # Initialize for error handling
+        
         try:
             data = message["data"]
-            interview_id = data.get("interview_id")
-            enhanced_prompt = data.get("enhanced_prompt")
             
-            logging.info(f"[Redis] Received prompt-ready message for interview {interview_id}")
+            # CRITICAL: Validate message structure with Pydantic
+            # This prevents:
+            # - SQL injection attacks
+            # - XSS attacks
+            # - Invalid UUIDs
+            # - Oversized prompts (memory issues)
+            # - Missing required fields
+            try:
+                validated_data = PromptReadyMessage(**data)
+                interview_id = str(validated_data.interview_id)
+                enhanced_prompt = validated_data.enhanced_prompt
+                source = validated_data.source
+                
+                logging.info(
+                    f"[Redis] ✓ Validated prompt-ready message for interview {interview_id} "
+                    f"(source: {source}, prompt_length: {len(enhanced_prompt)} chars)"
+                )
+                
+            except ValidationError as validation_error:
+                # Message failed validation - log detailed error and reject
+                error_details = validation_error.errors()
+                
+                # Try to extract interview_id for error tracking (if present)
+                interview_id = data.get("interview_id", "unknown")
+                
+                logging.error(
+                    f"[Redis] ❌ VALIDATION FAILED for prompt-ready message. "
+                    f"Interview: {interview_id}. Errors: {error_details}"
+                )
+                
+                # If we have a valid interview_id, mark it as failed
+                if interview_id != "unknown":
+                    try:
+                        status_update = await SupabaseService.update_interview_status(
+                            interview_id, 
+                            "failed"
+                        )
+                        if status_update.get("success"):
+                            logging.info(
+                                f"[Redis] Marked interview {interview_id} as 'failed' "
+                                f"due to invalid message"
+                            )
+                    except Exception as e:
+                        logging.error(
+                            f"[Redis] Failed to update status for invalid message: {str(e)}"
+                        )
+                
+                return  # Stop processing invalid message
             
-            if not interview_id:
-                logging.error("[Redis] Missing interview_id in prompt-ready message")
-                return
-            
-            if not enhanced_prompt:
-                logging.warning(f"[Redis] No enhanced_prompt in message for interview {interview_id}")
-                # Mark as failed if no prompt provided
-                status_update = await SupabaseService.update_interview_status(interview_id, "failed")
-                if not status_update.get("success"):
-                    logging.error(f"[Redis] Failed to update status to 'failed' for interview {interview_id}")
+            except Exception as e:
+                # Unexpected validation error
+                logging.error(
+                    f"[Redis] Unexpected error during message validation: {str(e)}"
+                )
                 return
             
             # Use atomic operation to store prompt AND update status
@@ -437,15 +484,55 @@ async def setup_rag_listeners():
                 pass
     
     async def handle_rag_status(message):
-        """Handle RAG status updates from n8n workflow"""
+        """
+        Handle RAG status updates from n8n workflow.
+        Now with Pydantic validation for security and data integrity.
+        """
         try:
-            data = message["data"]
-            interview_id = data.get("interview_id")
-            status = data.get("status")
+            from app.models.redis_messages import RAGStatusMessage
             
-            if interview_id and status:
-                logging.info(f"[Redis] RAG status update for {interview_id}: {status}")
-                await SupabaseService.update_interview_status(interview_id, status)
+            data = message["data"]
+            
+            # CRITICAL: Validate message structure with Pydantic
+            try:
+                validated_data = RAGStatusMessage(**data)
+                interview_id = str(validated_data.interview_id)
+                status = validated_data.status
+                error_message = validated_data.error_message
+                
+                logging.info(
+                    f"[Redis] ✓ Validated RAG status update for {interview_id}: {status}"
+                )
+                
+                # Update interview status
+                result = await SupabaseService.update_interview_status(interview_id, status)
+                
+                if result.get("success"):
+                    logging.info(f"[Redis] Successfully updated status to '{status}'")
+                else:
+                    logging.error(
+                        f"[Redis] Failed to update status: {result.get('error')}"
+                    )
+                
+                # Log error message if present
+                if error_message and status == "failed":
+                    logging.warning(
+                        f"[Redis] Interview {interview_id} failed with message: {error_message}"
+                    )
+                
+            except ValidationError as validation_error:
+                # Message failed validation
+                error_details = validation_error.errors()
+                interview_id = data.get("interview_id", "unknown")
+                
+                logging.error(
+                    f"[Redis] ❌ VALIDATION FAILED for rag-status message. "
+                    f"Interview: {interview_id}. Errors: {error_details}"
+                )
+                
+                # Don't try to update status if validation failed
+                return
+                
         except Exception as e:
             logging.error(f"[Redis] Error handling rag-status message: {str(e)}")
     
