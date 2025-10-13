@@ -44,8 +44,6 @@ Candidate's Resume:
 Job Description:
 {job_description}
 
-{enhanced_context}
-
 Remember to remain professional but persistent. Your job is to thoroughly assess the candidate's qualifications and ensure they provide substantive answers with specific examples.
 """
 
@@ -352,38 +350,9 @@ async def websocket_endpoint(
         # This ensures consistent storage paths
         storage_user_id = interview_owner_id if interview_owner_id else current_user.id
         
-        # Get RAG-enhanced context if available
-        enhanced_prompt = None
-        try:
-            enhanced_prompt = await SupabaseService.get_enhanced_prompt(interview_id)
-            if enhanced_prompt:
-                logging.info(f"[{interview_id}] Using RAG-enhanced context for live interview")
-            else:
-                logging.info(f"[{interview_id}] No RAG-enhanced context available, using standard prompt")
-        except Exception as e:
-            logging.warning(f"[{interview_id}] Error fetching enhanced prompt: {e}. Using standard prompt.")
-        
-        # Build enhanced context section for system prompt
-        enhanced_context_section = ""
-        if enhanced_prompt:
-            enhanced_context_section = f"""
---- ENHANCED CONTEXT FROM RAG ---
-The following additional context has been gathered to help you ask more relevant, company-specific, and role-specific questions:
-
-{enhanced_prompt}
-
-Use this context to:
-- Ask questions specific to the company's culture, values, and recent developments
-- Probe deeper into technologies and methodologies relevant to the role
-- Reference industry trends and best practices
-- Assess cultural fit based on company-specific information
---- END ENHANCED CONTEXT ---
-"""
-        
         system_instruction_text = SYSTEM_PROMPT_TEMPLATE.format(
             resume=interview_data.get("resume", {}).get("extracted_text", ""),
-            job_description=interview_data.get("job_description", {}).get("description", ""),
-            enhanced_context=enhanced_context_section
+            job_description=interview_data.get("job_description", {}).get("description", "")
         )
         
         # Use a simple dictionary for the config

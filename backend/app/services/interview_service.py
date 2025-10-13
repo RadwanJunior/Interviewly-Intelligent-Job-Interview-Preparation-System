@@ -68,7 +68,7 @@ class InterviewService:
             if enhanced_prompt:
                 final_prompt = f"Enhanced Context:\n{enhanced_prompt}\n\n{final_prompt}"
 
-            # Generate questions using YOUR existing client call method
+            # Generate questions using the client
             response = client.models.generate_content(
                 model=MODEL,
                 contents=[{"role": "user", "parts": [{"text": final_prompt}]}],

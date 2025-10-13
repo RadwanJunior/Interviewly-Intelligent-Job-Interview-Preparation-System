@@ -54,8 +54,6 @@ export function useVAD({
           setIsSpeaking(false);
           onSpeechEnd();
         },
-        // FIX: The first argument's type isn't exported, and we don't use it.
-        // We only care about the second argument, the Float32Array frame.
         onFrameProcessed: (_, frame: Float32Array) => {
           if (isSpeakingRef.current) {
             const int16Frame = float32ToInt16(frame);
@@ -63,6 +61,11 @@ export function useVAD({
             onAudioChunk(int16Frame.buffer);
           }
         },
+        // Adjusted VAD sensitivity parameters
+        positiveSpeechThreshold: 0.8, // Increase to reduce sensitivity to noise
+        negativeSpeechThreshold: 0.3, // Decrease to avoid premature cut-offs
+        redemptionFrames: 80000, // Wait longer before transitioning to non-speech (3 seconds at 16kHz)
+        preSpeechPadFrames: 16000, // Add buffer to capture the start of speech (1 second at 16kHz)
       });
       vadRef.current = vad;
       vad.start();

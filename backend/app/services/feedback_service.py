@@ -84,7 +84,8 @@ Return the entire analysis as a single, valid JSON object. Adhere strictly to th
 """
 
 class FeedbackService:
-    def repair_json(self, json_text, error_message=None):
+    @staticmethod
+    def repair_json(json_text, error_message=None):
         """Advanced JSON repair function with multiple strategies for fixing common Gemini API errors"""
         try:
             # Strategy 1: Basic cleanup - remove markdown blocks, leading/trailing whitespace
@@ -121,13 +122,14 @@ class FeedbackService:
                 return json5.loads(text)
             except Exception:
                 # If json5 fails, one last attempt with custom quotes balancing
-                text = self.balance_quotes(text)
+                text = FeedbackService.balance_quotes(text)
                 return json5.loads(text)
                 
         except Exception as e:
             print(f"All JSON repair strategies failed: {str(e)}")
             raise
 
+    @staticmethod
     def balance_quotes(text):
         """Balance quotes in each JSON field by ensuring each field has matching quotes"""
         # Find patterns like "field": "value with potentially unmatched quotes
@@ -296,7 +298,7 @@ class FeedbackService:
                     print(f"ERROR: Error during converted temporary file cleanup: {cleanup_e}")
 
     @staticmethod
-    async def generate_feedback(self, interview_id: str, user_id: str) -> dict:
+    async def generate_feedback(interview_id: str, user_id: str) -> dict:
         """
         Generates feedback by sending interview context, questions, and audio responses to Gemini.
         """
@@ -448,7 +450,7 @@ class FeedbackService:
                 print(f"Standard JSON parsing failed. Error: {str(e)}")
                 try:
                     # Try our enhanced repair function with the error message
-                    feedback_data = self.repair_json(feedback_text, str(e))
+                    feedback_data = FeedbackService.repair_json(feedback_text, str(e))
                     print("Successfully repaired and parsed JSON")
                 except Exception as repair_e:
                     print(f"JSON repair failed: {str(repair_e)}")

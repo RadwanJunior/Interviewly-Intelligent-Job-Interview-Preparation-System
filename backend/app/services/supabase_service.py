@@ -223,9 +223,15 @@ class SupabaseService:
             return {"error": {"message": str(e)}}
     
     @staticmethod
+<<<<<<< HEAD
     def create_interview_session(user_id: str, resume_id: str, job_description_id: str, questions: list, ctype: str, status: str = "pending") -> dict:
         """
         Inserts a new interview session record into the 'interviews' table.
+=======
+    def create_interview_session(user_id: str, resume_id: str, job_description_id: str, questions: list, ctype: str) -> dict:
+        """
+        Inserts a new interview session record into the 'interview_sessions' table.
+>>>>>>> video
         """
         try:
             response = supabase_client.table("interviews").insert({
@@ -233,6 +239,7 @@ class SupabaseService:
                 "resume_id": resume_id,
                 "job_description_id": job_description_id,
                 "interview_questions": questions,
+<<<<<<< HEAD
                 "status": status,
                 "type": ctype
             }).execute()
@@ -251,15 +258,31 @@ class SupabaseService:
             response = supabase_client.table("interviews").select("*").eq("id", interview_id).execute()
             return response
         except Exception as e:
+=======
+                "status": "pending",
+                "type": ctype
+            }).execute()
+            print(f"Supabase response: {response}")
+            return response
+        except Exception as e:
+            print(f"Error creating interview session: {str(e)}")
+>>>>>>> video
             return {"error": {"message": str(e)}}
     
     @staticmethod
     def get_interview_sessions(user_id: str) -> dict:
         """
+<<<<<<< HEAD
         Retrieves all interview session records for a user from the 'interviews' table.
         """
         try:
             response = supabase_client.table("interviews").select("*").eq("user_id", user_id).execute()
+=======
+        Retrieves all interview session records for a user from the 'interview_sessions' table.
+        """
+        try:
+            response = supabase_client.table("interview_sessions").select("*").eq("user_id", user_id).execute()
+>>>>>>> video
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
@@ -824,6 +847,7 @@ class SupabaseService:
             return response.data if hasattr(response, "data") else response
         except Exception as e:
             return {"error": {"message": str(e)}}
+<<<<<<< HEAD
     @staticmethod
     async def store_enhanced_prompt(
         interview_id: str,
@@ -1064,3 +1088,8 @@ class SupabaseService:
             return {"success": False, "error": str(e), "rollback": False}
         
 supabase_service = SupabaseService()
+=======
+supabase_service = SupabaseService()
+
+
+>>>>>>> video
