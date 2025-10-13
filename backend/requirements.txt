@@ -14,3 +14,4 @@ httpx
 pytest-asyncio
 requests
 pytest-mock
+google-api-core
