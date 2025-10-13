@@ -1,8 +1,11 @@
-from google import genai 
 import os
 import json
+from google import genai
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+# Use a helper function to get the client to avoid global initialization issues
+def get_gemini_client():
+    """Initializes and returns the Gemini client."""
+    return genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 MODEL = "gemini-2.0-flash"
 
@@ -31,39 +34,50 @@ Please **strictly** output the questions in **valid JSON format** as an array, w
   "job_title": "{job_title}",
   "job_description": "{job_description}",
   "company_name": "{company_name}",
-  "location": "{location}",
-  "extra_context": {prompt_context}"
+  "location": "{location}"
 }}
 """
 
 class InterviewService:
     @staticmethod
-    def generate_questions(resume_text: str, job_title: str, job_description: str, company_name: str, location: str, prompt_context) -> list:
+    def generate_questions(
+        resume_text: str, 
+        job_title: str, 
+        job_description: str, 
+        company_name: str, 
+        location: str,
+        enhanced_prompt: str = None
+    ) -> list:
         """
-        Generates interview questions based on the resume text, job title, job description, company name, and location.
+        Generates interview questions using Google's Gemini model.
+        Can be enhanced with a RAG-generated prompt.
         """
-        # Format the prompt with the provided variables
-        prompt = PROMPT_TEMPLATE.format(
-            resume=resume_text,
-            job_title=job_title,
-            job_description=job_description,
-            company_name=company_name,
-            location=location,
-            prompt_context=prompt_context if prompt_context else "None"
-        )
-
         try:
-            # Generate questions
+            client = get_gemini_client()
+            
+            # First, format the base prompt with the required variables
+            final_prompt = PROMPT_TEMPLATE.format(
+                resume=resume_text,
+                job_title=job_title,
+                job_description=job_description,
+                company_name=company_name,
+                location=location
+            )
+
+            # If an enhanced prompt exists, prepend it. This avoids the KeyError.
+            if enhanced_prompt:
+                final_prompt = f"Enhanced Context:\n{enhanced_prompt}\n\n{final_prompt}"
+
+            # Generate questions using YOUR existing client call method
             response = client.models.generate_content(
                 model=MODEL,
-                contents=[{"role": "user", "parts": [{"text": prompt}]}],
-                # config={"max_tokens": 700, "top_p": 0.90, "temperature": 0.8},
+                contents=[{"role": "user", "parts": [{"text": final_prompt}]}],
             )
 
             # Extract text response
             if response and response.candidates:
                 raw_text = response.candidates[0].content.parts[0].text
-                # remove code bloack markers
+                # remove code block markers
                 if raw_text.startswith("```json"):
                     raw_text = raw_text[7:]
                 if raw_text.endswith("```"):

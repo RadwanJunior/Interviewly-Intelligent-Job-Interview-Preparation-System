@@ -1,7 +1,14 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
 import Head from "next/head";
-import { CheckCircle, Loader2, AlertCircle, Search, Globe, Sparkles } from "lucide-react";
+import {
+  CheckCircle,
+  Loader2,
+  AlertCircle,
+  Search,
+  Globe,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -18,15 +25,18 @@ enum InterviewStatus {
   PROCESSING = "processing",
   READY = "ready",
   FAILED = "failed",
-  TIMEOUT = "timeout"
+  TIMEOUT = "timeout",
 }
 
 const PrepareInterview = () => {
   const { toast } = useToast();
-  const [currentStatus, setCurrentStatus] = useState<string>(InterviewStatus.NOT_STARTED);
+  const [currentStatus, setCurrentStatus] = useState<string>(
+    InterviewStatus.NOT_STARTED
+  );
   const [statusMessage, setStatusMessage] = useState<string>("Initializing...");
   const [sessionId, setSessionId] = useState("");
   const [hasError, setHasError] = useState(false);
+  const [pollingAttempts, setPollingAttempts] = useState(0);
   const { jobDetailsData } = useWorkflow();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -56,12 +66,15 @@ const PrepareInterview = () => {
   };
 
   const isReady = currentStatus === InterviewStatus.READY;
-  const isFailed = currentStatus === InterviewStatus.FAILED || currentStatus === InterviewStatus.TIMEOUT;
+  const isFailed =
+    currentStatus === InterviewStatus.FAILED ||
+    currentStatus === InterviewStatus.TIMEOUT;
 
   // Create interview session on mount
   useEffect(() => {
     const startGeneration = async () => {
-      if (isRequestInProgress.current || !jobDetailsData?.JobDescriptionId) return;
+      if (isRequestInProgress.current || !jobDetailsData?.JobDescriptionId)
+        return;
       isRequestInProgress.current = true;
 
       try {
@@ -105,21 +118,46 @@ const PrepareInterview = () => {
 
   // Poll for status updates
   useEffect(() => {
+    const MAX_POLLING_ATTEMPTS = 40; // 40 attempts * 3 seconds = 2 minutes
+    let attempts = 0;
+
     const checkStatus = async () => {
-      if (!sessionId || isReady || isFailed) return;
+      if (!sessionId) return;
+
+      attempts++;
+
+      if (attempts >= MAX_POLLING_ATTEMPTS) {
+        setStatusMessage("The request timed out. Please try again later.");
+        setCurrentStatus(InterviewStatus.TIMEOUT);
+        setHasError(true);
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
+        return;
+      }
 
       try {
         const response = await fetch(`/api/interview/status/${sessionId}`);
+        if (!response.ok) {
+          console.warn(`Status check failed: ${response.statusText}`);
+          return; // Don't stop polling on a single failed request
+        }
         const data = await response.json();
 
         if (data.status) {
           setCurrentStatus(data.status);
           setStatusMessage(data.message || "Processing...");
 
-          // Clear polling when ready or failed
-          if (data.status === InterviewStatus.READY || 
-              data.status === InterviewStatus.FAILED || 
-              data.status === InterviewStatus.TIMEOUT) {
+          const isTerminalStatus =
+            data.status === InterviewStatus.READY ||
+            data.status === InterviewStatus.FAILED ||
+            data.status === InterviewStatus.TIMEOUT;
+
+          if (isTerminalStatus) {
+            if (data.status !== InterviewStatus.READY) {
+              setHasError(true);
+            }
             if (pollIntervalRef.current) {
               clearInterval(pollIntervalRef.current);
               pollIntervalRef.current = null;
@@ -128,18 +166,19 @@ const PrepareInterview = () => {
         }
       } catch (error) {
         console.error("Error checking interview status:", error);
-        // Don't set error state on polling failures - continue trying
       }
     };
 
     if (sessionId && !isReady && !isFailed) {
-      // Initial check
-      checkStatus();
-      
-      // Poll every 3 seconds
+      // Clear any existing interval before starting a new one
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+      // Start polling
       pollIntervalRef.current = setInterval(checkStatus, 3000);
     }
 
+    // Cleanup function to clear interval on component unmount or when status is terminal
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
@@ -149,10 +188,11 @@ const PrepareInterview = () => {
   }, [sessionId, isReady, isFailed]);
 
   const handleStart = () => {
-    if (!isReady) {
+    if (!isReady && !isFailed) {
       toast({
         title: "Please wait",
-        description: statusMessage || "We're still preparing your interview questions.",
+        description:
+          statusMessage || "We're still preparing your interview questions.",
         variant: "destructive",
       });
       return;
@@ -196,8 +236,10 @@ const PrepareInterview = () => {
               <div className="flex flex-col items-center space-y-4">
                 {/* Status Icon and Message */}
                 <div className={`flex items-center ${statusDisplay.color}`}>
-                  <StatusIcon 
-                    className={`h-6 w-6 mr-2 ${statusDisplay.spin ? 'animate-spin' : ''}`} 
+                  <StatusIcon
+                    className={`h-6 w-6 mr-2 ${
+                      statusDisplay.spin ? "animate-spin" : ""
+                    }`}
                   />
                   <span className="text-lg font-medium">{statusMessage}</span>
                 </div>
@@ -206,7 +248,9 @@ const PrepareInterview = () => {
                 {!isReady && !isFailed && (
                   <div className="w-full max-w-md">
                     <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-primary animate-pulse" style={{ width: "70%" }}></div>
+                      <div
+                        className="h-full bg-primary animate-pulse"
+                        style={{ width: "70%" }}></div>
                     </div>
                   </div>
                 )}
@@ -215,7 +259,9 @@ const PrepareInterview = () => {
                 {isReady && (
                   <div className="text-green-600 text-center">
                     <CheckCircle className="h-8 w-8 mx-auto mb-2" />
-                    <p className="font-semibold">Your personalized interview is ready!</p>
+                    <p className="font-semibold">
+                      Your personalized interview is ready!
+                    </p>
                   </div>
                 )}
 
@@ -223,9 +269,12 @@ const PrepareInterview = () => {
                 {isFailed && (
                   <div className="text-yellow-600 text-center bg-yellow-50 p-4 rounded-lg">
                     <AlertCircle className="h-8 w-8 mx-auto mb-2" />
-                    <p className="font-semibold">Using standard interview questions</p>
+                    <p className="font-semibold">
+                      Using standard interview questions
+                    </p>
                     <p className="text-sm mt-1">
-                      Enhanced context wasn&apos;t available, but we&apos;ve prepared quality questions for you.
+                      Enhanced context wasn&apos;t available, but we&apos;ve
+                      prepared quality questions for you.
                     </p>
                   </div>
                 )}
@@ -277,14 +326,16 @@ const PrepareInterview = () => {
               <Button
                 onClick={handleStart}
                 className={`px-8 py-3 text-lg ${
-                  !isReady && !hasError
+                  !isReady && !isFailed
                     ? "bg-gray-400"
                     : "bg-primary hover:bg-primary/90"
                 }`}
-                disabled={!isReady && !hasError}>
-                {isReady ? "Start Interview" : 
-                 isFailed ? "Continue Anyway" : 
-                 "Preparing Questions..."}
+                disabled={!isReady && !isFailed}>
+                {isReady
+                  ? "Start Interview"
+                  : isFailed
+                  ? "Continue with Standard Questions"
+                  : "Preparing Questions..."}
               </Button>
             </div>
           </Card>

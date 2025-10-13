@@ -893,41 +893,39 @@ class SupabaseService:
             return None
 
     @staticmethod
-    async def update_interview_status(interview_id: str, status: str) -> Dict[str, Any]:
-        """
-        Updates the status of an interview.
-        
-        Args:
-            interview_id: UUID of the interview
-            status: New status value
-            
-        Returns:
-            dict: {"success": True, "data": {...}} or {"success": False, "error": "..."}
-        """
+    async def update_interview_status(session_id: str, status: str):
+        """Updates the status of an interview session."""
         try:
-            if not interview_id:
-                logging.error("[Supabase] update_interview_status: Missing interview_id")
-                return {"success": False, "error": "Missing interview_id"}
-            
-            if not status:
-                logging.error(f"[Supabase] update_interview_status: Missing status for interview {interview_id}")
-                return {"success": False, "error": "Missing status"}
-            
-            response = supabase_client.table("interviews") \
-                .update({"status": status}) \
-                .eq("id", interview_id) \
+            response = (
+                supabase_client.table("interviews")
+                .update({"status": status})
+                .eq("id", session_id)
                 .execute()
-            
-            if not response.data or len(response.data) == 0:
-                logging.error(f"[Supabase] update_interview_status: No data returned for interview {interview_id}")
-                return {"success": False, "error": "Status update failed - no data returned"}
-            
-            logging.info(f"[Supabase] Successfully updated interview {interview_id} status to '{status}'")
-            return {"success": True, "data": response.data[0]}
-            
+            )
+            logging.info(f"[Supabase] Successfully updated interview {session_id} status to '{status}'")
+            return {"success": True, "data": response.data}
         except Exception as e:
-            logging.error(f"[Supabase] update_interview_status: Exception for interview {interview_id}: {str(e)}")
+            logging.error(f"[Supabase] Failed to update interview status for {session_id}: {e}")
             return {"success": False, "error": str(e)}
+        
+    @staticmethod
+    async def get_interview_status(session_id: str):
+        """Fetches the current status of an interview session."""
+        try:
+            response = (
+                supabase_client.table("interviews")
+                .select("status")
+                .eq("id", session_id)
+                .single()
+                .execute()
+            )
+            if response.data and "status" in response.data:
+                return response.data["status"]
+            return None
+        except Exception as e:
+            logging.error(f"[Supabase] Failed to fetch interview status for {session_id}: {e}")
+            return None
+
     
     @staticmethod
     async def store_enhanced_prompt_and_update_status(
@@ -978,7 +976,7 @@ class SupabaseService:
             
             # Step 2: Update the interview status
             status_result = await SupabaseService.update_interview_status(
-                interview_id=interview_id,
+                session_id=interview_id,
                 status=target_status
             )
             
@@ -1064,7 +1062,5 @@ class SupabaseService:
                     }
             
             return {"success": False, "error": str(e), "rollback": False}
-
+        
 supabase_service = SupabaseService()
-
-

@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, Optional
 from enum import Enum
 from pydantic import ValidationError
 import redis.asyncio as redis
+from app.models.redis_messages import PromptReadyMessage, RAGStatusMessage
 
 
 class ListenerHealth(str, Enum):
@@ -161,25 +162,37 @@ class UpstashRedisService:
                         self._total_messages_processed += 1
                         self._health_status = ListenerHealth.HEALTHY
                         
-                        channel = message["channel"]
-                        data = message["data"]
+                        # The message dictionary is now the source of truth
                         
-                        # Parse JSON if possible
-                        if isinstance(data, str):
+                        # Parse JSON data in-place if possible
+                        if isinstance(message["data"], str):
                             try:
-                                if data.startswith("{") or data.startswith("["):
-                                    data = json.loads(data)
+                                data_str = message["data"].strip()  # Strip leading/trailing whitespace
+
+                                # Find the first occurrence of '{' which marks the start of the JSON object
+                                json_start_index = data_str.find('{')
+                                
+                                # If a '{' is found, attempt to parse from that point onwards
+                                if json_start_index != -1:
+                                    json_str = data_str[json_start_index:]
+                                    # Modify the dictionary directly with the parsed, cleaned JSON
+                                    message["data"] = json.loads(json_str)
+                                else:
+                                    # If no '{' is found, it's not the JSON we expect.
+                                    logging.warning(f"[Redis Listener] Received a non-JSON string on channel '{message['channel']}'. Data: '{data_str}'")
+
                             except json.JSONDecodeError:
-                                pass  # Keep as string if not valid JSON
+                                # If parsing fails even after cleaning, log it but pass the original string
+                                logging.warning(f"[Redis Listener] Could not parse JSON from channel '{message['channel']}'. Original Data: '{message['data']}'")
                         
-                        # Invoke callbacks
-                        if channel in self._subscribers:
-                            for callback in self._subscribers[channel]:
+                        # Invoke callbacks with the modified message object
+                        if message["channel"] in self._subscribers:
+                            for callback in self._subscribers[message["channel"]]:
                                 try:
-                                    await callback({"channel": channel, "data": data})
+                                    await callback(message)
                                 except Exception as e:
                                     logging.error(
-                                        f"[Redis Listener] Error in callback for {channel}: {str(e)}"
+                                        f"[Redis Listener] Error in callback for {message['channel']}: {str(e)}"
                                     )
                                     # Callback errors don't count as listener failures
                     else:
@@ -363,7 +376,6 @@ async def initialize_redis():
 async def setup_rag_listeners():
     """Setup listeners for RAG-related channels"""
     from app.services.supabase_service import SupabaseService
-    from app.models.redis_messages import PromptReadyMessage
     
     async def handle_prompt_ready(message):
         """
@@ -375,6 +387,21 @@ async def setup_rag_listeners():
         try:
             data = message["data"]
             
+            # CRITICAL: Add type check to ensure data is a dictionary
+            if not isinstance(data, dict):
+                # This is a contract violation. The message is not in the expected format.
+                channel = message.get("channel", "unknown")
+                logging.error(
+                    f"[Redis] ❌ VALIDATION FAILED for prompt-ready message on channel '{channel}'. "
+                    f"Expected a JSON object (dict), but received type '{type(data).__name__}'. "
+                    f"Data: '{str(data)[:200]}'" # Log a snippet of the invalid data
+                )
+                # Attempt to find an interview_id if possible, though unlikely
+                if isinstance(data, str) and "interview_id" in data: # A desperate attempt
+                    # This part is unlikely to succeed but is a fallback
+                    pass
+                return # Stop processing this malformed message
+
             # CRITICAL: Validate message structure with Pydantic
             # This prevents:
             # - SQL injection attacks
@@ -382,6 +409,7 @@ async def setup_rag_listeners():
             # - Invalid UUIDs
             # - Oversized prompts (memory issues)
             # - Missing required fields
+            logging.debug(f"[Redis] Validating prompt-ready message: {data}")
             try:
                 validated_data = PromptReadyMessage(**data)
                 interview_id = str(validated_data.interview_id)
@@ -489,8 +517,6 @@ async def setup_rag_listeners():
         Now with Pydantic validation for security and data integrity.
         """
         try:
-            from app.models.redis_messages import RAGStatusMessage
-            
             data = message["data"]
             
             # CRITICAL: Validate message structure with Pydantic

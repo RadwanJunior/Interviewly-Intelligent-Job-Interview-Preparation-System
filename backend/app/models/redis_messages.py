@@ -140,11 +140,16 @@ class RAGStatusMessage(BaseModel):
     
     status: Literal[
         "pending",
+        "not_started",
+        "enhancing",
+        "vector_search", 
+        "web_scraping",
         "processing", 
         "ready",
         "failed",
         "completed",
-        "cancelled"
+        "cancelled",
+        "timeout"
     ] = Field(
         ...,
         description="Interview status"

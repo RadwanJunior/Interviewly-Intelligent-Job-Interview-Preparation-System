@@ -5,6 +5,7 @@ from app.services.supabase_service import SupabaseService
 from app.services.rag_service import RAGService, RAGStatus
 import asyncio
 import logging
+from google.api_core import exceptions as google_exceptions
 
 router = APIRouter()
 
@@ -46,11 +47,14 @@ async def generate_questions_task(
                 f"[Interview] RAG enhancement did not complete successfully: {rag_result.get('status')}. "
                 f"Falling back to basic questions."
             )
+            # Update status to reflect fallback if RAG failed but we are still proceeding
+            await SupabaseService.update_interview_status(session_id, rag_result.get('status', RAGStatus.PROCESSING.value))
+
         
         # Generate questions with or without enhanced prompt
         questions_list = InterviewService.generate_questions(
             resume_text, job_title, job_description, company_name, location,
-            enhanced_prompt
+            enhanced_prompt=enhanced_prompt
         )
         
         if not questions_list:
@@ -99,8 +103,11 @@ async def generate_questions_task(
         
         logging.info(f"[Interview] Successfully generated {len(question_ids)} questions for interview {session_id}")
         
+    except google_exceptions.ResourceExhausted as e:
+        logging.error(f"[Interview] Quota exceeded during question generation for {session_id}: {str(e)}")
+        await SupabaseService.update_interview_status(session_id, "quota_exceeded")
     except Exception as e:
-        logging.error(f"[Interview] Error in question generation task: {str(e)}")
+        logging.error(f"[Interview] Error in question generation task for {session_id}: {str(e)}")
         await SupabaseService.update_interview_status(session_id, RAGStatus.FAILED.value)
 
 
@@ -193,38 +200,56 @@ async def get_questions(session_id: str):
     return questions_response.data
 
 
-@router.get("/status/{interview_id}")
-async def get_interview_status(
-    interview_id: str,
-    current_user: dict = Depends(SupabaseService.get_current_user)
-):
-    """
-    Get the current status of an interview session.
-    Used by frontend to poll for readiness.
-    """
-    if not current_user or not getattr(current_user, "id", None):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
-    status_result = await RAGService.get_enhancement_status(interview_id)
-    
-    return {
-        "interview_id": interview_id,
-        "status": status_result.get("status"),
-        "enhanced_prompt_available": status_result.get("enhanced_prompt_available", False),
-        "message": _get_status_message(status_result.get("status"))
-    }
-
-
-def _get_status_message(status: str) -> str:
+def _get_status_message(status: str, reason: str = None) -> str:
     """Get user-friendly status message"""
+    if status == RAGStatus.FAILED.value:
+        if reason == "quota_exceeded":
+            return "Service temporarily unavailable due to high demand."
+        return "Question generation failed. Please try again later."
+
     messages = {
         RAGStatus.NOT_STARTED.value: "Interview preparation not started",
         RAGStatus.ENHANCING.value: "Enhancing your interview questions...",
         RAGStatus.VECTOR_SEARCH.value: "Searching our knowledge base...",
         RAGStatus.WEB_SCRAPING.value: "Gathering additional context from the web...",
         RAGStatus.PROCESSING.value: "Processing and generating questions...",
-        RAGStatus.READY.value: "Interview is ready!",
-        RAGStatus.FAILED.value: "Enhancement failed - using standard questions",
-        RAGStatus.TIMEOUT.value: "Enhancement timed out - using standard questions"
+        RAGStatus.READY.value: "Your personalized interview is ready!",
+        RAGStatus.TIMEOUT.value: "Enhancement timed out, preparing standard questions..."
     }
     return messages.get(status, "Processing...")
+
+
+@router.get("/status/{session_id}")
+async def get_status(session_id: str):
+    """
+    Checks the status of the interview session from the database.
+    This is the single source of truth for the frontend.
+    """
+    try:
+        # Fetch status and failure reason from the database
+        interview_response = SupabaseService.get_interview_status(session_id)        
+        
+        if interview_response.data:
+            db_status = interview_response.data.get("status")
+            failure_reason = interview_response.data.get("failure_reason")
+            
+            # Use the helper to get a consistent message
+            message = _get_status_message(db_status, failure_reason)
+            
+            return {
+                "status": db_status,
+                "message": message,
+            }
+        else:
+            # This case should ideally not happen if session_id is valid
+            raise HTTPException(status_code=404, detail="Interview session not found.")
+
+    except Exception as e:
+        logging.error(f"Error checking interview status for {session_id}: {e}")
+        # Return a generic failure status if the database check fails
+        return {
+            "status": "failed",
+            "message": "Could not retrieve interview status.",
+        }
+
+

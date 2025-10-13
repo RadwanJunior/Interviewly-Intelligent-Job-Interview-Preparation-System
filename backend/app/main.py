@@ -1,10 +1,10 @@
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import auth, resume, interview, audio, dashboard, job_description, interview_call, conversation, live_feedback
 import os
 import uvicorn
-import asyncio
-from app.services.redis_service import initialize_redis, setup_rag_listeners
+from app.services.redis_service import initialize_redis, setup_rag_listeners, redis_client
+
 
 app = FastAPI()
 
@@ -68,9 +68,18 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    # Close Redis connections
-    from app.services.redis_service import redis_client
-    await redis_client.close()
+    """Gracefully shutdown all services"""
+    import logging
+    logging.info("Starting application shutdown...")
+    
+    # Close Redis connections and stop listener
+    try:
+        await redis_client.close()
+        logging.info("Redis service closed successfully")
+    except Exception as e:
+        logging.error(f"Error closing Redis service: {e}")
+    
+    logging.info("Application shutdown complete")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
