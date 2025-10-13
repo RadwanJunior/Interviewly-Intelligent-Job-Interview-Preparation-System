@@ -295,27 +295,3 @@ export async function fetchActivePlan() {
     return null;
   }
 }
-
-/**
- * Create a new preparation plan for the dashboard.
- * @param planData - Preparation plan data object
- * @returns API response data
- */
-export async function createPreparationPlan(planData) {
-  const response = await api.post("/dashboard/preparation-plan", planData);
-  return response.data;
-}
-
-/**
- * Update an existing preparation plan.
- * @param planId - Preparation plan ID
- * @param updateData - Data to update
- * @returns API response data
- */
-export async function updatePreparationPlan(planId, updateData) {
-  const response = await api.put(
-    `/dashboard/preparation-plan/${planId}`,
-    updateData
-  );
-  return response.data;
-}
