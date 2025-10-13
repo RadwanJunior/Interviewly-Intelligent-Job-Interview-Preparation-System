@@ -7,11 +7,12 @@ export type WorkflowStage = {
 };
 
 export type ResumeData = {
-  fileName: string | undefined;
   file: File | null;
   text: string;
   hasExisting: boolean;
-  resumeId: string | undefined;
+  fileName: string;
+  resumeId: string;
+
 };
 
 export type JobDetailsData = {
