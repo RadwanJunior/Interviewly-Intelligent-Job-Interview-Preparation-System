@@ -25,11 +25,12 @@ export type WorkflowStage = {
  * @property {string | undefined} resumeId - Unique identifier for the resume.
  */
 export type ResumeData = {
-  fileName: string | undefined;
   file: File | null;
   text: string;
   hasExisting: boolean;
-  resumeId: string | undefined;
+  fileName: string;
+  resumeId: string;
+
 };
 
 
