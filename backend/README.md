@@ -102,6 +102,11 @@ The API uses standard HTTP status codes:
 - 404: Not found
 - 500: Internal server error
 
+## Testing
+
+To run tests you can do it with the following command:\
+`pytest --cov=app --cov-report=term-missing --cov-report=html`
+
 ## Contributing
 
 1. Create a new branch for your feature

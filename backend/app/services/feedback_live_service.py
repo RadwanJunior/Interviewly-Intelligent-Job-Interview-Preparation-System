@@ -2,7 +2,7 @@ from google import genai
 from google.genai import types
 import json
 import logging
-from app.services.supabase_service import SupabaseService
+from app.services.supabase_service import supabase_service
 import httpx
 import tempfile, base64, os, io, asyncio
 from datetime import datetime, timezone
@@ -268,7 +268,7 @@ class FeedbackLiveService:
                 return None
 
             # Normalize
-            audio_url = SupabaseService.normalize_public_url(audio_url)
+            audio_url = supabase_service.normalize_public_url(audio_url)
             logging.info(f"Processing audio from URL: {audio_url}")
 
             async with httpx.AsyncClient() as http:
@@ -276,7 +276,7 @@ class FeedbackLiveService:
                 if resp.status_code != 200:
                     logging.error(f"Failed to download audio (public URL). HTTP {resp}")
                     # Try re-signing the stored URL (works if bucket is private)
-                    signed = SupabaseService.to_signed_url_from_public_url(audio_url, expires_in=60 * 60)
+                    signed = supabase_service.to_signed_url_from_public_url(audio_url, expires_in=60 * 60)
                     if signed:
                         logging.info(f"Retrying with signed URL")
                         resp = await http.get(signed)
@@ -335,14 +335,14 @@ class FeedbackLiveService:
             if not audio_url:
                 return None
 
-            audio_url = SupabaseService.normalize_public_url(audio_url)
+            audio_url = supabase_service.normalize_public_url(audio_url)
             logging.info(f"Analyzing audio delivery from URL: {audio_url}")
 
             async with httpx.AsyncClient() as http:
                 resp = await http.get(audio_url)
                 if resp.status_code != 200:
                     logging.error(f"Failed to download audio (public URL). HTTP {resp}")
-                    signed = SupabaseService.to_signed_url_from_public_url(audio_url, expires_in=60 * 60)
+                    signed = supabase_service.to_signed_url_from_public_url(audio_url, expires_in=60 * 60)
                     if signed:
                         logging.info(f"Retrying with signed URL")
                         resp = await http.get(signed)
@@ -438,12 +438,12 @@ class FeedbackLiveService:
         if not audio_url:
             return ""
         # Normalize and fetch bytes (reuse existing retry/sign flow)
-        audio_url = SupabaseService.normalize_public_url(audio_url)
+        audio_url = supabase_service.normalize_public_url(audio_url)
         try:
             async with httpx.AsyncClient() as http:
                 resp = await http.get(audio_url)
                 if resp.status_code != 200:
-                    signed = SupabaseService.to_signed_url_from_public_url(audio_url, expires_in=60 * 60)
+                    signed = supabase_service.to_signed_url_from_public_url(audio_url, expires_in=60 * 60)
                     if signed:
                         resp = await http.get(signed)
                 if resp.status_code != 200:
@@ -500,21 +500,21 @@ class FeedbackLiveService:
             logging.info(f"Starting live feedback generation for interview {interview_id}")
             
             # 1. Fetch interview data
-            interview_data = await SupabaseService.get_interview_data(user_id, interview_id)
+            interview_data = await supabase_service.get_interview_data(user_id, interview_id)
             if not interview_data:
                 raise Exception(f"Failed to retrieve interview data for interview {interview_id}")
             
             # 2. Get conversation turns
-            conversation_turns = await SupabaseService.get_all_conversation_turns(interview_id)
+            conversation_turns = await supabase_service.get_all_conversation_turns(interview_id)
             if not conversation_turns:
                 logging.warning(f"No conversation turns found for interview {interview_id}. Checking for user responses...")
-                user_responses = SupabaseService.get_user_responses(interview_id)
+                user_responses = supabase_service.get_user_responses(interview_id)
                 if user_responses:
                     # Create synthetic conversation turns from user_responses
                     conversation_turns = []
                     for i, response in enumerate(user_responses):
                         question_id = response.get("question_id")
-                        question_data = SupabaseService.get_interview_question(question_id)
+                        question_data = supabase_service.get_interview_question(question_id)
                         
                         if question_data:
                             # Add synthetic AI turn (question)
@@ -653,7 +653,7 @@ class FeedbackLiveService:
                         "status": "completed",
                     }
                     
-                    feedback_result = await SupabaseService.save_feedback(db_feedback_payload)
+                    feedback_result = await supabase_service.save_feedback(db_feedback_payload)
                     if isinstance(feedback_result, dict) and feedback_result.get("error"):
                         error_detail = feedback_result["error"].get("message", str(feedback_result["error"]))
                         raise Exception(f"Failed to save feedback to database: {error_detail}")
@@ -721,7 +721,7 @@ class FeedbackLiveService:
                     if score is not None:
                         update_payload["score"] = score
                     
-                    update_result = SupabaseService.update_interview(interview_id, update_payload)
+                    update_result = supabase_service.update_interview(interview_id, update_payload)
                     if hasattr(update_result, "__await__"):
                         await update_result
                     logging.info(f"Updated interview status to completed for {interview_id}")
@@ -754,7 +754,7 @@ class FeedbackLiveService:
                     "completed_at": datetime.now(timezone.utc).isoformat(),
                     "score": 0,
                 }
-                update_result = SupabaseService.update_interview(interview_id, update_payload)
+                update_result = supabase_service.update_interview(interview_id, update_payload)
                 if hasattr(update_result, "__await__"):
                     await update_result
             except Exception:

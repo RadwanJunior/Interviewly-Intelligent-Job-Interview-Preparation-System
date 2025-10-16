@@ -1,13 +1,30 @@
- "use client";
+/**
+ * WorkflowStepper.tsx - Visual stepper component for workflow navigation.
+ * Displays workflow stages, highlights progress, and allows navigation between steps.
+ * Integrates with workflow context for state and actions.
+ */
+"use client";
 import React from "react";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 import { useWorkflow } from "@/context/WorkflowContext";
 
+
+/**
+ * Props for the WorkflowStepper component.
+ * @property {string} [className] - Optional additional class names for styling.
+ */
 type WorkflowStepperProps = {
   className?: string;
 };
 
+/**
+ * WorkflowStepper component for visualizing and navigating workflow stages.
+ * Renders step indicators, connector lines, and supports navigation to completed/current steps.
+ *
+ * @param {WorkflowStepperProps} props - Component props.
+ * @returns {JSX.Element} The rendered workflow stepper.
+ */
 const WorkflowStepper = ({ className }: WorkflowStepperProps) => {
   const { stages, currentStageIndex, goToStage } = useWorkflow();
 

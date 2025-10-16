@@ -1,5 +1,16 @@
+/**
+ * Footer.tsx - Application footer component for Interviewly.
+ * Displays site branding, navigation links, and copyright.
+ * Responsive layout adapts to mobile and desktop screens.
+ */
 import Link from "next/link";
 
+/**
+ * Footer component for the application.
+ * Renders branding, navigation links, and copyright.
+ *
+ * @returns {JSX.Element} The rendered footer section.
+ */
 const Footer = () => {
   return (
     <footer className="bg-gray-50 py-8 mt-20">

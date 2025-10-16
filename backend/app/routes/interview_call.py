@@ -1,5 +1,5 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
-from app.services.supabase_service import SupabaseService
+from app.services.supabase_service import supabase_service
 from google import genai
 from google.genai import types
 import os
@@ -15,7 +15,7 @@ from websockets.exceptions import ConnectionClosed
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 router = APIRouter()
-MODEL_NAME = "gemini-live-2.5-flash-preview"
+MODEL_NAME = "gemini-2.5-flash-native-audio-preview-09-2025"  # New native audio model
 SYSTEM_PROMPT_TEMPLATE = """
 You are an expert technical interviewer named 'Alex'. You are conducting a professional job interview for a technical role. Treat this like a real interview at a top company.
 
@@ -206,7 +206,7 @@ async def client_to_gemini_task(websocket: WebSocket, session: genai.live.AsyncS
                             logging.info(f"[{interview_id}] Created new AI turn {turn_index_ref['value']} for next response")
     
                         try:
-                            await session.send_realtime_input(audio_stream_end=True)
+                            await session.send_realtime_input(audioStreamEnd=True)
                         except Exception as end_err:
                             logging.error(f"[{interview_id}] Error sending audio_stream_end: {end_err}", exc_info=True)
 
@@ -326,7 +326,7 @@ async def websocket_endpoint(
     websocket: WebSocket,
     interview_id: str,
     background_tasks: BackgroundTasks,
-    current_user: dict = Depends(SupabaseService.get_current_user_ws)
+    current_user: dict = Depends(supabase_service.get_current_user_ws)
 ):
     await websocket.accept()
     logging.info(f"[{interview_id}] WebSocket connection accepted.")
@@ -338,7 +338,7 @@ async def websocket_endpoint(
     
     try:
         # Get the interview data
-        interview_data = await SupabaseService.get_interview_data(current_user.id, interview_id)
+        interview_data = await supabase_service.get_interview_data(current_user.id, interview_id)
         
         # IMPORTANT: Extract the correct user_id from the interview data
         interview_owner_id = interview_data.get("user_id")
@@ -350,10 +350,33 @@ async def websocket_endpoint(
         # This ensures consistent storage paths
         storage_user_id = interview_owner_id if interview_owner_id else current_user.id
         
-        system_instruction_text = SYSTEM_PROMPT_TEMPLATE.format(
-            resume=interview_data.get("resume", {}).get("extracted_text", ""),
-            job_description=interview_data.get("job_description", {}).get("description", "")
-        )
+        # Get basic data
+        resume_text = interview_data.get("resume", {}).get("extracted_text", "")
+        job_description = interview_data.get("job_description", {}).get("description", "")
+        enhanced_prompt = interview_data.get("enhanced_prompt")
+        
+        # Use enhanced prompt if available, otherwise use basic template
+        if enhanced_prompt:
+            logging.info(f"[{interview_id}] Using RAG-enhanced system prompt for video interview")
+            system_instruction_text = f"""Enhanced Interview Context:
+{enhanced_prompt}
+
+You are an expert technical interviewer named 'Alex'. Use the enhanced context above to conduct a more personalized and targeted interview. Focus on the specific insights and recommendations provided in the enhanced context while maintaining your professional interviewing persona.
+
+IMPORTANT: The enhanced context contains valuable insights about the candidate's background and the role requirements. Use this information to ask more targeted and relevant questions.
+
+Candidate's Resume:
+{resume_text}
+
+Job Description:
+{job_description}
+"""
+        else:
+            logging.info(f"[{interview_id}] Using standard system prompt (RAG enhancement not available)")
+            system_instruction_text = SYSTEM_PROMPT_TEMPLATE.format(
+                resume=resume_text,
+                job_description=job_description
+            )
         
         # Use a simple dictionary for the config
         gemini_config = {

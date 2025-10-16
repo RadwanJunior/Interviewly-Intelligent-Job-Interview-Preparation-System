@@ -13,3 +13,9 @@ gotrue
 json5
 redis
 aioredis
+pytest-cov
+pytest
+httpx
+pytest-asyncio
+requests
+pytest-mock

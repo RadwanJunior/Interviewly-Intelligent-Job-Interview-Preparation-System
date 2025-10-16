@@ -3,12 +3,14 @@ import json
 import logging
 import asyncio
 import time
+import signal
+import sys
 from typing import Any, Callable, Dict, Optional
 from enum import Enum
 from pydantic import ValidationError
 import redis.asyncio as redis
 from app.models.redis_messages import PromptReadyMessage, RAGStatusMessage
-
+from contextlib import asynccontextmanager
 
 class ListenerHealth(str, Enum):
     """Health status of Redis listener"""
@@ -44,6 +46,11 @@ class UpstashRedisService:
         self._circuit_open = False
         self._circuit_open_time = None
         self._circuit_reset_timeout = 60  # Reset circuit after 60 seconds
+
+        # Shutdown event
+        self._shutdown_event = asyncio.Event()
+        self._active_listeners = set()  # Track active listeners
+        self._connections = []  # Track connections
     
     async def connect(self):
         """Connect to Upstash Redis"""
@@ -71,16 +78,24 @@ class UpstashRedisService:
             logging.error(f"Failed to connect to Upstash Redis: {str(e)}")
             return False
     
-    async def publish(self, channel: str, message: Any) -> int:
-        """Publish message to a channel"""
+    async def publish(self, channel: str, message: dict) -> int:
+        """Publish message to Redis channel"""
         try:
-            if isinstance(message, (dict, list)):
-                message = json.dumps(message)
-                
-            return await self.client.publish(channel, message)
+            # Serialize dictionary to JSON string
+            if isinstance(message, dict):
+                message_str = json.dumps(message, ensure_ascii=False, default=str)
+            else:
+                message_str = str(message)
+            
+            # Debug log what we're actually publishing
+            logging.debug(f"[Redis] Publishing to '{channel}': {message_str}")
+            
+            # FIX: Use self.client instead of self.redis
+            result = await self.client.publish(channel, message_str)
+            return result
             
         except Exception as e:
-            logging.error(f"Error publishing to channel {channel}: {str(e)}")
+            logging.error(f"[Redis] Error publishing to '{channel}': {str(e)}")
             return 0
     
     async def subscribe(self, channel: str, callback: Callable):
@@ -344,26 +359,63 @@ class UpstashRedisService:
             logging.error(f"[Redis Listener] Error resetting circuit breaker: {str(e)}")
             return False
     
-    async def close(self):
-        """Close Redis connections and stop listener"""
+    async def subscribe_with_callback(self, channel: str, callback, listener_name: str = None):
+        """Subscribe to a channel with a callback and listener name"""
+        await self.subscribe(channel, callback)  # Subscribe using existing method
+        
+        # Add to active listeners tracking
+        if listener_name:
+            self._active_listeners.add(listener_name)
+    
+    async def _listen_to_channel(self, channel: str, callback, listener_name: str):
+        """Internal method to listen to a channel and process messages"""
+        pubsub = self.pubsub
         try:
-            # Cancel listener task if running
-            if self._listener_task and not self._listener_task.done():
-                self._listener_task.cancel()
-                try:
-                    await self._listener_task
-                except asyncio.CancelledError:
-                    pass
-            
-            if self.pubsub:
-                await self.pubsub.close()
-            if self.client:
-                await self.client.close()
-            
-            self._health_status = ListenerHealth.STOPPED
-            logging.info("Upstash Redis connection closed")
-        except Exception as e:
-            logging.error(f"Error closing Redis connection: {str(e)}")
+            async for message in pubsub.listen():
+                # Check shutdown event first
+                if self._shutdown_event.is_set():
+                    logging.info(f"Shutdown requested, stopping listener {listener_name}")
+                    break
+                
+                # Message processing logic
+                if message and "data" in message:
+                    data = message["data"]
+                    
+                    # CRITICAL: Parse and validate message structure
+                    try:
+                        if isinstance(data, str):
+                            data = json.loads(data)
+                        
+                        # Call the user-defined callback with the message
+                        await callback({"channel": channel, "data": data})
+                        
+                    except Exception as e:
+                        logging.error(f"Error processing message from {channel}: {str(e)}")
+                        continue  # Skip to next message
+                
+        finally:
+            # Remove from active listeners
+            self._active_listeners.discard(listener_name)
+            logging.info(f"Listener {listener_name} stopped")
+    
+    async def close(self):
+        """Gracefully close all Redis connections and listeners"""
+        logging.info("Shutting down Redis service...")
+        
+        # Set shutdown event
+        self._shutdown_event.set()
+        
+        # Give listeners time to see shutdown event
+        await asyncio.sleep(0.1)
+        
+        # Force close any remaining listeners
+        for listener_name in list(self._active_listeners):
+            logging.info(f"Force closing listener: {listener_name}")
+        
+        # Clear tracking sets
+        self._active_listeners.clear()
+        
+        logging.info("Redis service shutdown complete")
 
 
 # Global redis client instance
@@ -375,7 +427,7 @@ async def initialize_redis():
 
 async def setup_rag_listeners():
     """Setup listeners for RAG-related channels"""
-    from app.services.supabase_service import SupabaseService
+    from app.services.supabase_service import supabase_service
     
     async def handle_prompt_ready(message):
         """
@@ -436,7 +488,7 @@ async def setup_rag_listeners():
                 # If we have a valid interview_id, mark it as failed
                 if interview_id != "unknown":
                     try:
-                        status_update = await SupabaseService.update_interview_status(
+                        status_update = await supabase_service.update_interview_status(
                             interview_id, 
                             "failed"
                         )
@@ -461,7 +513,7 @@ async def setup_rag_listeners():
             
             # Use atomic operation to store prompt AND update status
             # This prevents race conditions where prompt is stored but status update fails
-            result = await SupabaseService.store_enhanced_prompt_and_update_status(
+            result = await supabase_service.store_enhanced_prompt_and_update_status(
                 interview_id=interview_id,
                 enhanced_prompt=enhanced_prompt,
                 source=data.get("source", "rag"),
@@ -492,7 +544,7 @@ async def setup_rag_listeners():
                     )
                 
                 # Mark interview as failed
-                status_update = await SupabaseService.update_interview_status(interview_id, "failed")
+                status_update = await supabase_service.update_interview_status(interview_id, "failed")
                 if not status_update.get("success"):
                     logging.critical(
                         f"[Redis] CRITICAL: Failed to mark interview {interview_id} as 'failed' "
@@ -504,7 +556,7 @@ async def setup_rag_listeners():
             # Try to mark interview as failed if we have the ID
             try:
                 if "interview_id" in message.get("data", {}):
-                    await SupabaseService.update_interview_status(
+                    await supabase_service.update_interview_status(
                         message["data"]["interview_id"],
                         "failed"
                     )
@@ -531,7 +583,7 @@ async def setup_rag_listeners():
                 )
                 
                 # Update interview status
-                result = await SupabaseService.update_interview_status(interview_id, status)
+                result = await supabase_service.update_interview_status(interview_id, status)
                 
                 if result.get("success"):
                     logging.info(f"[Redis] Successfully updated status to '{status}'")

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Head from "next/head";
 import {
@@ -26,15 +26,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import {
-  getFeedback,
-  getFeedbackStatus,
-  checkLiveFeedbackStatus,
-  getLiveFeedback,
-  triggerLiveFeedbackGeneration,
-  triggerFeedbackGeneration,
-  clearFeedbackStatus as clearFeedbackStatusAPI,
-} from "@/lib/api";
+import { getFeedback, getFeedbackStatus } from "@/lib/api";
 
 // Update the ApiFeedback interface to handle both structures
 interface ApiFeedback {
@@ -92,15 +84,6 @@ const Feedback = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("sessionId");
-  const interviewType = searchParams.get("type") as "text" | "live" | null;
-
-  console.log(
-    `DEBUG: Feedback component loaded with sessionId: ${sessionId}, interviewType: ${interviewType}`
-  );
-  
-  // Log helpful debug info
-  console.log("DEBUG: Available debugging commands:");
-  console.log("  - window.clearFeedbackStatus() - Clear feedback status and reload page");
   const { toast } = useToast();
 
   const [feedback, setFeedback] = useState<FormattedFeedback>(INITIAL_FEEDBACK);
@@ -108,25 +91,6 @@ const Feedback = () => {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [pollingCount, setPollingCount] = useState(0);
-
-  // Debug function to clear feedback status (accessible from browser console)
-  const clearFeedbackStatus = useCallback(async () => {
-    if (!sessionId) return;
-    try {
-      await clearFeedbackStatusAPI(sessionId);
-      console.log("Feedback status cleared");
-      setError(null);
-      setLoading(true);
-      window.location.reload();
-    } catch (e) {
-      console.error("Failed to clear status:", e);
-    }
-  }, [sessionId]);
-
-  // Make clearFeedbackStatus available globally for debugging
-  useEffect(() => {
-    (window as unknown as { clearFeedbackStatus: () => void }).clearFeedbackStatus = clearFeedbackStatus;
-  }, [sessionId, clearFeedbackStatus]);
 
   // Transform API data to UI format
   const transformApiDataToUiFormat = (
@@ -182,50 +146,41 @@ const Feedback = () => {
       // Get the strengths and improvements from the feedback structure with safety checks
       let feedbackArray: string[] = [];
 
-      // Replace just the specific part handling the feedback array extraction (lines 143-184)
-
-      // Get the strengths and improvements from the feedback structure with safety checks
-      let strengthsArray: string[] = [];
-      let improvementsArray: string[] = [];
-
       if (Array.isArray(qa.feedback)) {
-        // Handle case where feedback is a simple array
         feedbackArray = qa.feedback;
-
-        // Separate strengths and improvements from simple array
-        strengthsArray = feedbackArray.filter(
-          (item) =>
-            item.toLowerCase().includes("strength") ||
-            item.toLowerCase().includes("good") ||
-            item.toLowerCase().includes("well")
-        );
-        improvementsArray = feedbackArray.filter(
-          (item) => !strengthsArray.includes(item)
-        );
       } else if (qa.feedback) {
-        // Handle structured feedback object
+        // Convert object structure to array
         const {
           strengths = [],
           areas_for_improvement = [],
           tips_for_improvement = [],
         } = qa.feedback;
-
-        // Store arrays for later processing
-        strengthsArray = strengths;
-        improvementsArray = [...areas_for_improvement, ...tips_for_improvement];
+        feedbackArray = [
+          ...strengths,
+          ...areas_for_improvement,
+          ...tips_for_improvement,
+        ];
       }
 
-      // Convert arrays to strings for compatibility with existing code
+      // Separate strengths and improvements
+      const strengthItems = feedbackArray.filter((item) =>
+        item.toLowerCase().includes("strength")
+      );
+
+      const improvementItems = feedbackArray.filter(
+        (item) => !item.toLowerCase().includes("strength")
+      );
+
       const strengths =
-        strengthsArray.length > 0
-          ? strengthsArray.join(". ")
+        strengthItems.length > 0
+          ? strengthItems.join(". ")
           : qa.tone_analysis ||
             qa.tone_and_style ||
             "Good effort on this response";
 
       const improvements =
-        improvementsArray.length > 0
-          ? improvementsArray.join(". ")
+        improvementItems.length > 0
+          ? improvementItems.join(". ")
           : "Continue practicing this area.";
 
       return {
@@ -388,230 +343,64 @@ const Feedback = () => {
     };
   };
 
-  // Fetch feedback data when component loads - handles both interview types
+  // Fetch feedback data when component loads
   useEffect(() => {
-    let pollingTimeout: NodeJS.Timeout | null = null;
-    let pollingAttempts = 0;
-    const MAX_ATTEMPTS = 60; // 3 minutes if polling every 3s
-
     const fetchFeedback = async () => {
       if (!sessionId) {
-        console.error("DEBUG: No sessionId provided");
         setError("No interview session ID provided");
         setLoading(false);
         return;
       }
 
-      // Determine interview type - default to 'text' for backward compatibility
-      const currentType = interviewType || "text";
-      console.log(
-        `DEBUG: fetchFeedback called - sessionId: ${sessionId}, currentType: ${currentType}, pollingAttempts: ${pollingAttempts}`
-      );
-      setPollingCount(pollingAttempts + 1);
-
       try {
-        console.log(
-          `DEBUG: Starting API call logic for currentType: ${currentType}`
-        );
+        // Check feedback status first
+        const statusResponse = await getFeedbackStatus(sessionId);
 
-        if (currentType === "live") {
-          // Handle live/video interview feedback
-          const statusResponse = await checkLiveFeedbackStatus(sessionId);
-
-          if (statusResponse.status === "processing") {
-            if (pollingAttempts < MAX_ATTEMPTS) {
-              pollingTimeout = setTimeout(fetchFeedback, 3000);
-              pollingAttempts++;
-            } else {
-              setError(
-                "Feedback generation is taking longer than expected. Please try refreshing in a minute."
-              );
-              setLoading(false);
-            }
+        if (statusResponse.status === "processing") {
+          // If still processing and under 30 attempts, continue polling
+          if (pollingCount < 30) {
+            console.log("Feedback still processing, will check again soon...");
+            setTimeout(() => {
+              setPollingCount((prev) => prev + 1);
+            }, 3000); // Poll every 3 seconds
             return;
-          } else if (statusResponse.status === "error") {
-            setError(
-              statusResponse.error || statusResponse.message || "Error generating live feedback"
-            );
-            setLoading(false);
-            return;
-          } else if (statusResponse.status === "not_started") {
-            // Try to trigger feedback generation if not started
-            try {
-              await triggerLiveFeedbackGeneration(sessionId);
-              pollingTimeout = setTimeout(fetchFeedback, 3000);
-              pollingAttempts++;
-            } catch (triggerError) {
-              console.error(
-                "Failed to trigger live feedback generation:",
-                triggerError
-              );
-              setError("Failed to start live feedback generation");
-              setLoading(false);
-            }
-            return;
-          }
-
-          // If status is completed, fetch the actual live feedback data
-          if (statusResponse.status === "completed") {
-            const feedbackResponse = await getLiveFeedback(sessionId);
-
-            if (
-              feedbackResponse.status === "success" &&
-              feedbackResponse.feedback
-            ) {
-              const transformedData = transformApiDataToUiFormat(
-                feedbackResponse.feedback
-              );
-              setFeedback(transformedData);
-              setLoading(false);
-            } else if (feedbackResponse.status === "processing") {
-              // Still processing, continue polling
-              if (pollingAttempts < MAX_ATTEMPTS) {
-                pollingTimeout = setTimeout(fetchFeedback, 3000);
-                pollingAttempts++;
-              } else {
-                setError("Live feedback generation timeout");
-                setLoading(false);
-              }
-            } else {
-              setError(
-                feedbackResponse.message || "Error retrieving live feedback"
-              );
-              setLoading(false);
-            }
-          }
-        } else {
-          // Handle text interview feedback (existing logic)
-          console.log(
-            `DEBUG: Handling text interview feedback for sessionId: ${sessionId}`
-          );
-          console.log(`DEBUG: Calling getFeedbackStatus...`);
-
-          const statusResponse = await getFeedbackStatus(sessionId);
-          console.log(`DEBUG: getFeedbackStatus response:`, statusResponse);
-
-          if (statusResponse.status === "processing") {
-            console.log(
-              `DEBUG: Status is processing, polling attempt ${
-                pollingAttempts + 1
-              }/${MAX_ATTEMPTS}`
-            );
-            if (pollingAttempts < MAX_ATTEMPTS) {
-              pollingTimeout = setTimeout(fetchFeedback, 3000);
-              pollingAttempts++;
-            } else {
-              setError(
-                "Feedback generation is taking longer than expected. Please try refreshing in a minute."
-              );
-              setLoading(false);
-            }
-            return;
-          } else if (statusResponse.status === "error") {
-            const errorMessage = statusResponse.error || statusResponse.message || "Error generating feedback";
-            console.log(`DEBUG: Status is error. Full response:`, statusResponse);
-            console.log(`DEBUG: Setting error message to user: "${errorMessage}"`);
-            setError(errorMessage);
-            setLoading(false);
-            return;
-          } else if (statusResponse.status === "not_started") {
-            console.log(`DEBUG: Status is not_started, triggering feedback generation`);
-            // Try to trigger feedback generation for text interviews
-            try {
-              const triggerResponse = await triggerFeedbackGeneration(sessionId);
-              console.log(`DEBUG: Trigger response:`, triggerResponse);
-              
-              if (triggerResponse.status === "already_processing") {
-                console.log(`DEBUG: Feedback generation already in progress`);
-                // Continue polling
-                pollingTimeout = setTimeout(fetchFeedback, 3000);
-                pollingAttempts++;
-              } else if (triggerResponse.status === "already_exists") {
-                console.log(`DEBUG: Feedback already exists, refreshing status`);
-                // Feedback already exists, refresh to get it
-                pollingTimeout = setTimeout(fetchFeedback, 1000);
-                pollingAttempts++;
-              } else if (triggerResponse.status === "success") {
-                console.log(`DEBUG: Successfully triggered feedback generation for sessionId: ${sessionId}`);
-                // Continue polling to check the status
-                pollingTimeout = setTimeout(fetchFeedback, 3000);
-                pollingAttempts++;
-              } else {
-                console.error("Unexpected trigger response:", triggerResponse);
-                setError("Failed to start feedback generation. Please return to the interview and complete it again.");
-                setLoading(false);
-              }
-            } catch (triggerError) {
-              console.error("Failed to trigger feedback generation:", triggerError);
-              setError("Failed to start feedback generation. Please return to the interview and complete it again.");
-              setLoading(false);
-            }
-            return;
-          }
-
-          // If status is completed or success, fetch the feedback data
-          console.log(
-            `DEBUG: Status check passed, calling getFeedback for sessionId: ${sessionId}`
-          );
-          const response = await getFeedback(sessionId);
-          console.log(`DEBUG: getFeedback response:`, response);
-
-          if (response.status === "success" && response.feedback) {
-            const transformedData = transformApiDataToUiFormat(
-              response.feedback
-            );
-            setFeedback(transformedData);
-            setLoading(false);
-          } else if (response.status === "processing") {
-            // Defensive: if backend returns processing here, keep polling
-            if (pollingAttempts < MAX_ATTEMPTS) {
-              pollingTimeout = setTimeout(fetchFeedback, 3000);
-              pollingAttempts++;
-            } else {
-              setError(
-                "Feedback generation is taking longer than expected. Please try refreshing in a minute."
-              );
-              setLoading(false);
-            }
-          } else if (response.status === "error") {
-            const errorMessage = response.error || response.message || "Error generating feedback";
-            console.log(`DEBUG: getFeedback error. Full response:`, response);
-            console.log(`DEBUG: Setting error message to user: "${errorMessage}"`);
-            setError(errorMessage);
-            setLoading(false);
           } else {
-            setError("Invalid feedback data received");
-            setLoading(false);
+            throw new Error(
+              "Feedback generation is taking longer than expected"
+            );
           }
+        } else if (statusResponse.status === "error") {
+          throw new Error(
+            statusResponse.message || "Error generating feedback"
+          );
+        } else if (statusResponse.status === "not_started") {
+          throw new Error("Feedback generation has not started yet");
+        }
+
+        // If status is completed or success, fetch the feedback data
+        const response = await getFeedback(sessionId);
+
+        if (response.status === "success" && response.feedback) {
+          const transformedData = transformApiDataToUiFormat(response.feedback);
+          setFeedback(transformedData);
+          setLoading(false);
+        } else {
+          throw new Error("Invalid feedback data received");
         }
       } catch (err) {
-        console.error(
-          `DEBUG: ${currentType} feedback fetch error for sessionId ${sessionId}:`,
-          err
-        );
-        console.error(`DEBUG: Error details:`, {
-          name: err instanceof Error ? err.name : "Unknown",
-          message: err instanceof Error ? err.message : String(err),
-          stack: err instanceof Error ? err.stack : undefined,
-          pollingAttempts,
-          currentType,
-          sessionId,
-        });
+        console.error("Failed to fetch feedback:", err);
         setError(
-          err instanceof Error
-            ? err.message
-            : `Failed to load ${currentType} feedback data`
+          err instanceof Error ? err.message : "Failed to load feedback data"
         );
+      } finally {
         setLoading(false);
       }
     };
 
-    fetchFeedback();
-
-    return () => {
-      if (pollingTimeout) clearTimeout(pollingTimeout);
-    };
-  }, [sessionId, interviewType]);
+    if (loading || pollingCount > 0) {
+      fetchFeedback();
+    }
+  }, [sessionId, loading, pollingCount]);
 
   // Calculate the color for the score
   const getScoreColor = (score: number) => {
@@ -665,7 +454,7 @@ ${feedback.overallFeedback}
 
   // Retry the interview
   const handleRetry = () => {
-    router.push("/prepare-interview");
+    router.push("/Workflow");
   };
 
   // Loading state - show different message when actively polling
@@ -676,12 +465,8 @@ ${feedback.overallFeedback}
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-lg">
             {pollingCount > 0
-              ? `Generating your ${
-                  interviewType === "live" ? "video interview" : "interview"
-                } feedback... (${pollingCount}/60)`
-              : `Loading your ${
-                  interviewType === "live" ? "video interview" : "interview"
-                } feedback...`}
+              ? `Generating your feedback... (${pollingCount}/30)`
+              : "Loading your feedback..."}
           </p>
           {pollingCount > 0 && (
             <div className="flex items-center justify-center mt-2 text-sm text-gray-500">
@@ -696,40 +481,17 @@ ${feedback.overallFeedback}
 
   // Error state
   if (error) {
-    const isApiQuotaError = error.includes("high demand") || error.includes("quota") || error.includes("try again");
-    
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-gray-50 to-white">
         <div className="text-center max-w-md">
           <AlertTriangle className="h-12 w-12 text-red-500 mx-auto" />
-          <h2 className="mt-4 text-2xl font-bold">
-            {isApiQuotaError ? "Service Temporarily Unavailable" : "Error Loading Feedback"}
-          </h2>
-          <p className="mt-2 text-gray-600">{error}</p>
-          
-          <div className="mt-6 flex flex-col gap-3">
-            {isApiQuotaError && (
-              <Button
-                onClick={() => {
-                  setError(null);
-                  setLoading(true);
-                  // Restart the feedback fetching process
-                  setTimeout(() => {
-                    window.location.reload();
-                  }, 100);
-                }}
-                className="w-full">
-                Try Again
-              </Button>
-            )}
-            
-            <Button
-              variant="outline"
-              onClick={() => router.push("/interview?sessionId=" + sessionId)}
-              className="w-full">
-              Return to Interview
-            </Button>
-          </div>
+          <h2 className="mt-4 text-2xl font-bold">Error Loading Feedback</h2>
+          <p className="mt-2">{error}</p>
+          <Button
+            onClick={() => router.push("/interview?sessionId=" + sessionId)}
+            className="mt-6">
+            Return to Interview
+          </Button>
         </div>
       </div>
     );
@@ -836,33 +598,15 @@ ${feedback.overallFeedback}
                       <h4 className="font-medium text-green-700 text-sm mb-1">
                         Strengths
                       </h4>
-                      {/* Replace paragraph with bullet list */}
-                      <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
-                        {Array.isArray(item.strengths)
-                          ? item.strengths.map((strength, i) => (
-                              <li key={i}>{strength}</li>
-                            ))
-                          : item.strengths
-                              .split(". ")
-                              .filter((s) => s.trim())
-                              .map((s, i) => <li key={i}>{s}</li>)}
-                      </ul>
+                      <p className="text-sm text-gray-600">{item.strengths}</p>
                     </div>
                     <div className="bg-amber-50 p-3 rounded-md">
                       <h4 className="font-medium text-amber-700 text-sm mb-1">
                         Improvements
                       </h4>
-                      {/* Replace paragraph with bullet list */}
-                      <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
-                        {Array.isArray(item.improvements)
-                          ? item.improvements.map((improvement, i) => (
-                              <li key={i}>{improvement}</li>
-                            ))
-                          : item.improvements
-                              .split(". ")
-                              .filter((s) => s.trim())
-                              .map((s, i) => <li key={i}>{s}</li>)}
-                      </ul>
+                      <p className="text-sm text-gray-600">
+                        {item.improvements}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -876,8 +620,8 @@ ${feedback.overallFeedback}
             <AlertTitle>Missed Opportunities</AlertTitle>
             <AlertDescription>
               <p className="mb-2">
-                You didn&apos;t mention these keywords that might have
-                strengthened your answers:
+                You didn't mention these keywords that might have strengthened
+                your answers:
               </p>
               <div className="flex flex-wrap gap-2 mt-1">
                 {feedback.keywordsMissed.map((keyword, i) => (
@@ -972,7 +716,7 @@ ${feedback.overallFeedback}
           <div className="flex justify-between">
             <Button
               variant="outline"
-              onClick={() => router.push(`/interview?sessionId=${sessionId}`)}>
+              onClick={() => router.push(`interview?sessionId=${sessionId}`)}>
               Back to Interview
             </Button>
             <Button onClick={handleRetry}>Try Another Interview</Button>

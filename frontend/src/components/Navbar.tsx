@@ -1,3 +1,8 @@
+/**
+ * Navbar.tsx - Responsive navigation bar component for Interviewly.
+ * Provides navigation links, user authentication actions, and adapts to mobile/desktop layouts.
+ * Includes scroll detection for dynamic styling and smooth section navigation.
+ */
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -5,8 +10,11 @@ import { Menu, X, User } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 
-// Function to track whether the user has scrolled down the page
-// and update the state accordingly
+/**
+ * Custom hook to track whether the user has scrolled down the page.
+ * Updates state to reflect scroll position for dynamic navbar styling.
+ * @returns {boolean} True if the page is scrolled beyond 10px, false otherwise.
+ */
 const useScrollHandler = () => {
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -19,8 +27,13 @@ const useScrollHandler = () => {
   return isScrolled;
 };
 
-// Navbar component
-// This component contains the navigation bar for the application
+/**
+ * Navbar component for the application.
+ * Renders navigation links, user profile/login actions, and adapts to mobile/desktop.
+ * Uses scroll position to apply dynamic styles and supports smooth section navigation.
+ *
+ * @returns {JSX.Element} The rendered navigation bar.
+ */
 const Navbar = React.memo(() => {
   const isScrolled = useScrollHandler();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

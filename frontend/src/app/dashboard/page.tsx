@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -117,15 +118,11 @@ const Dashboard = () => {
   };
 
   const handleStartInterview = (type: "text" | "call") => {
-    // Navigate to the beginning of the workflow, passing the interview type.
-    // The workflow will handle collecting the resume/job info and then redirecting.
     router.push(`/Workflow?type=${type}`);
   };
 
   const handleViewFeedback = (interviewId: string) => {
-    // Default to text type for backward compatibility with existing interviews
-    // TODO: Store interview type in database and retrieve it for proper routing
-    router.push(`/Feedback?sessionId=${interviewId}&type=text`);
+    router.push(`/Feedback?sessionId=${interviewId}`);
   };
 
   if (loading) {

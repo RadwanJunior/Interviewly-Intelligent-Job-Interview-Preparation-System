@@ -1,8 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from app.services.supabase_service import supabase_service, SupabaseService
+from app.services.workflow_service import WorkflowService
+from app.services.supabase_service import supabase_service
 
 router = APIRouter()
+workflow_service = WorkflowService()
 
 class JobDescriptionRequest(BaseModel):
     job_title: str
@@ -11,19 +13,33 @@ class JobDescriptionRequest(BaseModel):
     job_type: str
     description: str
 
+"""
+Job Description Router: Handles creation of job descriptions for users.
+"""
+
 @router.post("/")
 async def create_job_description(
     request: JobDescriptionRequest,
-    current_user: dict = Depends(SupabaseService.get_current_user)
+    current_user: dict = Depends(supabase_service.get_current_user)
 ):
-    #  check if current user is None
+    """
+    Create a new job description for the current user.
+
+    Args:
+        request (JobDescriptionRequest): The job description details.
+        current_user (dict): The authenticated user.
+
+    Returns:
+        dict: The created job description or error message.
+
+    Raises:
+        HTTPException: If the user is unauthorized or creation fails.
+    """
+    # Check for valid user authentication
     if not current_user or not getattr(current_user, "id", None):
         return {"error": "Unauthorized or invalid user"}
-    
     user_id = getattr(current_user, "id", None)
-    # 1. Upload job to Supabase Storage
-
-    response = supabase_service.create_job_description(
+    response = workflow_service.create_job_description(
         user_id=user_id,
         job_title=request.job_title,
         company_name=request.company_name,

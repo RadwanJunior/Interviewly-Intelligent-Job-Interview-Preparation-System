@@ -1,3 +1,8 @@
+/**
+ * WorkflowStageRenderer.tsx - Renders the current workflow stage component.
+ * Handles dynamic stage mapping, scroll-to-stage, and visual transitions between stages.
+ * Integrates with workflow context for state and navigation.
+ */
 "use client";
 import React, { useEffect, useRef } from "react";
 import { useWorkflow } from "@/context/WorkflowContext";
@@ -6,7 +11,11 @@ import ResumePreviewStage from "./stages/ResumePreviewStage";
 import JobDetailsStage from "./stages/JobDetailsStage";
 import { CardContent } from "@/components/ui/card";
 
-// Map stage IDs to their respective components
+
+/**
+ * Maps workflow stage IDs to their corresponding React components.
+ * Extend this object to add new workflow stages.
+ */
 const stageComponents: Record<string, React.ComponentType> = {
   "resume-upload": ResumeUploadStage,
   "resume-preview": ResumePreviewStage,
@@ -14,10 +23,16 @@ const stageComponents: Record<string, React.ComponentType> = {
   // Add new stages here as they are created
 };
 
+/**
+ * WorkflowStageRenderer component for rendering the active workflow stage.
+ * Handles scrolling to the current stage and visual transitions between stages.
+ *
+ * @returns {JSX.Element} The rendered workflow stage(s).
+ */
 const WorkflowStageRenderer = () => {
   const { stages, currentStageIndex } = useWorkflow();
   const stageRefs = useRef<(HTMLElement | null)[]>([]);
-
+  
   // Effect to scroll to the current active stage and apply focus styles
   useEffect(() => {
     // Only scroll if we have refs set up
@@ -28,61 +43,43 @@ const WorkflowStageRenderer = () => {
       });
     }
   }, [currentStageIndex]);
-
+  
   return (
     <div className="workflow-stages space-y-12">
       {stages.map((stage, index) => {
         // Get the component for the current stage
         const StageComponent = stageComponents[stage.id];
-
+        
         if (!StageComponent) {
           return <div key={stage.id}>Stage not found</div>;
         }
-
+        
         const isActive = index === currentStageIndex;
         const isPrevious = index < currentStageIndex;
         const isNext = index > currentStageIndex;
-
+        
         return (
-          <section
+          <section 
             key={stage.id}
             id={`stage-${stage.id}`}
-            ref={(el) => {
-              stageRefs.current[index] = el;
-            }}
+            ref={(el) => { stageRefs.current[index] = el; }}
             className={`
               scroll-mt-32 transition-all duration-500
-              ${
-                isActive
-                  ? "opacity-100"
-                  : isPrevious
-                  ? "opacity-75"
-                  : "opacity-40"
-              }
-              ${!stage.isCompleted && !isActive ? "pointer-events-none" : ""}
-            `}>
-            <CardContent
+              ${isActive ? 'opacity-100' : isPrevious ? 'opacity-75' : 'opacity-40'}
+              ${!stage.isCompleted && !isActive ? 'pointer-events-none' : ''}
+            `}
+          >
+            <CardContent 
               className={`
                 pt-6 transition-all duration-300 
-                ${
-                  isActive
-                    ? "scale-100 border-l-4 border-primary pl-5 bg-primary/5 rounded-md"
-                    : "scale-97"
-                }
-                ${
-                  isPrevious
-                    ? "scale-98 hover:scale-99 hover:bg-secondary/30 rounded-md"
-                    : ""
-                }
-                ${
-                  isNext && index === currentStageIndex + 1
-                    ? "scale-95 hover:opacity-60"
-                    : ""
-                }
-              `}>
+                ${isActive ? 'scale-100 border-l-4 border-primary pl-5 bg-primary/5 rounded-md' : 'scale-97'}
+                ${isPrevious ? 'scale-98 hover:scale-99 hover:bg-secondary/30 rounded-md' : ''}
+                ${isNext && index === currentStageIndex + 1 ? 'scale-95 hover:opacity-60' : ''}
+              `}
+            >
               <StageComponent />
             </CardContent>
-
+            
             {index < stages.length - 1 && (
               <div className="w-full border-t border-border/20 my-8 opacity-30" />
             )}
