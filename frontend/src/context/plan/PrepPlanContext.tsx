@@ -1,5 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState } from "react";
+// import { supabase } from "/backend/app/services/supabase_service"; 
 
 type Stage = { id: string; title: string; isCompleted?: boolean };
 
@@ -21,6 +22,7 @@ type PrepPlanContextType = {
   prevStage: () => void;
   data: PrepData;
   updateData: (patch: Partial<PrepData>) => void;
+  // savePlan: () => Promise<void>; 
 };
 
 const defaultStages: Stage[] = [
@@ -34,7 +36,17 @@ const PrepPlanContext = createContext<PrepPlanContextType | undefined>(undefined
 export const PrepPlanProvider = ({ children }: { children: React.ReactNode }) => {
   const [stages] = useState<Stage[]>(defaultStages);
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
-  const [data, setData] = useState<PrepData>({});
+
+  // ✅ Hardcoded test data here
+  const [data, setData] = useState<PrepData>({
+    role: "Software Engineer Intern",
+    company: "OpenAI",
+    date: "2025-10-25",
+    focusAreas: ["System Design", "Behavioral", "LeetCode"],
+    researchNotes: "OpenAI focuses on AI safety, GPT models, and deployment ethics.",
+    resumeNotes: "Highlight Python, ML projects, and hackathons.",
+    otherNotes: "Ask about mentorship programs and tech stack.",
+  });
 
   const goToStage = (i: number) => {
     if (i < 0 || i >= stages.length) return;
@@ -46,8 +58,29 @@ export const PrepPlanProvider = ({ children }: { children: React.ReactNode }) =>
 
   const updateData = (patch: Partial<PrepData>) => setData((d) => ({ ...d, ...patch }));
 
+  // // Save responses to Supabase
+  // const savePlan = async () => {
+  //   const { error } = await supabase.from("prep_plans").insert([data]);
+  //   if (error) {
+  //     console.error("❌ Error saving plan:", error);
+  //   } else {
+  //     console.log("✅ Plan saved successfully:", data);
+  //   }
+  // };
+
   return (
-    <PrepPlanContext.Provider value={{ stages, currentStageIndex, goToStage, nextStage, prevStage, data, updateData }}>
+    <PrepPlanContext.Provider
+      value={{
+        stages,
+        currentStageIndex,
+        goToStage,
+        nextStage,
+        prevStage,
+        data,
+        updateData,
+        // savePlan, 
+      }}
+    >
       {children}
     </PrepPlanContext.Provider>
   );

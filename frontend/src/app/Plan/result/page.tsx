@@ -4,9 +4,11 @@ import { usePrepPlan } from "@/context/plan/PrepPlanContext";
 import PrepPlanLayout from "@/components/plan/PrepPlanLayout";
 import { CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 
 const ResultPage = () => {
   const { data } = usePrepPlan();
+  const router = useRouter();
   const [plan, setPlan] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -44,13 +46,16 @@ const ResultPage = () => {
           )}
         </div>
 
-        <div className="flex gap-3">
-          <Button onClick={generatePlan} disabled={loading}>
-            Regenerate
-          </Button>
-          <Button variant="secondary" onClick={() => { navigator.clipboard?.writeText(plan || ""); }}>
-            Copy Plan
-          </Button>
+        <div className="flex gap-3 items-center justify-between">
+          <Button variant="outline" onClick={() => router.push("/dashboard")}>Back to Dashboard</Button>
+          <div className="flex gap-3">
+            <Button onClick={generatePlan} disabled={loading}>
+              Regenerate
+            </Button>
+            <Button variant="secondary" onClick={() => { navigator.clipboard?.writeText(plan || ""); }}>
+              Copy Plan
+            </Button>
+          </div>
         </div>
       </CardContent>
     </PrepPlanLayout>
