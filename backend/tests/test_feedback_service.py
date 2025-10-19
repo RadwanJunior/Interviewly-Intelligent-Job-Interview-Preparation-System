@@ -96,3 +96,118 @@ async def test_generate_feedback_api_error(mock_client, service, mock_supabase):
     mock_client.models.generate_content.side_effect = Exception('API error')
     with pytest.raises(Exception):
         await service.generate_feedback('interview_id', 'user_id')
+
+def test_repair_json_targeted_fix(service):
+    # JSON missing a closing quote; provide an error message indicating line/column
+    bad = '{"key": "value}'
+    err = 'Unterminated string (line 1 column 15)'
+    # Patch json5.loads to a predictable parser to avoid relying on the real json5 behavior
+    with patch('app.services.feedback_service.json5.loads', return_value={"key": "value"}):
+        res = service.repair_json(bad, err)
+        assert res["key"] == "value"
+
+
+def test_repair_json_balance_quotes_fallback(service):
+    # Force json5 to fail the first time, then succeed after _balance_quotes is applied
+    text = '{"a": "b}'
+    with patch('app.services.feedback_service.json5.loads', side_effect=[Exception('fail'), {"a": "b"}]):
+        res = service.repair_json(text)
+        assert res["a"] == "b"
+
+
+@pytest.mark.asyncio
+async def test_upload_audio_file_non_bytes(service):
+    # file.read returns a str -> should raise a TypeError
+    fake_file = AsyncMock()
+    fake_file.read = AsyncMock(return_value='not-bytes')
+    with pytest.raises(Exception) as exc:
+        await service.upload_audio_file(fake_file, 'iid', 'qid', 'qtext', 1, 'uid', 'audio/webm')
+    # The implementation wraps internal TypeError into a generic Exception with context
+    assert 'file_content is not bytes' in str(exc.value)
+
+
+@pytest.mark.asyncio
+async def test_upload_audio_file_empty(service):
+    # file.read returns empty bytes -> should raise ValueError
+    fake_file = AsyncMock()
+    fake_file.read = AsyncMock(return_value=b'')
+    with pytest.raises(Exception) as exc:
+        await service.upload_audio_file(fake_file, 'iid', 'qid', 'qtext', 1, 'uid', 'audio/webm')
+    assert 'File content is empty' in str(exc.value)
+
+
+def _mk_tmp_cm(name='tmp.webm'):
+    """Create a simple context manager object that mimics NamedTemporaryFile for tests."""
+    cm = MagicMock()
+    cm.__enter__.return_value = cm
+    cm.name = name
+    cm.write = MagicMock()
+    cm.__exit__.return_value = False
+    return cm
+
+
+@pytest.mark.asyncio
+@patch('app.services.feedback_service.tempfile.NamedTemporaryFile')
+async def test_upload_audio_file_gemini_api_error(mock_named_tmp, service, mock_supabase):
+    # Prepare file that will be accepted as bytes
+    fake_file = AsyncMock()
+    fake_file.read = AsyncMock(return_value=b'data')
+
+    # NamedTemporaryFile context manager stub
+    mock_named_tmp.return_value = _mk_tmp_cm()
+
+    # Patch the Gemini client to raise a BadRequest
+    from google.api_core.exceptions import BadRequest
+    with patch('app.services.feedback_service.client') as mock_client:
+        mock_client.files.upload.side_effect = BadRequest('bad')
+        with pytest.raises(Exception) as exc:
+            await service.upload_audio_file(fake_file, 'iid', 'qid', 'qtext', 1, 'uid', 'audio/webm')
+        assert 'Gemini API upload failed' in str(exc.value)
+
+
+@pytest.mark.asyncio
+@patch('app.services.feedback_service.tempfile.NamedTemporaryFile')
+async def test_upload_audio_file_gemini_missing_name(mock_named_tmp, service, mock_supabase):
+    fake_file = AsyncMock()
+    fake_file.read = AsyncMock(return_value=b'data')
+    mock_named_tmp.return_value = _mk_tmp_cm()
+
+    # client.files.upload returns an object missing 'name' or with falsy name
+    with patch('app.services.feedback_service.client') as mock_client:
+        bad_resp = MagicMock()
+        bad_resp.name = None
+        mock_client.files.upload.return_value = bad_resp
+        with pytest.raises(Exception) as exc:
+            await service.upload_audio_file(fake_file, 'iid', 'qid', 'qtext', 1, 'uid', 'audio/webm')
+        assert 'Response missing ID' in str(exc.value) or 'Failed to upload file to Gemini' in str(exc.value)
+
+
+@pytest.mark.asyncio
+@patch('app.services.feedback_service.tempfile.NamedTemporaryFile')
+async def test_upload_audio_file_success_variants(mock_named_tmp, service, mock_supabase):
+    fake_file = AsyncMock()
+    fake_file.read = AsyncMock(return_value=b'data')
+    mock_named_tmp.return_value = _mk_tmp_cm()
+
+    # Create gemini response with a name
+    gemini_resp = MagicMock()
+    gemini_resp.name = 'gfile123'
+
+    # Test multiple supabase return shapes
+    variants = [
+        ('string', 'https://u1.example'),
+        ('dict_data', {'data': {'publicUrl': 'https://u2.example'}}),
+        ('obj_url', MagicMock(url='https://u3.example'))
+    ]
+
+    for _, supabase_resp in variants:
+        with patch('app.services.feedback_service.client') as mock_client:
+            mock_client.files.upload.return_value = gemini_resp
+            # supabase upload returns variant
+            mock_supabase.upload_recording_file = AsyncMock(return_value=supabase_resp)
+            mock_supabase.insert_user_response = AsyncMock(return_value={})
+
+            # Call
+            res = await FeedbackService(mock_supabase).upload_audio_file(fake_file, 'iid', 'qid', 'qtext', 1, 'uid', 'audio/webm')
+            assert res['gemini_file_id'] == 'gfile123'
+            assert res['question_id'] == 'qid'
