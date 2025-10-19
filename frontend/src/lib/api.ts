@@ -12,7 +12,8 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-console.log("API base URL:", api.defaults.baseURL);
+// Log API base URL (commented out for tests to avoid axios mock timing issues)
+// console.log("API base URL:", api.defaults.baseURL);
 
 /**
  * Sign up a new user.
