@@ -1,4 +1,5 @@
 import pytest
+from types import SimpleNamespace
 from unittest.mock import MagicMock, AsyncMock
 from app.services.supabase_service import SupabaseService
 
@@ -307,3 +308,198 @@ def test_update_interview_and_preparation_plan(service, mock_client):
     mock_client.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(data=[{'id': 'p2'}])
     stat = service.update_preparation_plan_status_by_user('u1', 'inactive')
     assert isinstance(stat, (list, dict))
+
+
+def test_get_latest_interview_session_success(service, mock_client):
+    chain = mock_client.table.return_value
+    chain.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = {'data': [{'id': 'i1'}]}
+    result = service.get_latest_interview_session('u1')
+    assert isinstance(result, dict)
+
+
+def test_get_interview_questions_success(service, mock_client):
+    chain = mock_client.table.return_value
+    chain.select.return_value.eq.return_value.execute.return_value = {'data': [{'id': 'q1'}]}
+    result = service.get_interview_questions('s1')
+    assert isinstance(result, dict)
+
+
+def test_create_user_returns_error_when_no_user(service, mock_client):
+    mock_client.auth.sign_up.return_value = SimpleNamespace(user=None)
+    result = service.create_user('user@example.com', 'pass')
+    assert result['error']['message'] == 'User creation failed'
+
+
+def test_create_user_exception(service, mock_client):
+    mock_client.auth.sign_up.side_effect = Exception('boom')
+    result = service.create_user('user@example.com', 'pass')
+    assert result['error']['message'] == 'boom'
+
+
+def test_refresh_token_invalid(service, mock_client):
+    mock_client.auth.refresh_session.return_value = SimpleNamespace(session=None)
+    result = service.refresh_token('refresh')
+    assert result['error']['message'] == 'Invalid refresh token'
+
+
+def test_refresh_token_exception(service, mock_client):
+    mock_client.auth.refresh_session.side_effect = Exception('boom')
+    result = service.refresh_token('refresh')
+    assert result['error']['message'] == 'boom'
+
+
+def test_logout_exception(service, mock_client):
+    mock_client.auth.sign_out.side_effect = Exception('boom')
+    result = service.logout()
+    assert result['error']['message'] == 'boom'
+
+
+def test_create_profile_exception(service, mock_client):
+    mock_client.from_.side_effect = Exception('boom')
+    result = service.create_profile({'id': 'p1'})
+    assert result['error']['message'] == 'boom'
+
+
+def test_get_profile_exception(service, mock_client):
+    mock_client.from_.side_effect = Exception('boom')
+    result = service.get_profile('p1')
+    assert result['error']['message'] == 'boom'
+
+
+def test_get_current_user_exception(service, mock_client):
+    request = MagicMock()
+    request.cookies.get.return_value = 'token'
+    mock_client.auth.get_user.side_effect = Exception('boom')
+    result = service.get_current_user(request)
+    assert result['error']['message'] == 'boom'
+
+
+def test_get_file_url_exception(service, mock_client):
+    mock_client.storage.from_.side_effect = Exception('boom')
+    result = service.get_file_url('path/file', 'bucket')
+    assert result['error']['message'] == 'boom'
+
+
+@pytest.mark.asyncio
+async def test_upload_file_exception(service, mock_client):
+    failing_file = AsyncMock()
+    failing_file.read.side_effect = Exception('boom')
+    failing_file.filename = 'data.bin'
+    result = await service.upload_file('uid', failing_file)
+    assert result['error']['message'] == 'boom'
+
+
+def test_delete_file_exception(service, mock_client):
+    mock_client.storage.from_.return_value.remove.side_effect = Exception('boom')
+    result = service.delete_file('uid/file', bucket_name='public')
+    assert result['error']['message'] == 'boom'
+
+
+def test_get_resume_storage_exception(service, mock_client):
+    storage = mock_client.storage.from_.return_value
+    storage.list.side_effect = Exception('boom')
+    result = service.get_resume_storage('uid', bucket_name='resumes')
+    assert result['error']['message'] == 'boom'
+
+
+@pytest.mark.parametrize(
+    ("method_name", "args"),
+    [
+        ("create_resume", ("uid", "url", "text")),
+        ("update_resume", ("rid", "text")),
+        ("get_resume_table", ("uid",)),
+        ("create_job_description", ("uid", "title", "company", "location", "type", "desc")),
+        ("get_job_details_table", ("uid",)),
+        ("create_interview_session", ("uid", "rid", "jid", ["q1"])),
+        ("get_interview_sessions", ("uid",)),
+        ("update_interview_session", ("sid", "complete")),
+        ("get_latest_interview_session", ("uid",)),
+        ("get_interview_questions", ("sid",)),
+        ("create_interview_question", ("iid", "question")),
+        ("update_interview_session_questions", ("iid", ["q1"])),
+        ("get_job_description", ("jid",)),
+        ("insert_interview_questions", ([{"question": "q"}],)),
+        ("get_interview_question", ("qid",)),
+        ("get_interview_question_table", ("iid",)),
+        ("get_user_response", ("iid",)),
+        ("update_user_response", ("rid", True)),
+        ("insert_feedback", ({"feedback": True},)),
+        ("get_feedback", ("iid",)),
+        ("get_user_responses", ("iid",)),
+        ("save_feedback", ({"interview_id": "iid", "user_id": "uid"},)),
+        ("get_question_by_order", ("iid", 1)),
+        ("update_user_responses_processed", ("iid",)),
+    ],
+)
+def test_table_methods_return_nested_error(method_name, args):
+    client = MagicMock()
+    client.table.side_effect = Exception('boom')
+    service = SupabaseService(client=client)
+    method = getattr(service, method_name)
+    result = method(*args)
+    assert result['error']['message'] == 'boom'
+
+
+@pytest.mark.parametrize(
+    ("method_name", "args"),
+    [
+        ("get_interview_history", ("uid",)),
+        ("get_job_description_details", ("jid",)),
+        ("get_interview_feedback", ("iid",)),
+        ("update_interview", ("iid", {"score": 1})),
+        ("get_active_preparation_plan", ("uid",)),
+        ("create_preparation_plan", ({"steps": []},)),
+        ("update_preparation_plan", ("pid", {"steps": []})),
+        ("update_preparation_plan_status_by_user", ("uid", "inactive")),
+    ],
+)
+def test_table_methods_return_flat_error(method_name, args):
+    client = MagicMock()
+    client.table.side_effect = Exception('boom')
+    service = SupabaseService(client=client)
+    method = getattr(service, method_name)
+    result = method(*args)
+    assert result['error'] == 'boom'
+
+
+def test_check_plan_ownership_exception():
+    client = MagicMock()
+    client.table.side_effect = Exception('boom')
+    service = SupabaseService(client=client)
+    assert service.check_plan_ownership('pid', 'uid') is False
+
+
+@pytest.mark.asyncio
+async def test_insert_user_response_exception(mock_client):
+    service = SupabaseService(client=mock_client)
+    mock_client.table.side_effect = Exception('boom')
+    result = await service.insert_user_response({'interview_id': 'iid'})
+    assert result['error']['message'] == 'boom'
+
+
+@pytest.mark.asyncio
+async def test_upload_recording_file_exception(service, mock_client, tmp_path):
+    file_path = tmp_path / "audio.webm"
+    file_path.write_bytes(b'data')
+    storage_mock = mock_client.storage.from_.return_value
+    storage_mock.upload.side_effect = Exception('boom')
+    result = await service.upload_recording_file('uid', str(file_path), interview_id='iid')
+    assert result['error']['message'] == 'boom'
+
+
+@pytest.mark.asyncio
+async def test_upload_recording_file_returns_response_when_error_field(service, mock_client, tmp_path):
+    file_path = tmp_path / "audio.webm"
+    file_path.write_bytes(b'data')
+    storage_mock = mock_client.storage.from_.return_value
+    storage_mock.upload.return_value = {"error": "upload failed"}
+    result = await service.upload_recording_file('uid', str(file_path), interview_id='iid')
+    assert result == {"error": "upload failed"}
+
+
+@pytest.mark.asyncio
+async def test_get_interview_data_exception(mock_client):
+    service = SupabaseService(client=mock_client)
+    mock_client.table.side_effect = Exception('boom')
+    result = await service.get_interview_data('uid', 'iid')
+    assert result['error']['message'] == 'boom'
