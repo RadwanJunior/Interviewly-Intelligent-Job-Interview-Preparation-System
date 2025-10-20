@@ -41,6 +41,15 @@ if (typeof window !== "undefined") {
     observe() {}
     unobserve() {}
   } as unknown as typeof ResizeObserver;
+
+  // Mock hasPointerCapture and scrollIntoView for Radix UI Select
+  if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = jest.fn(() => false);
+  }
+
+  if (!Element.prototype.scrollIntoView) {
+    Element.prototype.scrollIntoView = jest.fn();
+  }
 }
 
 // Suppress console errors during tests to reduce noise
