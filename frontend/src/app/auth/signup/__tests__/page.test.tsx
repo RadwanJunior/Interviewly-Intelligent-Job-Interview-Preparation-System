@@ -30,8 +30,12 @@ describe("SignUp Page", () => {
     it("should render the signup form", () => {
       render(<SignUp />);
 
-      expect(screen.getByRole("heading", { name: /create an account/i })).toBeInTheDocument();
-      expect(screen.getByText(/sign up to start your interview preparation/i)).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: /create an account/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/sign up to start your interview preparation/i)
+      ).toBeInTheDocument();
     });
 
     it("should render all form fields", () => {
@@ -64,7 +68,9 @@ describe("SignUp Page", () => {
 
       expect(screen.getByPlaceholderText("First Name")).toBeInTheDocument();
       expect(screen.getByPlaceholderText("Last Name")).toBeInTheDocument();
-      expect(screen.getByPlaceholderText("you@example.com")).toBeInTheDocument();
+      expect(
+        screen.getByPlaceholderText("you@example.com")
+      ).toBeInTheDocument();
       expect(screen.getByPlaceholderText("••••••••")).toBeInTheDocument();
     });
   });
@@ -74,7 +80,9 @@ describe("SignUp Page", () => {
       const user = userEvent.setup();
       render(<SignUp />);
 
-      const firstNameInput = screen.getByLabelText(/first name/i) as HTMLInputElement;
+      const firstNameInput = screen.getByLabelText(
+        /first name/i
+      ) as HTMLInputElement;
       await user.type(firstNameInput, "John");
 
       expect(firstNameInput.value).toBe("John");
@@ -84,7 +92,9 @@ describe("SignUp Page", () => {
       const user = userEvent.setup();
       render(<SignUp />);
 
-      const lastNameInput = screen.getByLabelText(/last name/i) as HTMLInputElement;
+      const lastNameInput = screen.getByLabelText(
+        /last name/i
+      ) as HTMLInputElement;
       await user.type(lastNameInput, "Doe");
 
       expect(lastNameInput.value).toBe("Doe");
@@ -104,7 +114,9 @@ describe("SignUp Page", () => {
       const user = userEvent.setup();
       render(<SignUp />);
 
-      const passwordInput = screen.getByLabelText(/password/i) as HTMLInputElement;
+      const passwordInput = screen.getByLabelText(
+        /password/i
+      ) as HTMLInputElement;
       await user.type(passwordInput, "password123");
 
       expect(passwordInput.value).toBe("password123");
@@ -119,10 +131,18 @@ describe("SignUp Page", () => {
       await user.type(screen.getByLabelText(/email/i), "john@test.com");
       await user.type(screen.getByLabelText(/password/i), "pass123");
 
-      expect((screen.getByLabelText(/first name/i) as HTMLInputElement).value).toBe("John");
-      expect((screen.getByLabelText(/last name/i) as HTMLInputElement).value).toBe("Doe");
-      expect((screen.getByLabelText(/email/i) as HTMLInputElement).value).toBe("john@test.com");
-      expect((screen.getByLabelText(/password/i) as HTMLInputElement).value).toBe("pass123");
+      expect(
+        (screen.getByLabelText(/first name/i) as HTMLInputElement).value
+      ).toBe("John");
+      expect(
+        (screen.getByLabelText(/last name/i) as HTMLInputElement).value
+      ).toBe("Doe");
+      expect((screen.getByLabelText(/email/i) as HTMLInputElement).value).toBe(
+        "john@test.com"
+      );
+      expect(
+        (screen.getByLabelText(/password/i) as HTMLInputElement).value
+      ).toBe("pass123");
     });
   });
 
@@ -140,7 +160,9 @@ describe("SignUp Page", () => {
     it("should validate when submitting form with values that trim to empty", () => {
       render(<SignUp />);
 
-      const form = screen.getByRole("button", { name: /sign up/i }).closest("form");
+      const form = screen
+        .getByRole("button", { name: /sign up/i })
+        .closest("form");
       expect(form).toBeInTheDocument();
 
       // Form should have proper structure for validation
@@ -155,7 +177,7 @@ describe("SignUp Page", () => {
 
       // Only fill some fields
       await user.type(screen.getByLabelText(/first name/i), "John");
-      
+
       // The form will use HTML5 validation, so signup won't be called
       // We can't easily test HTML5 validation in JSDOM, so we just verify
       // that the required attributes are present
@@ -230,20 +252,22 @@ describe("SignUp Page", () => {
         resolveSignup = resolve;
       });
       mockSignup.mockReturnValue(signupPromise);
-      
+
       render(<SignUp />);
 
       await user.type(screen.getByLabelText(/first name/i), "John");
       await user.type(screen.getByLabelText(/last name/i), "Doe");
       await user.type(screen.getByLabelText(/email/i), "john.doe@example.com");
       await user.type(screen.getByLabelText(/password/i), "password123");
-      
+
       const submitButton = screen.getByRole("button", { name: /sign up/i });
       await user.click(submitButton);
 
       // Check that loading state appears
       await waitFor(() => {
-        const loadingButton = screen.queryByRole("button", { name: /signing up/i });
+        const loadingButton = screen.queryByRole("button", {
+          name: /signing up/i,
+        });
         if (loadingButton) {
           expect(loadingButton).toBeDisabled();
         }
@@ -251,7 +275,7 @@ describe("SignUp Page", () => {
 
       // Resolve the promise
       resolveSignup();
-      
+
       // Wait for submission to complete
       await waitFor(() => {
         expect(mockSignup).toHaveBeenCalled();
@@ -343,17 +367,28 @@ describe("SignUp Page", () => {
     it("should have proper form structure", () => {
       render(<SignUp />);
 
-      const form = screen.getByRole("button", { name: /sign up/i }).closest("form");
+      const form = screen
+        .getByRole("button", { name: /sign up/i })
+        .closest("form");
       expect(form).toBeInTheDocument();
     });
 
     it("should associate labels with inputs", () => {
       render(<SignUp />);
 
-      expect(screen.getByLabelText(/first name/i)).toHaveAttribute("id", "firstName");
-      expect(screen.getByLabelText(/last name/i)).toHaveAttribute("id", "lastName");
+      expect(screen.getByLabelText(/first name/i)).toHaveAttribute(
+        "id",
+        "firstName"
+      );
+      expect(screen.getByLabelText(/last name/i)).toHaveAttribute(
+        "id",
+        "lastName"
+      );
       expect(screen.getByLabelText(/email/i)).toHaveAttribute("id", "email");
-      expect(screen.getByLabelText(/password/i)).toHaveAttribute("id", "password");
+      expect(screen.getByLabelText(/password/i)).toHaveAttribute(
+        "id",
+        "password"
+      );
     });
 
     it("should have required attributes on inputs", () => {
@@ -368,10 +403,19 @@ describe("SignUp Page", () => {
     it("should have correct input types", () => {
       render(<SignUp />);
 
-      expect(screen.getByLabelText(/first name/i)).toHaveAttribute("type", "text");
-      expect(screen.getByLabelText(/last name/i)).toHaveAttribute("type", "text");
+      expect(screen.getByLabelText(/first name/i)).toHaveAttribute(
+        "type",
+        "text"
+      );
+      expect(screen.getByLabelText(/last name/i)).toHaveAttribute(
+        "type",
+        "text"
+      );
       expect(screen.getByLabelText(/email/i)).toHaveAttribute("type", "email");
-      expect(screen.getByLabelText(/password/i)).toHaveAttribute("type", "password");
+      expect(screen.getByLabelText(/password/i)).toHaveAttribute(
+        "type",
+        "password"
+      );
     });
   });
 
@@ -405,7 +449,10 @@ describe("SignUp Page", () => {
 
       await user.type(screen.getByLabelText(/first name/i), "José");
       await user.type(screen.getByLabelText(/last name/i), "O'Brien");
-      await user.type(screen.getByLabelText(/email/i), "jose.obrien+test@example.com");
+      await user.type(
+        screen.getByLabelText(/email/i),
+        "jose.obrien+test@example.com"
+      );
       await user.type(screen.getByLabelText(/password/i), "P@ssw0rd!#$");
       await user.click(screen.getByRole("button", { name: /sign up/i }));
 

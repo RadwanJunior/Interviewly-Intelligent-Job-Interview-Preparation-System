@@ -21,7 +21,9 @@ jest.useFakeTimers();
 describe("ConfirmEmail Page", () => {
   const mockPush = jest.fn();
   const mockToast = jest.fn();
-  const mockRefreshToken = refreshToken as jest.MockedFunction<typeof refreshToken>;
+  const mockRefreshToken = refreshToken as jest.MockedFunction<
+    typeof refreshToken
+  >;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -37,7 +39,9 @@ describe("ConfirmEmail Page", () => {
     it("should render the confirm email page", () => {
       render(<ConfirmEmail />);
 
-      expect(screen.getByRole("heading", { name: /confirm your email/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: /confirm your email/i })
+      ).toBeInTheDocument();
     });
 
     it("should display instruction text", () => {
@@ -47,7 +51,9 @@ describe("ConfirmEmail Page", () => {
         screen.getByText(/an email has been sent to your address/i)
       ).toBeInTheDocument();
       expect(
-        screen.getByText(/please click the confirmation link to activate your account/i)
+        screen.getByText(
+          /please click the confirmation link to activate your account/i
+        )
       ).toBeInTheDocument();
     });
 
@@ -99,7 +105,9 @@ describe("ConfirmEmail Page", () => {
       await user.click(button);
 
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /checking/i })).toBeDisabled();
+        expect(
+          screen.getByRole("button", { name: /checking/i })
+        ).toBeDisabled();
       });
     });
 
@@ -159,7 +167,9 @@ describe("ConfirmEmail Page", () => {
 
       // Wait a bit for state to update
       await waitFor(() => {
-        const updatedButton = screen.queryByRole("button", { name: /checking/i });
+        const updatedButton = screen.queryByRole("button", {
+          name: /checking/i,
+        });
         expect(updatedButton).not.toBeInTheDocument();
       });
 
@@ -331,7 +341,10 @@ describe("ConfirmEmail Page", () => {
     it("should disable button during check to prevent double clicks", async () => {
       const user = userEvent.setup({ delay: null });
       mockRefreshToken.mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve({ user: null }), 100))
+        () =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve({ user: null }), 100)
+          )
       );
       render(<ConfirmEmail />);
 
@@ -356,7 +369,10 @@ describe("ConfirmEmail Page", () => {
     it("should show appropriate button text in different states", async () => {
       const user = userEvent.setup({ delay: null });
       mockRefreshToken.mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve({ user: null }), 50))
+        () =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve({ user: null }), 50)
+          )
       );
       render(<ConfirmEmail />);
 
@@ -373,7 +389,9 @@ describe("ConfirmEmail Page", () => {
 
       // Checking state
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /checking/i })).toBeInTheDocument();
+        expect(
+          screen.getByRole("button", { name: /checking/i })
+        ).toBeInTheDocument();
       });
 
       // Back to initial state after check
@@ -429,14 +447,17 @@ describe("ConfirmEmail Page", () => {
     it("should handle rapid button clicks", async () => {
       const user = userEvent.setup({ delay: null });
       mockRefreshToken.mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve({ user: null }), 100))
+        () =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve({ user: null }), 100)
+          )
       );
       render(<ConfirmEmail />);
 
       const button = screen.getByRole("button", {
         name: /i have confirmed my email/i,
       });
-      
+
       // Try to click multiple times
       await user.click(button);
       await user.click(button);
@@ -469,7 +490,9 @@ describe("ConfirmEmail Page", () => {
     it("should have proper heading hierarchy", () => {
       render(<ConfirmEmail />);
 
-      const heading = screen.getByRole("heading", { name: /confirm your email/i });
+      const heading = screen.getByRole("heading", {
+        name: /confirm your email/i,
+      });
       expect(heading.tagName).toBe("H2");
     });
 
@@ -483,7 +506,10 @@ describe("ConfirmEmail Page", () => {
     it("should indicate button state to assistive technology", async () => {
       const user = userEvent.setup({ delay: null });
       mockRefreshToken.mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve({ user: null }), 100))
+        () =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve({ user: null }), 100)
+          )
       );
       render(<ConfirmEmail />);
 

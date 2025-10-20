@@ -31,7 +31,11 @@ describe("Interview Components Integration", () => {
       const { rerender } = render(
         <div>
           <InterviewHeader activeCall={true} onEndCall={mockOnEndCall} />
-          <ProgressIndicator currentQuestion={0} totalQuestions={5} progress={0} />
+          <ProgressIndicator
+            currentQuestion={0}
+            totalQuestions={5}
+            progress={0}
+          />
           <QuestionDisplay
             question="Tell me about yourself"
             showingCountdown={false}
@@ -62,8 +66,12 @@ describe("Interview Components Integration", () => {
       // 1. Verify initial state - interview is active but no recording yet
       expect(screen.getByText("Question 1 of 5")).toBeInTheDocument();
       expect(screen.getByText("0% Complete")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Record Answer/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Next Question/i })).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /Record Answer/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Next Question/i })
+      ).toBeDisabled();
 
       // 2. Start recording
       await user.click(screen.getByRole("button", { name: /Record Answer/i }));
@@ -73,7 +81,11 @@ describe("Interview Components Integration", () => {
       rerender(
         <div>
           <InterviewHeader activeCall={true} onEndCall={mockOnEndCall} />
-          <ProgressIndicator currentQuestion={0} totalQuestions={5} progress={0} />
+          <ProgressIndicator
+            currentQuestion={0}
+            totalQuestions={5}
+            progress={0}
+          />
           <QuestionDisplay
             question="Tell me about yourself"
             showingCountdown={false}
@@ -103,8 +115,12 @@ describe("Interview Components Integration", () => {
 
       // Verify recording state
       expect(screen.getByText(/Recording\.\.\./i)).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Stop Recording/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Next Question/i })).toBeDisabled(); // Still disabled while recording
+      expect(
+        screen.getByRole("button", { name: /Stop Recording/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Next Question/i })
+      ).toBeDisabled(); // Still disabled while recording
 
       // 4. Stop recording
       await user.click(screen.getByRole("button", { name: /Stop Recording/i }));
@@ -121,7 +137,11 @@ describe("Interview Components Integration", () => {
       rerender(
         <div>
           <InterviewHeader activeCall={true} onEndCall={mockOnEndCall} />
-          <ProgressIndicator currentQuestion={0} totalQuestions={5} progress={0} />
+          <ProgressIndicator
+            currentQuestion={0}
+            totalQuestions={5}
+            progress={0}
+          />
           <QuestionDisplay
             question="Tell me about yourself"
             showingCountdown={false}
@@ -153,7 +173,9 @@ describe("Interview Components Integration", () => {
       expect(screen.getByText(/Your Answer:/i)).toBeInTheDocument();
       const audioElement = document.querySelector("audio");
       expect(audioElement).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Next Question/i })).not.toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /Next Question/i })
+      ).not.toBeDisabled();
 
       // 7. Navigate to next question
       await user.click(screen.getByRole("button", { name: /Next Question/i }));
@@ -163,17 +185,33 @@ describe("Interview Components Integration", () => {
     it("should handle progress through multiple questions", () => {
       // Test progress indicator updates across questions
       const { rerender } = render(
-        <ProgressIndicator currentQuestion={0} totalQuestions={5} progress={0} />
+        <ProgressIndicator
+          currentQuestion={0}
+          totalQuestions={5}
+          progress={0}
+        />
       );
 
       expect(screen.getByText("Question 1 of 5")).toBeInTheDocument();
       expect(screen.getByText("0% Complete")).toBeInTheDocument();
 
-      rerender(<ProgressIndicator currentQuestion={2} totalQuestions={5} progress={40} />);
+      rerender(
+        <ProgressIndicator
+          currentQuestion={2}
+          totalQuestions={5}
+          progress={40}
+        />
+      );
       expect(screen.getByText("Question 3 of 5")).toBeInTheDocument();
       expect(screen.getByText("40% Complete")).toBeInTheDocument();
 
-      rerender(<ProgressIndicator currentQuestion={4} totalQuestions={5} progress={80} />);
+      rerender(
+        <ProgressIndicator
+          currentQuestion={4}
+          totalQuestions={5}
+          progress={80}
+        />
+      );
       expect(screen.getByText("Question 5 of 5")).toBeInTheDocument();
       expect(screen.getByText("80% Complete")).toBeInTheDocument();
     });
@@ -190,7 +228,9 @@ describe("Interview Components Integration", () => {
         />
       );
 
-      expect(screen.getByRole("button", { name: /Next Question/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Next Question/i })
+      ).toBeInTheDocument();
 
       rerender(
         <InterviewNavigation
@@ -203,7 +243,9 @@ describe("Interview Components Integration", () => {
         />
       );
 
-      expect(screen.getByRole("button", { name: /Finish Interview/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Finish Interview/i })
+      ).toBeInTheDocument();
     });
   });
 
@@ -234,8 +276,12 @@ describe("Interview Components Integration", () => {
       );
 
       // Not recording: shows placeholder, navigation disabled
-      expect(screen.getByText(/Click 'Record Answer' below to respond/i)).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Next Question/i })).toBeDisabled();
+      expect(
+        screen.getByText(/Click 'Record Answer' below to respond/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Next Question/i })
+      ).toBeDisabled();
 
       // Switch to recording
       rerender(
@@ -265,12 +311,19 @@ describe("Interview Components Integration", () => {
       // Recording: shows recording indicator, navigation still disabled
       expect(screen.getByText(/Recording\.\.\./i)).toBeInTheDocument();
       expect(screen.getByText(/00:10/i)).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Next Question/i })).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /Next Question/i })
+      ).toBeDisabled();
     });
 
     it("should handle re-recording workflow", async () => {
       const user = userEvent.setup();
-      const mockRecording = { blob: new Blob(), url: "blob:mock-url", duration: 10, mimeType: "audio/webm" };
+      const mockRecording = {
+        blob: new Blob(),
+        url: "blob:mock-url",
+        duration: 10,
+        mimeType: "audio/webm",
+      };
 
       render(
         <div>
@@ -289,7 +342,9 @@ describe("Interview Components Integration", () => {
       );
 
       // Has recording: shows "Record Again" button
-      expect(screen.getByRole("button", { name: /Record Again/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Record Again/i })
+      ).toBeInTheDocument();
       expect(screen.getByText(/Your Answer:/i)).toBeInTheDocument();
 
       // Click to re-record
@@ -324,8 +379,12 @@ describe("Interview Components Integration", () => {
         </div>
       );
 
-      expect(screen.getByRole("button", { name: /Record Answer/i })).not.toBeDisabled();
-      expect(screen.getByRole("button", { name: /Next Question/i })).not.toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /Record Answer/i })
+      ).not.toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /Next Question/i })
+      ).not.toBeDisabled();
 
       // End call
       rerender(
@@ -352,8 +411,12 @@ describe("Interview Components Integration", () => {
         </div>
       );
 
-      expect(screen.getByRole("button", { name: /Record Answer/i })).toBeDisabled();
-      expect(screen.getByRole("button", { name: /Next Question/i })).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /Record Answer/i })
+      ).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /Next Question/i })
+      ).toBeDisabled();
     });
 
     it("should handle end call action", async () => {
@@ -379,7 +442,9 @@ describe("Interview Components Integration", () => {
         />
       );
 
-      expect(screen.getByRole("button", { name: /Next Question/i })).not.toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /Next Question/i })
+      ).not.toBeDisabled();
 
       rerender(
         <InterviewNavigation
@@ -392,7 +457,9 @@ describe("Interview Components Integration", () => {
         />
       );
 
-      expect(screen.getByRole("button", { name: /Uploading\.\.\./i })).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /Uploading\.\.\./i })
+      ).toBeDisabled();
     });
   });
 
@@ -406,7 +473,9 @@ describe("Interview Components Integration", () => {
         />
       );
 
-      expect(screen.getByText(/Recording will start automatically in/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Recording will start automatically in/i)
+      ).toBeInTheDocument();
       expect(screen.getByText("10")).toBeInTheDocument();
 
       rerender(
@@ -427,7 +496,9 @@ describe("Interview Components Integration", () => {
         />
       );
 
-      expect(screen.queryByText(/Recording will start automatically/i)).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/Recording will start automatically/i)
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -457,9 +528,13 @@ describe("Interview Components Integration", () => {
     });
 
     it("should show error states appropriately", () => {
-      render(<ErrorState message="Failed to upload recording. Please try again." />);
+      render(
+        <ErrorState message="Failed to upload recording. Please try again." />
+      );
       expect(screen.getByText("Error")).toBeInTheDocument();
-      expect(screen.getByText("Failed to upload recording. Please try again.")).toBeInTheDocument();
+      expect(
+        screen.getByText("Failed to upload recording. Please try again.")
+      ).toBeInTheDocument();
     });
   });
 });

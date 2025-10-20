@@ -15,7 +15,9 @@ jest.mock("@/components/workflow/WorkflowLayout", () => {
 });
 
 jest.mock("@/components/workflow/WorkflowStageRenderer", () => {
-  return jest.fn(() => <div data-testid="workflow-stage-renderer">Stage Renderer</div>);
+  return jest.fn(() => (
+    <div data-testid="workflow-stage-renderer">Stage Renderer</div>
+  ));
 });
 
 describe("Workflow (ResumeUpload) Page", () => {
@@ -129,7 +131,7 @@ describe("Workflow (ResumeUpload) Page", () => {
       // Check that layout has proper structure
       const layout = screen.getByTestId("workflow-layout");
       expect(layout).toBeInTheDocument();
-      
+
       // Check for heading
       const heading = screen.getByRole("heading", { name: /resume upload/i });
       expect(heading).toBeInTheDocument();
@@ -160,7 +162,9 @@ describe("Workflow (ResumeUpload) Page", () => {
       for (let i = 0; i < 3; i++) {
         rerender(<ResumeUpload />);
         expect(screen.getByText("Resume Upload")).toBeInTheDocument();
-        expect(screen.getByTestId("workflow-stage-renderer")).toBeInTheDocument();
+        expect(
+          screen.getByTestId("workflow-stage-renderer")
+        ).toBeInTheDocument();
       }
     });
   });
