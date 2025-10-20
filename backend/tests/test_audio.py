@@ -565,7 +565,26 @@ def test_feedback_generation_test_error():
         
         # Assertions
         assert response.status_code == 500
-        assert "Error in feedback generation test" in response.json()["detail"]
+        assert response.json()["detail"] == "Error in feedback generation test: Test failed"
+
+
+def test_feedback_generation_test_http_exception_propagation():
+    """Ensure HTTPException raised by service propagates unchanged."""
+    from app.routes import audio
+    from fastapi import HTTPException
+    
+    http_error = HTTPException(status_code=409, detail="Already running")
+    
+    with patch.object(
+        audio.feedback_service,
+        'generate_feedback',
+        new_callable=AsyncMock,
+        side_effect=http_error
+    ):
+        response = client.post("/audio/generate_test/interview-456?user_id=user-123")
+    
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Already running"
 
 
 # =============================

@@ -337,7 +337,7 @@ class SupabaseService:
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
-    @staticmethod
+
     async def insert_user_response(self, response: dict) -> dict:
         """
         Inserts a new user response record into the 'user_responses' table.
@@ -360,8 +360,8 @@ class SupabaseService:
             return resp
         except Exception as e:
             return {"error": {"message": str(e)}}
-    @staticmethod
-    def get_user_response(interview_id: str) -> dict:
+
+    def get_user_response(self, interview_id: str) -> dict:
         """
         Retrieves all user response records for a given interview from the 'user_responses' table.
         """
