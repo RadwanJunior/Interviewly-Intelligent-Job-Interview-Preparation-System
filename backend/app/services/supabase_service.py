@@ -353,11 +353,7 @@ class SupabaseService:
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
-<<<<<<< HEAD
-    
-=======
 
->>>>>>> d19d40d (add tests for interview.py)
     def get_user_response(self, interview_id: str) -> dict:
         """
         Retrieves all user response records for a given interview from the 'user_responses' table.
