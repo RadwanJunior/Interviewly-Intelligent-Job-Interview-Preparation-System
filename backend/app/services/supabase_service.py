@@ -337,24 +337,31 @@ class SupabaseService:
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
-
+    @staticmethod
     async def insert_user_response(self, response: dict) -> dict:
         """
         Inserts a new user response record into the 'user_responses' table.
+        Supports both text and audio responses.
         """
         try:
-            response = self.client.table("user_responses").insert({
+            insert_data = {
                 "interview_id": response.get("interview_id"),
                 "question_id": response.get("question_id"),
+                "user_id": response.get("user_id"),
+                "response_text": response.get("response_text"),  # NEW
                 "audio_url": response.get("audio_url"),
                 "gemini_file_id": response.get("gemini_file_id"),
-                "processed": response.get("processed"),
-            }).execute()
-            return response
+                "processed": response.get("processed", False),
+            }
+            # remove None values so supabase won’t complain
+            insert_data = {k: v for k, v in insert_data.items() if v is not None}
+
+            resp = self.client.table("user_responses").insert(insert_data).execute()
+            return resp
         except Exception as e:
             return {"error": {"message": str(e)}}
-    
-    def get_user_response(self, interview_id: str) -> dict:
+    @staticmethod
+    def get_user_response(interview_id: str) -> dict:
         """
         Retrieves all user response records for a given interview from the 'user_responses' table.
         """
