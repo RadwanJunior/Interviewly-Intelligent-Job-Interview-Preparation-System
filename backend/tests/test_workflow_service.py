@@ -61,6 +61,33 @@ async def test_upload_resume_unsupported_format(mock_supabase, workflow_service)
     assert result['error'] == 'Unsupported file format'
 
 @patch('app.services.workflow_service.supabase_service')
+@pytest.mark.asyncio
+async def test_upload_resume_upload_failure(mock_supabase, workflow_service):
+    mock_supabase.upload_file = AsyncMock(return_value=None)
+    file = MagicMock()
+    file.filename = 'resume.pdf'
+    file.file = MagicMock()
+    result = await workflow_service.upload_resume('user123', file)
+    assert result is None
+    mock_supabase.upload_file.assert_awaited_once_with('user123', file, 'resumes')
+
+@patch('app.services.workflow_service.supabase_service')
+@patch('app.services.workflow_service.resume_parser_service')
+@pytest.mark.asyncio
+async def test_upload_resume_get_file_url_error(mock_parser, mock_supabase, workflow_service):
+    mock_supabase.upload_file = AsyncMock(return_value=True)
+    mock_supabase.get_file_url.return_value = {'error': 'Failed'}
+    mock_parser.parse_pdf.return_value = 'Extracted PDF text'
+    file = MagicMock()
+    file.filename = 'resume.pdf'
+    file.file = MagicMock()
+    file.file.seek = MagicMock()
+    file.file.read = MagicMock(side_effect=[b'PDFDATA', b''])
+    result = await workflow_service.upload_resume('user123', file)
+    assert result == {'error': 'Failed to get file URL'}
+    mock_supabase.get_file_url.assert_called_once()
+
+@patch('app.services.workflow_service.supabase_service')
 def test_update_extracted_text_success(mock_supabase, workflow_service):
     mock_supabase.get_resume_table.return_value = MagicMock(data=[{'id': 1}])
     mock_supabase.update_resume.return_value = {'success': True}
@@ -89,4 +116,11 @@ def test_create_job_description(mock_supabase, workflow_service):
         'user123', 'Engineer', 'Acme', 'NY', 'Full-time', 'Job description text'
     )
     assert result == {'success': True}
-    mock_supabase.create_job_description.assert_called_once()
+    mock_supabase.create_job_description.assert_called_once_with(
+        user_id='user123',
+        job_title='Engineer',
+        company_name='Acme',
+        location='NY',
+        job_type='Full-time',
+        description='Job description text'
+    )
