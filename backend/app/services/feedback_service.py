@@ -1,4 +1,3 @@
-
 """
 FeedbackService: Handles the generation and storage of interview feedback using Gemini and Supabase.
 Includes audio upload, prompt construction, and robust JSON repair for Gemini responses.
@@ -251,39 +250,72 @@ class FeedbackService:
                 print("Failed to upload file to Gemini: gemini_file object or its name is missing.")
                 raise Exception("Failed to upload file to Gemini: Response missing ID.")
 
-            # --- Step 4: Upload original file to Supabase ---
-            # Supabase receives the path to the original, unconverted file
+            # --- Step 3: Upload original file to Supabase ---
             print(f"DEBUG: Uploading original temp file to Supabase: {original_temp_file_path}")
-            response = await self.supabase_service.upload_recording_file(user_id, original_temp_file_path, "recordings", interview_id)
+            response = await self.supabase_service.upload_recording_file(user_id, original_temp_file_path, interview_id, "recordings")
 
-            # Handle different response types
+            # FIXED: Better response handling for Supabase upload
             file_url = None
+            
+            # Check if response is an error dict first
+            if isinstance(response, dict) and 'error' in response:
+                error_msg = response['error'].get('message', str(response['error']))
+                raise Exception(f"Supabase upload failed: {error_msg}")
+            
+            # Handle successful responses
             if isinstance(response, str):
-                file_url = response  # Already a string URL
+                file_url = response
+            elif hasattr(response, 'path'):
+                # Construct URL from bucket path
+                bucket_name = "recordings"
+                file_path = response.path
+                # Get public URL using Supabase client
+                file_url = self.supabase_service.supabase.storage.from_(bucket_name).get_public_url(file_path)
             elif hasattr(response, 'get_public_url'):
-                file_url = response.get_public_url()  # Method to get URL
+                file_url = response.get_public_url()
             elif hasattr(response, 'url'):
-                file_url = response.url  # URL property
-            elif isinstance(response, dict) and 'data' in response and isinstance(response['data'], dict):
-                file_url = response['data'].get('publicUrl', str(response))  # Nested response structure
+                file_url = response.url
+            elif isinstance(response, dict):
+                # Try various dict structures
+                if 'publicUrl' in response:
+                    file_url = response['publicUrl']
+                elif 'data' in response and isinstance(response['data'], dict):
+                    file_url = response['data'].get('publicUrl') or response['data'].get('path')
+                else:
+                    # Last resort - try to extract path and construct URL
+                    path = response.get('path') or response.get('Key')
+                    if path:
+                        file_url = self.supabase_service.supabase.storage.from_("recordings").get_public_url(path)
+                    else:
+                        file_url = str(response)
             else:
-                # If none of the above patterns match, convert to string as fallback
+                # Absolute fallback
                 file_url = str(response)
 
-            print(f"DEBUG: File uploaded to Supabase bucket. URL extracted: {file_url}")
+            if not file_url:
+                raise Exception("Failed to extract file URL from Supabase upload response")
 
+            print(f"DEBUG: File uploaded to Supabase bucket. URL: {file_url}")
+
+            # FIXED: Removed user_id - it doesn't exist in user_responses table schema
             file_data = {
                 "interview_id": interview_id,
                 "question_id": question_id,
                 "gemini_file_id": gemini_file.name,
                 "audio_url": file_url,
-                "user_id": user_id,
                 "processed": False,
             }
 
             user_response = await self.supabase_service.insert_user_response(file_data)
-            if "error" in user_response:
-                raise Exception(f"Failed to save file data to the database: {user_response.get('error', {})}")
+            
+            # Better error handling for database insert
+            if isinstance(user_response, dict) and "error" in user_response:
+                error_detail = user_response.get('error', {})
+                if isinstance(error_detail, dict):
+                    error_msg = error_detail.get('message', str(error_detail))
+                else:
+                    error_msg = str(error_detail)
+                raise Exception(f"Failed to save file data to the database: {error_msg}")
 
             print(f"DEBUG: upload_audio_file completed successfully for {short_id}")
             return {
@@ -292,7 +324,6 @@ class FeedbackService:
                 "question_id": question_id,
             }
         except Exception as e:
-            # Ensure full traceback is printed for the final error in the outer block as well
             traceback.print_exc() 
             print(f"ERROR: Final error in upload_audio_file: {str(e)}")
             raise Exception(f"Error uploading audio file: {str(e)}")

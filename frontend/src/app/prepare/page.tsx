@@ -42,7 +42,9 @@ const PrepareInterview = () => {
       } catch (error: unknown) {
         toast({
           title: "Error",
-          description: `Error creating interview session: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          description: `Error creating interview session: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
           variant: "destructive",
         });
       } finally {
@@ -81,7 +83,7 @@ const PrepareInterview = () => {
     }
 
     // Navigate to interview page with the session ID
-    router.push(`/interview?sessionId=${sessionId}`);
+    router.push(`/Interview?sessionId=${sessionId}`);
   };
 
   return (
