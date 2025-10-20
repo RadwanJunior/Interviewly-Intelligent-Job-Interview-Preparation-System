@@ -203,9 +203,7 @@ const Index = () => {
           </div>
 
           {/* Call-to-Action Button */}
-          <div 
-          onClick={() => router.push("/dashboard")}
-          className="mt-16 text-center opacity-0 animate-fade-in delay-400">
+          <div className="mt-16 text-center opacity-0 animate-fade-in delay-400">
             <Button className="px-6 py-3 bg-[#68B984] text-white font-semibold rounded-lg hover:bg-primary/90 transition">
               Try It Now <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -289,9 +287,7 @@ const Index = () => {
                 Join thousands of successful candidates who have mastered their
                 interview skills with Interviewly.
               </p>
-              <button 
-              onClick={() => router.push("/dashboard")}
-              className="inline-flex items-center px-8 py-3 bg-white text-primary rounded-full hover:bg-white/90 transition-all transform hover:scale-105 shadow-lg">
+              <button className="inline-flex items-center px-8 py-3 bg-white text-primary rounded-full hover:bg-white/90 transition-all transform hover:scale-105 shadow-lg">
                 Get Started Now
                 <ArrowRight className="ml-2 h-5 w-5" />
               </button>
