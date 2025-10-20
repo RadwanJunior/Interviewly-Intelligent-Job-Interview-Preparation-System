@@ -360,8 +360,8 @@ class SupabaseService:
             return resp
         except Exception as e:
             return {"error": {"message": str(e)}}
-    @staticmethod
-    def get_user_response(interview_id: str) -> dict:
+
+    def get_user_response(self, interview_id: str) -> dict:
         """
         Retrieves all user response records for a given interview from the 'user_responses' table.
         """
