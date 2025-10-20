@@ -90,7 +90,9 @@ describe("Separator Component", () => {
 
   describe("Styling", () => {
     it("should accept custom className", () => {
-      render(<Separator className="custom-separator" data-testid="separator" />);
+      render(
+        <Separator className="custom-separator" data-testid="separator" />
+      );
       const separator = screen.getByTestId("separator");
       expect(separator.className).toContain("custom-separator");
     });
@@ -154,7 +156,11 @@ describe("Separator Component", () => {
       render(
         <div className="flex">
           <div>Left content</div>
-          <Separator orientation="vertical" className="mx-2" data-testid="separator" />
+          <Separator
+            orientation="vertical"
+            className="mx-2"
+            data-testid="separator"
+          />
           <div>Right content</div>
         </div>
       );

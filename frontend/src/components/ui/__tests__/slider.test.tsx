@@ -34,13 +34,17 @@ describe("Slider Component", () => {
 
     it("should render range", () => {
       const { container } = render(<Slider defaultValue={[50]} />);
-      const range = container.querySelector('[class*="bg-primary"][class*="absolute"]');
+      const range = container.querySelector(
+        '[class*="bg-primary"][class*="absolute"]'
+      );
       expect(range).toBeInTheDocument();
     });
 
     it("should render thumb", () => {
       const { container } = render(<Slider />);
-      const thumb = container.querySelector('[class*="rounded-full"][class*="border-2"]');
+      const thumb = container.querySelector(
+        '[class*="rounded-full"][class*="border-2"]'
+      );
       expect(thumb).toBeInTheDocument();
     });
   });
@@ -53,10 +57,14 @@ describe("Slider Component", () => {
     });
 
     it("should support controlled value", () => {
-      const { rerender } = render(<Slider value={[30]} onValueChange={() => {}} data-testid="slider" />);
+      const { rerender } = render(
+        <Slider value={[30]} onValueChange={() => {}} data-testid="slider" />
+      );
       expect(screen.getByTestId("slider")).toBeInTheDocument();
 
-      rerender(<Slider value={[70]} onValueChange={() => {}} data-testid="slider" />);
+      rerender(
+        <Slider value={[70]} onValueChange={() => {}} data-testid="slider" />
+      );
       expect(screen.getByTestId("slider")).toBeInTheDocument();
     });
 
@@ -65,7 +73,7 @@ describe("Slider Component", () => {
       const { container } = render(
         <Slider defaultValue={[50]} onValueChange={handleChange} />
       );
-      
+
       const thumb = container.querySelector('[role="slider"]');
       expect(thumb).toBeInTheDocument();
     });
@@ -80,9 +88,7 @@ describe("Slider Component", () => {
     });
 
     it("should support step", () => {
-      const { container } = render(
-        <Slider step={10} defaultValue={[50]} />
-      );
+      const { container } = render(<Slider step={10} defaultValue={[50]} />);
       const slider = container.querySelector('[role="slider"]');
       expect(slider).toBeInTheDocument();
     });
@@ -168,7 +174,9 @@ describe("Slider Component", () => {
     });
 
     it("should support aria-label", () => {
-      const { container } = render(<Slider aria-label="Volume" defaultValue={[50]} />);
+      const { container } = render(
+        <Slider aria-label="Volume" defaultValue={[50]} />
+      );
       const slider = container.querySelector('[aria-label="Volume"]');
       expect(slider).toBeInTheDocument();
     });
@@ -207,12 +215,7 @@ describe("Slider Component", () => {
 
     it("should work as range selector", () => {
       const { container } = render(
-        <Slider
-          min={0}
-          max={100}
-          step={5}
-          defaultValue={[20, 80]}
-        />
+        <Slider min={0} max={100} step={5} defaultValue={[20, 80]} />
       );
       const sliders = container.querySelectorAll('[role="slider"]');
       expect(sliders.length).toBeGreaterThanOrEqual(1); // Can be 1 or 2 thumbs

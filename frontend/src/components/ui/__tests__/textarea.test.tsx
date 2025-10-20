@@ -19,13 +19,15 @@ describe("Textarea Component", () => {
 
     it("should render with placeholder", () => {
       render(<Textarea placeholder="Enter your message..." />);
-      expect(screen.getByPlaceholderText("Enter your message...")).toBeInTheDocument();
+      expect(
+        screen.getByPlaceholderText("Enter your message...")
+      ).toBeInTheDocument();
     });
 
     it("should have base styling classes", () => {
       const { container } = render(<Textarea />);
       const textarea = container.querySelector("textarea") as HTMLElement;
-      
+
       expect(textarea.className).toContain("rounded-md");
       expect(textarea.className).toContain("border");
       expect(textarea.className).toContain("bg-background");
@@ -39,7 +41,7 @@ describe("Textarea Component", () => {
       const user = userEvent.setup();
       render(<Textarea />);
       const textarea = screen.getByRole("textbox");
-      
+
       await user.type(textarea, "Hello World");
       expect(textarea).toHaveValue("Hello World");
     });
@@ -48,7 +50,7 @@ describe("Textarea Component", () => {
       const user = userEvent.setup();
       render(<Textarea />);
       const textarea = screen.getByRole("textbox");
-      
+
       await user.type(textarea, "Line 1{Enter}Line 2{Enter}Line 3");
       expect(textarea).toHaveValue("Line 1\nLine 2\nLine 3");
     });
@@ -58,7 +60,7 @@ describe("Textarea Component", () => {
       const handleChange = jest.fn();
       render(<Textarea onChange={handleChange} />);
       const textarea = screen.getByRole("textbox");
-      
+
       await user.type(textarea, "test");
       expect(handleChange).toHaveBeenCalled();
     });
@@ -67,7 +69,7 @@ describe("Textarea Component", () => {
       const user = userEvent.setup();
       render(<Textarea defaultValue="initial text" />);
       const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
-      
+
       await user.clear(textarea);
       expect(textarea).toHaveValue("");
     });
@@ -77,16 +79,13 @@ describe("Textarea Component", () => {
       const TestComponent = () => {
         const [value, setValue] = React.useState("");
         return (
-          <Textarea 
-            value={value} 
-            onChange={(e) => setValue(e.target.value)} 
-          />
+          <Textarea value={value} onChange={(e) => setValue(e.target.value)} />
         );
       };
-      
+
       render(<TestComponent />);
       const textarea = screen.getByRole("textbox");
-      
+
       await user.type(textarea, "controlled");
       expect(textarea).toHaveValue("controlled");
     });

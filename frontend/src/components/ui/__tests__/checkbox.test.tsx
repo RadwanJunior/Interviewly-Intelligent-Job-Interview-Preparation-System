@@ -11,7 +11,9 @@ import { Checkbox } from "../checkbox";
 // Mock lucide-react Check icon
 jest.mock("lucide-react", () => ({
   Check: ({ className }: { className?: string }) => (
-    <span data-testid="check-icon" className={className}>✓</span>
+    <span data-testid="check-icon" className={className}>
+      ✓
+    </span>
   ),
 }));
 
@@ -26,7 +28,7 @@ describe("Checkbox Component", () => {
     it("should have base styling classes", () => {
       render(<Checkbox />);
       const checkbox = screen.getByRole("checkbox");
-      
+
       expect(checkbox.className).toContain("h-4");
       expect(checkbox.className).toContain("w-4");
       expect(checkbox.className).toContain("rounded-sm");
@@ -70,7 +72,7 @@ describe("Checkbox Component", () => {
       const handleChange = jest.fn();
       render(<Checkbox onCheckedChange={handleChange} />);
       const checkbox = screen.getByRole("checkbox");
-      
+
       await user.click(checkbox);
       expect(handleChange).toHaveBeenCalledWith(true);
     });
@@ -80,7 +82,7 @@ describe("Checkbox Component", () => {
       const handleChange = jest.fn();
       render(<Checkbox checked={false} onCheckedChange={handleChange} />);
       const checkbox = screen.getByRole("checkbox");
-      
+
       await user.click(checkbox);
       expect(handleChange).toHaveBeenCalledTimes(1);
     });
@@ -90,7 +92,7 @@ describe("Checkbox Component", () => {
       const handleChange = jest.fn();
       render(<Checkbox onCheckedChange={handleChange} />);
       const checkbox = screen.getByRole("checkbox");
-      
+
       checkbox.focus();
       await user.keyboard(" ");
       expect(handleChange).toHaveBeenCalled();
@@ -116,7 +118,7 @@ describe("Checkbox Component", () => {
       const handleChange = jest.fn();
       render(<Checkbox disabled onCheckedChange={handleChange} />);
       const checkbox = screen.getByRole("checkbox");
-      
+
       await user.click(checkbox);
       expect(handleChange).not.toHaveBeenCalled();
     });
@@ -140,7 +142,9 @@ describe("Checkbox Component", () => {
       render(<Checkbox checked={true} onCheckedChange={() => {}} />);
       const checkbox = screen.getByRole("checkbox");
       expect(checkbox.className).toContain("data-[state=checked]:bg-primary");
-      expect(checkbox.className).toContain("data-[state=checked]:text-primary-foreground");
+      expect(checkbox.className).toContain(
+        "data-[state=checked]:text-primary-foreground"
+      );
     });
   });
 

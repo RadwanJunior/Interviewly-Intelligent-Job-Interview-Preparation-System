@@ -19,7 +19,7 @@ describe("Progress Component", () => {
     it("should have base styling classes", () => {
       render(<Progress value={50} />);
       const progress = screen.getByRole("progressbar");
-      
+
       expect(progress.className).toContain("relative");
       expect(progress.className).toContain("h-4");
       expect(progress.className).toContain("w-full");
@@ -38,26 +38,34 @@ describe("Progress Component", () => {
   describe("Value Display", () => {
     it("should accept value prop", () => {
       const { container } = render(<Progress value={50} />);
-      const indicator = container.querySelector('div[class*="bg-primary"]') as HTMLElement;
+      const indicator = container.querySelector(
+        'div[class*="bg-primary"]'
+      ) as HTMLElement;
       // Value is used for indicator transform
       expect(indicator.style.transform).toBe("translateX(-50%)");
     });
 
     it("should handle 0% progress", () => {
       const { container } = render(<Progress value={0} />);
-      const indicator = container.querySelector('div[class*="bg-primary"]') as HTMLElement;
+      const indicator = container.querySelector(
+        'div[class*="bg-primary"]'
+      ) as HTMLElement;
       expect(indicator.style.transform).toBe("translateX(-100%)");
     });
 
     it("should handle 100% progress", () => {
       const { container } = render(<Progress value={100} />);
-      const indicator = container.querySelector('div[class*="bg-primary"]') as HTMLElement;
+      const indicator = container.querySelector(
+        'div[class*="bg-primary"]'
+      ) as HTMLElement;
       expect(indicator.style.transform).toBe("translateX(-0%)");
     });
 
     it("should handle undefined value", () => {
       const { container } = render(<Progress />);
-      const indicator = container.querySelector('div[class*="bg-primary"]') as HTMLElement;
+      const indicator = container.querySelector(
+        'div[class*="bg-primary"]'
+      ) as HTMLElement;
       // undefined value defaults to 0
       expect(indicator.style.transform).toBe("translateX(-100%)");
     });
@@ -66,7 +74,9 @@ describe("Progress Component", () => {
   describe("Progress Indicator", () => {
     it("should set indicator width based on value", () => {
       const { container } = render(<Progress value={50} />);
-      const indicator = container.querySelector('div[class*="bg-primary"]') as HTMLElement;
+      const indicator = container.querySelector(
+        'div[class*="bg-primary"]'
+      ) as HTMLElement;
       expect(indicator).toBeInTheDocument();
       // Radix sets transform: translateX(-${100 - value}%)
       expect(indicator.style.transform).toBe("translateX(-50%)");
@@ -74,13 +84,17 @@ describe("Progress Component", () => {
 
     it("should have indicator at 0% when value is 0", () => {
       const { container } = render(<Progress value={0} />);
-      const indicator = container.querySelector('div[class*="bg-primary"]') as HTMLElement;
+      const indicator = container.querySelector(
+        'div[class*="bg-primary"]'
+      ) as HTMLElement;
       expect(indicator.style.transform).toBe("translateX(-100%)");
     });
 
     it("should have indicator at 100% when value is 100", () => {
       const { container } = render(<Progress value={100} />);
-      const indicator = container.querySelector('div[class*="bg-primary"]') as HTMLElement;
+      const indicator = container.querySelector(
+        'div[class*="bg-primary"]'
+      ) as HTMLElement;
       expect(indicator.style.transform).toBe("translateX(-0%)");
     });
 
@@ -128,7 +142,10 @@ describe("Progress Component", () => {
     it("should support aria-describedby", () => {
       render(<Progress value={50} aria-describedby="progress-description" />);
       const progress = screen.getByRole("progressbar");
-      expect(progress).toHaveAttribute("aria-describedby", "progress-description");
+      expect(progress).toHaveAttribute(
+        "aria-describedby",
+        "progress-description"
+      );
     });
 
     it("should be accessible for screen readers", () => {
@@ -149,19 +166,25 @@ describe("Progress Component", () => {
   describe("Edge Cases", () => {
     it("should handle very small values", () => {
       const { container } = render(<Progress value={1} />);
-      const indicator = container.querySelector('div[class*="bg-primary"]') as HTMLElement;
+      const indicator = container.querySelector(
+        'div[class*="bg-primary"]'
+      ) as HTMLElement;
       expect(indicator.style.transform).toBe("translateX(-99%)");
     });
 
     it("should handle decimal values", () => {
       const { container } = render(<Progress value={33.33} />);
-      const indicator = container.querySelector('div[class*="bg-primary"]') as HTMLElement;
+      const indicator = container.querySelector(
+        'div[class*="bg-primary"]'
+      ) as HTMLElement;
       expect(indicator.style.transform).toBe("translateX(-66.67%)");
     });
 
     it("should handle values over 100", () => {
       const { container } = render(<Progress value={150} />);
-      const indicator = container.querySelector('div[class*="bg-primary"]') as HTMLElement;
+      const indicator = container.querySelector(
+        'div[class*="bg-primary"]'
+      ) as HTMLElement;
       // Component doesn't clamp, so it allows over 100%
       expect(indicator.style.transform).toContain("translateX");
     });

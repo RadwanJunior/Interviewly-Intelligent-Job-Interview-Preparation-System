@@ -154,11 +154,14 @@ describe("Avatar Component", () => {
     it("should show fallback in test environment", async () => {
       render(
         <Avatar>
-          <AvatarImage src="https://example.com/invalid.jpg" alt="User avatar" />
+          <AvatarImage
+            src="https://example.com/invalid.jpg"
+            alt="User avatar"
+          />
           <AvatarFallback>JD</AvatarFallback>
         </Avatar>
       );
-      
+
       // In test environment, fallback is always visible
       await waitFor(() => {
         expect(screen.getByText("JD")).toBeInTheDocument();
@@ -202,7 +205,10 @@ describe("Avatar Component", () => {
     it("should support fallback with proper content", () => {
       render(
         <Avatar>
-          <AvatarImage src="https://example.com/avatar.jpg" alt="John Doe profile picture" />
+          <AvatarImage
+            src="https://example.com/avatar.jpg"
+            alt="John Doe profile picture"
+          />
           <AvatarFallback aria-label="User initials">JD</AvatarFallback>
         </Avatar>
       );
@@ -230,7 +236,7 @@ describe("Avatar Component", () => {
         </Avatar>
       );
       expect(screen.getByText("AB")).toBeInTheDocument();
-      const image = container.querySelector('img');
+      const image = container.querySelector("img");
       expect(image).not.toBeInTheDocument();
     });
 

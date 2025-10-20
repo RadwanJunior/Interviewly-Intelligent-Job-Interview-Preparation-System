@@ -19,34 +19,39 @@ import {
 // Mock lucide-react icons
 jest.mock("lucide-react", () => ({
   Check: ({ className }: { className?: string }) => (
-    <span data-testid="check-icon" className={className}>✓</span>
+    <span data-testid="check-icon" className={className}>
+      ✓
+    </span>
   ),
   ChevronDown: ({ className }: { className?: string }) => (
-    <span data-testid="chevron-down-icon" className={className}>▼</span>
+    <span data-testid="chevron-down-icon" className={className}>
+      ▼
+    </span>
   ),
   ChevronUp: ({ className }: { className?: string }) => (
-    <span data-testid="chevron-up-icon" className={className}>▲</span>
+    <span data-testid="chevron-up-icon" className={className}>
+      ▲
+    </span>
   ),
 }));
 
 // Helper component for testing
-const SimpleSelect = ({ 
-  defaultValue, 
-  value, 
+const SimpleSelect = ({
+  defaultValue,
+  value,
   onValueChange,
-  disabled = false 
-}: { 
-  defaultValue?: string; 
-  value?: string; 
+  disabled = false,
+}: {
+  defaultValue?: string;
+  value?: string;
   onValueChange?: (value: string) => void;
   disabled?: boolean;
 }) => (
-  <Select 
-    defaultValue={defaultValue} 
-    value={value} 
+  <Select
+    defaultValue={defaultValue}
+    value={value}
     onValueChange={onValueChange}
-    disabled={disabled}
-  >
+    disabled={disabled}>
     <SelectTrigger data-testid="select-trigger">
       <SelectValue placeholder="Select an option" />
     </SelectTrigger>
@@ -88,7 +93,9 @@ describe("Select Component", () => {
     it("should accept custom className", () => {
       render(
         <Select>
-          <SelectTrigger className="custom-trigger" data-testid="select-trigger">
+          <SelectTrigger
+            className="custom-trigger"
+            data-testid="select-trigger">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -123,10 +130,8 @@ describe("Select Component", () => {
         <SimpleSelect value="option1" onValueChange={() => {}} />
       );
       expect(screen.getByText("Option 1")).toBeInTheDocument();
-      
-      rerender(
-        <SimpleSelect value="option3" onValueChange={() => {}} />
-      );
+
+      rerender(<SimpleSelect value="option3" onValueChange={() => {}} />);
       expect(screen.getByText("Option 3")).toBeInTheDocument();
     });
   });
@@ -149,7 +154,7 @@ describe("Select Component", () => {
           </SelectContent>
         </Select>
       );
-      
+
       // Content exists in structure but not visible
       expect(container.querySelector('[role="combobox"]')).toBeInTheDocument();
     });
@@ -232,7 +237,7 @@ describe("Select Component", () => {
   describe("Open/Close Behavior", () => {
     it("should have closed state initially", () => {
       render(<SimpleSelect />);
-      
+
       const trigger = screen.getByTestId("select-trigger");
       expect(trigger).toHaveAttribute("data-state", "closed");
       expect(trigger).toHaveAttribute("aria-expanded", "false");
@@ -240,14 +245,14 @@ describe("Select Component", () => {
 
     it("should update aria-expanded", () => {
       render(<SimpleSelect />);
-      
+
       const trigger = screen.getByTestId("select-trigger");
       expect(trigger).toHaveAttribute("aria-expanded", "false");
     });
 
     it("should have button type", () => {
       render(<SimpleSelect />);
-      
+
       const trigger = screen.getByTestId("select-trigger");
       expect(trigger).toHaveAttribute("type", "button");
     });
@@ -277,7 +282,7 @@ describe("Select Component", () => {
   describe("Keyboard Navigation", () => {
     it("should be keyboard focusable", () => {
       render(<SimpleSelect />);
-      
+
       const trigger = screen.getByTestId("select-trigger");
       trigger.focus();
       expect(trigger).toHaveFocus();
@@ -285,7 +290,7 @@ describe("Select Component", () => {
 
     it("should have role combobox", () => {
       render(<SimpleSelect />);
-      
+
       const trigger = screen.getByRole("combobox");
       expect(trigger).toBeInTheDocument();
     });
@@ -403,7 +408,7 @@ describe("Select Component", () => {
           </SelectContent>
         </Select>
       );
-      
+
       expect(screen.getByTestId("country-trigger")).toBeInTheDocument();
       expect(screen.getByText("Select a country")).toBeInTheDocument();
     });
@@ -422,14 +427,16 @@ describe("Select Component", () => {
             </SelectGroup>
             <SelectSeparator data-testid="group-separator" />
             <SelectGroup>
-              <SelectLabel data-testid="vegetables-label">Vegetables</SelectLabel>
+              <SelectLabel data-testid="vegetables-label">
+                Vegetables
+              </SelectLabel>
               <SelectItem value="carrot">Carrot</SelectItem>
               <SelectItem value="potato">Potato</SelectItem>
             </SelectGroup>
           </SelectContent>
         </Select>
       );
-      
+
       expect(screen.getByRole("combobox")).toBeInTheDocument();
     });
 
@@ -450,8 +457,10 @@ describe("Select Component", () => {
           <button type="submit">Submit</button>
         </form>
       );
-      
-      const hiddenSelect = container.querySelector('select[name="size"]') as HTMLSelectElement;
+
+      const hiddenSelect = container.querySelector(
+        'select[name="size"]'
+      ) as HTMLSelectElement;
       expect(hiddenSelect).toBeInTheDocument();
       expect(hiddenSelect?.value).toBe("medium");
     });

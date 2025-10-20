@@ -40,7 +40,7 @@ describe("Label Component", () => {
           <Input id="email-input" type="email" />
         </div>
       );
-      
+
       const label = screen.getByText("Email");
       expect(label).toHaveAttribute("for", "email-input");
     });
@@ -53,10 +53,10 @@ describe("Label Component", () => {
           <Input id="username" />
         </div>
       );
-      
+
       const label = screen.getByText("Username");
       const input = screen.getByRole("textbox");
-      
+
       await user.click(label);
       expect(input).toHaveFocus();
     });
@@ -104,7 +104,11 @@ describe("Label Component", () => {
 
   describe("Props", () => {
     it("should pass through HTML label attributes", () => {
-      render(<Label data-testid="test-label" title="Label title">Label</Label>);
+      render(
+        <Label data-testid="test-label" title="Label title">
+          Label
+        </Label>
+      );
       const label = screen.getByTestId("test-label");
       expect(label).toHaveAttribute("title", "Label title");
     });

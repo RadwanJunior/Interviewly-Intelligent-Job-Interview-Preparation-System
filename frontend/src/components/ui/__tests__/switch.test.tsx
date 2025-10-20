@@ -19,7 +19,7 @@ describe("Switch Component", () => {
     it("should have base styling classes", () => {
       render(<Switch />);
       const switchElement = screen.getByRole("switch");
-      
+
       expect(switchElement.className).toContain("h-6");
       expect(switchElement.className).toContain("w-11");
       expect(switchElement.className).toContain("rounded-full");
@@ -28,7 +28,7 @@ describe("Switch Component", () => {
 
     it("should render thumb element", () => {
       const { container } = render(<Switch />);
-      const thumb = container.querySelector('[data-state]')?.firstChild;
+      const thumb = container.querySelector("[data-state]")?.firstChild;
       expect(thumb).toBeInTheDocument();
     });
   });
@@ -55,13 +55,17 @@ describe("Switch Component", () => {
     it("should have checked styling when on", () => {
       render(<Switch checked={true} onCheckedChange={() => {}} />);
       const switchElement = screen.getByRole("switch");
-      expect(switchElement.className).toContain("data-[state=checked]:bg-primary");
+      expect(switchElement.className).toContain(
+        "data-[state=checked]:bg-primary"
+      );
     });
 
     it("should have unchecked styling when off", () => {
       render(<Switch checked={false} onCheckedChange={() => {}} />);
       const switchElement = screen.getByRole("switch");
-      expect(switchElement.className).toContain("data-[state=unchecked]:bg-input");
+      expect(switchElement.className).toContain(
+        "data-[state=unchecked]:bg-input"
+      );
     });
   });
 
@@ -71,7 +75,7 @@ describe("Switch Component", () => {
       const handleChange = jest.fn();
       render(<Switch onCheckedChange={handleChange} />);
       const switchElement = screen.getByRole("switch");
-      
+
       await user.click(switchElement);
       expect(handleChange).toHaveBeenCalledWith(true);
     });
@@ -81,7 +85,7 @@ describe("Switch Component", () => {
       const handleChange = jest.fn();
       render(<Switch checked={false} onCheckedChange={handleChange} />);
       const switchElement = screen.getByRole("switch");
-      
+
       await user.click(switchElement);
       expect(handleChange).toHaveBeenCalledTimes(1);
     });
@@ -91,7 +95,7 @@ describe("Switch Component", () => {
       const handleChange = jest.fn();
       render(<Switch onCheckedChange={handleChange} />);
       const switchElement = screen.getByRole("switch");
-      
+
       switchElement.focus();
       await user.keyboard(" ");
       expect(handleChange).toHaveBeenCalled();
@@ -102,7 +106,7 @@ describe("Switch Component", () => {
       const handleChange = jest.fn();
       render(<Switch onCheckedChange={handleChange} />);
       const switchElement = screen.getByRole("switch");
-      
+
       switchElement.focus();
       await user.keyboard("{Enter}");
       expect(handleChange).toHaveBeenCalled();
@@ -128,7 +132,7 @@ describe("Switch Component", () => {
       const handleChange = jest.fn();
       render(<Switch disabled onCheckedChange={handleChange} />);
       const switchElement = screen.getByRole("switch");
-      
+
       await user.click(switchElement);
       expect(handleChange).not.toHaveBeenCalled();
     });
@@ -138,7 +142,7 @@ describe("Switch Component", () => {
       const handleChange = jest.fn();
       render(<Switch disabled onCheckedChange={handleChange} />);
       const switchElement = screen.getByRole("switch");
-      
+
       switchElement.focus();
       await user.keyboard(" ");
       expect(handleChange).not.toHaveBeenCalled();
@@ -167,7 +171,9 @@ describe("Switch Component", () => {
 
     it("should have thumb with proper styling", () => {
       const { container } = render(<Switch />);
-      const thumb = container.querySelector('span[class*="pointer-events-none"]');
+      const thumb = container.querySelector(
+        'span[class*="pointer-events-none"]'
+      );
       expect(thumb).toBeInTheDocument();
       expect(thumb?.className).toContain("h-5");
       expect(thumb?.className).toContain("w-5");
@@ -176,8 +182,12 @@ describe("Switch Component", () => {
     });
 
     it("should have thumb transition on checked state", () => {
-      const { container } = render(<Switch checked={true} onCheckedChange={() => {}} />);
-      const thumb = container.querySelector('span[class*="pointer-events-none"]');
+      const { container } = render(
+        <Switch checked={true} onCheckedChange={() => {}} />
+      );
+      const thumb = container.querySelector(
+        'span[class*="pointer-events-none"]'
+      );
       expect(thumb?.className).toContain("data-[state=checked]:translate-x-5");
     });
   });
@@ -198,7 +208,10 @@ describe("Switch Component", () => {
     it("should support aria-describedby", () => {
       render(<Switch aria-describedby="switch-description" />);
       const switchElement = screen.getByRole("switch");
-      expect(switchElement).toHaveAttribute("aria-describedby", "switch-description");
+      expect(switchElement).toHaveAttribute(
+        "aria-describedby",
+        "switch-description"
+      );
     });
 
     it("should have proper role", () => {

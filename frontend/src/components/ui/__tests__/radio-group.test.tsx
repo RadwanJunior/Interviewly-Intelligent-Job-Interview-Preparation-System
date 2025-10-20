@@ -12,7 +12,9 @@ import { Label } from "../label";
 // Mock lucide-react Circle icon
 jest.mock("lucide-react", () => ({
   Circle: ({ className }: { className?: string }) => (
-    <span data-testid="circle-icon" className={className}>●</span>
+    <span data-testid="circle-icon" className={className}>
+      ●
+    </span>
   ),
 }));
 
@@ -100,7 +102,11 @@ describe("RadioGroup Component", () => {
     it("should accept custom className", () => {
       render(
         <RadioGroup>
-          <RadioGroupItem value="option1" className="custom-radio" data-testid="radio-1" />
+          <RadioGroupItem
+            value="option1"
+            className="custom-radio"
+            data-testid="radio-1"
+          />
         </RadioGroup>
       );
       const radio = screen.getByTestId("radio-1");
@@ -127,7 +133,7 @@ describe("RadioGroup Component", () => {
         </RadioGroup>
       );
       const radios = screen.getAllByRole("radio");
-      radios.forEach(radio => {
+      radios.forEach((radio) => {
         expect(radio).not.toBeChecked();
       });
     });
@@ -153,7 +159,7 @@ describe("RadioGroup Component", () => {
         </RadioGroup>
       );
       const radios = screen.getAllByRole("radio");
-      
+
       await user.click(radios[0]);
       expect(radios[0]).toBeChecked();
       expect(radios[1]).not.toBeChecked();
@@ -168,9 +174,9 @@ describe("RadioGroup Component", () => {
         </RadioGroup>
       );
       const radios = screen.getAllByRole("radio");
-      
+
       expect(radios[0]).toBeChecked();
-      
+
       await user.click(radios[1]);
       expect(radios[0]).not.toBeChecked();
       expect(radios[1]).toBeChecked();
@@ -186,7 +192,7 @@ describe("RadioGroup Component", () => {
         </RadioGroup>
       );
       const radios = screen.getAllByRole("radio");
-      
+
       await user.click(radios[0]);
       expect(handleChange).toHaveBeenCalledWith("option1");
     });
@@ -200,7 +206,7 @@ describe("RadioGroup Component", () => {
       );
       const radios = screen.getAllByRole("radio");
       expect(radios[0]).toBeChecked();
-      
+
       rerender(
         <RadioGroup value="option2" onValueChange={() => {}}>
           <RadioGroupItem value="option1" />
@@ -220,7 +226,7 @@ describe("RadioGroup Component", () => {
         </RadioGroup>
       );
       const radios = screen.getAllByRole("radio");
-      radios.forEach(radio => {
+      radios.forEach((radio) => {
         expect(radio).toBeDisabled();
       });
     });
@@ -257,7 +263,7 @@ describe("RadioGroup Component", () => {
         </RadioGroup>
       );
       const radio = screen.getByRole("radio");
-      
+
       await user.click(radio);
       expect(handleChange).not.toHaveBeenCalled();
       expect(radio).not.toBeChecked();
@@ -275,7 +281,7 @@ describe("RadioGroup Component", () => {
         </RadioGroup>
       );
       const radios = screen.getAllByRole("radio");
-      
+
       radios[0].focus();
       await user.keyboard("{ArrowDown}");
       expect(radios[1]).toHaveFocus();
@@ -290,7 +296,7 @@ describe("RadioGroup Component", () => {
         </RadioGroup>
       );
       const radios = screen.getAllByRole("radio");
-      
+
       radios[0].focus();
       await user.keyboard(" ");
       expect(radios[0]).toBeChecked();

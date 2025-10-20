@@ -39,9 +39,7 @@ describe("Skeleton Component", () => {
     });
 
     it("should support disabling animation via className", () => {
-      render(
-        <Skeleton data-testid="skeleton" className="animate-none" />
-      );
+      render(<Skeleton data-testid="skeleton" className="animate-none" />);
       const skeleton = screen.getByTestId("skeleton");
       expect(skeleton.className).toContain("animate-none");
     });
@@ -49,17 +47,13 @@ describe("Skeleton Component", () => {
 
   describe("Styling", () => {
     it("should accept custom className", () => {
-      render(
-        <Skeleton data-testid="skeleton" className="custom-skeleton" />
-      );
+      render(<Skeleton data-testid="skeleton" className="custom-skeleton" />);
       const skeleton = screen.getByTestId("skeleton");
       expect(skeleton.className).toContain("custom-skeleton");
     });
 
     it("should merge custom className with base styles", () => {
-      render(
-        <Skeleton data-testid="skeleton" className="h-12 w-12" />
-      );
+      render(<Skeleton data-testid="skeleton" className="h-12 w-12" />);
       const skeleton = screen.getByTestId("skeleton");
       expect(skeleton.className).toContain("h-12");
       expect(skeleton.className).toContain("w-12");
@@ -68,26 +62,20 @@ describe("Skeleton Component", () => {
     });
 
     it("should support custom dimensions", () => {
-      render(
-        <Skeleton data-testid="skeleton" className="h-4 w-full" />
-      );
+      render(<Skeleton data-testid="skeleton" className="h-4 w-full" />);
       const skeleton = screen.getByTestId("skeleton");
       expect(skeleton.className).toContain("h-4");
       expect(skeleton.className).toContain("w-full");
     });
 
     it("should support custom rounded styles", () => {
-      render(
-        <Skeleton data-testid="skeleton" className="rounded-full" />
-      );
+      render(<Skeleton data-testid="skeleton" className="rounded-full" />);
       const skeleton = screen.getByTestId("skeleton");
       expect(skeleton.className).toContain("rounded-full");
     });
 
     it("should support custom background colors", () => {
-      render(
-        <Skeleton data-testid="skeleton" className="bg-gray-200" />
-      );
+      render(<Skeleton data-testid="skeleton" className="bg-gray-200" />);
       const skeleton = screen.getByTestId("skeleton");
       expect(skeleton.className).toContain("bg-gray-200");
     });
@@ -95,25 +83,19 @@ describe("Skeleton Component", () => {
 
   describe("HTML Attributes", () => {
     it("should support aria-label", () => {
-      render(
-        <Skeleton data-testid="skeleton" aria-label="Loading content" />
-      );
+      render(<Skeleton data-testid="skeleton" aria-label="Loading content" />);
       const skeleton = screen.getByTestId("skeleton");
       expect(skeleton).toHaveAttribute("aria-label", "Loading content");
     });
 
     it("should support aria-busy", () => {
-      render(
-        <Skeleton data-testid="skeleton" aria-busy="true" />
-      );
+      render(<Skeleton data-testid="skeleton" aria-busy="true" />);
       const skeleton = screen.getByTestId("skeleton");
       expect(skeleton).toHaveAttribute("aria-busy", "true");
     });
 
     it("should support data attributes", () => {
-      render(
-        <Skeleton data-testid="skeleton" data-loading="true" />
-      );
+      render(<Skeleton data-testid="skeleton" data-loading="true" />);
       const skeleton = screen.getByTestId("skeleton");
       expect(skeleton).toHaveAttribute("data-loading", "true");
     });
@@ -134,7 +116,10 @@ describe("Skeleton Component", () => {
     it("should work as avatar placeholder", () => {
       render(
         <div>
-          <Skeleton data-testid="avatar-skeleton" className="h-12 w-12 rounded-full" />
+          <Skeleton
+            data-testid="avatar-skeleton"
+            className="h-12 w-12 rounded-full"
+          />
         </div>
       );
       const skeleton = screen.getByTestId("avatar-skeleton");
@@ -179,7 +164,11 @@ describe("Skeleton Component", () => {
 
     it("should indicate loading state with aria-busy", () => {
       render(
-        <Skeleton data-testid="skeleton" aria-busy="true" aria-label="Loading" />
+        <Skeleton
+          data-testid="skeleton"
+          aria-busy="true"
+          aria-label="Loading"
+        />
       );
       const skeleton = screen.getByTestId("skeleton");
       expect(skeleton).toHaveAttribute("aria-busy", "true");
