@@ -19,6 +19,8 @@ import re
 import json5
 from datetime import datetime, timezone
 
+from app.services.supabase_service import supabase_service
+
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 MODEL = "gemini-2.0-flash"
 
@@ -160,8 +162,7 @@ class FeedbackService:
     async def upload_audio_file(self, file: UploadFile, interview_id: str, question_id: str, question_text: str, question_order: int, user_id: str, mime_type: str) -> dict:
         """
         Uploads the audio file to Supabase storage service and Gemini.
-        This function now converts the audio to a compatible WAV format for Gemini upload
-        using ffmpeg, while still uploading the original file to Supabase.
+        The original browser recording is streamed directly to Gemini and stored in Supabase.
         
         Args:
             file (UploadFile): The audio file from the frontend.
@@ -173,8 +174,6 @@ class FeedbackService:
             mime_type (str): The actual MIME type of the audio recorded by the browser (e.g., "audio/webm; codecs=opus").
         """
         original_temp_file_path = None
-        converted_temp_file_path = None # Path for ffmpeg converted file
-        
         # Safely get the base extension (e.g., "webm", "mp4")
         original_file_extension = mime_type.split('/')[1].split(';')[0]
         unique_suffix = int(time.time() * 1000) # Milliseconds timestamp for more granularity
@@ -298,19 +297,13 @@ class FeedbackService:
             print(f"ERROR: Final error in upload_audio_file: {str(e)}")
             raise Exception(f"Error uploading audio file: {str(e)}")
         finally:
-            # --- Cleanup both temporary files ---
+            # --- Cleanup temporary files ---
             if original_temp_file_path and os.path.exists(original_temp_file_path):
                 try:
                     os.unlink(original_temp_file_path)
                     print(f"DEBUG: Cleaned up original temporary file: {original_temp_file_path}")
                 except Exception as cleanup_e:
                     print(f"ERROR: Error during original temporary file cleanup: {cleanup_e}")
-            if converted_temp_file_path and os.path.exists(converted_temp_file_path):
-                try:
-                    os.unlink(converted_temp_file_path)
-                    print(f"DEBUG: Cleaned up converted temporary file: {converted_temp_file_path}")
-                except Exception as cleanup_e:
-                    print(f"ERROR: Error during converted temporary file cleanup: {cleanup_e}")
 
     async def generate_feedback(self, interview_id: str, user_id: str) -> dict:
         """
@@ -400,10 +393,8 @@ class FeedbackService:
                 except Exception as e:
                     raise Exception(f"Failed to fetch audio file {gemini_file_id} from Gemini: {str(e)}")
 
-            if len(prompt_parts) == 1 and user_responses_data: # Only context prompt, but responses existed (all skipped)
-                 raise Exception("No valid audio responses could be prepared for Gemini.")
-            elif len(prompt_parts) == 1 and not user_responses_data: # Only context prompt, no responses
-                 raise Exception("No user responses found to generate feedback.")
+            if len(prompt_parts) == 1 and user_responses_data:  # Only context prompt, but responses existed (all skipped)
+                raise Exception("No valid audio responses could be prepared for Gemini.")
 
 
             prompt_parts.append("\nPlease provide the full analysis in the specified JSON format based on all preceding questions and audio responses.")
@@ -556,25 +547,3 @@ class FeedbackService:
             print(f"Error in generate_feedback for interview {interview_id}, user {user_id}: {str(e)}")
             # Re-raise the original exception or a new one with more context
             raise Exception(f"Error generating feedback: {str(e)}")
-        
-# generate feedback functin
-
-# Add the project root directory to Python's path
-import sys
-current_file_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file_dir)))
-sys.path.append(project_root)
-def run_test():
-    """
-    Test function to run the FeedbackService.generate_feedback method.
-    This is just for demonstration and should be replaced with actual FastAPI route handling.
-    """
-    import asyncio
-    try:
-        feedback = asyncio.run(FeedbackService.generate_feedback("50411bac-b858-4cec-8509-dd2f84f2f0d7", "76b318e6-bccd-453a-b9ff-b6381e508902"))
-        print("Feedback generated successfully:", feedback)
-    except Exception as e:
-        print("Error during feedback generation:", str(e))
-
-if __name__ == "__main__":
-    run_test()
