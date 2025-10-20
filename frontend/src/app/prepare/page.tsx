@@ -81,7 +81,7 @@ const PrepareInterview = () => {
     }
 
     // Navigate to interview page with the session ID
-    router.push(`/Interview?sessionId=${sessionId}`);
+    router.push(`/interview?sessionId=${sessionId}`);
   };
 
   return (

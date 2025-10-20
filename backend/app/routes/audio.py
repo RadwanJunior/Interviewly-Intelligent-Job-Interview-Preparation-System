@@ -1,12 +1,20 @@
+# =============================
+# audio.py - FastAPI router for audio upload and feedback endpoints
+# Handles audio uploads, feedback generation, and feedback status for interview sessions.
+# =============================
+
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Form, Depends, Request
 from typing import Dict, Optional
 from app.services.feedback_service import FeedbackService
-from app.services.supabase_service import SupabaseService
+from app.services.supabase_service import supabase_service
 import traceback
 
+# Create a router for all audio/feedback-related endpoints
 router = APIRouter()
+# Instantiate the feedback service, passing in the supabase service for DB operations
+feedback_service = FeedbackService(supabase_service)
 
-# A shared in-memory store for tracking feedback generation status
+# A shared in-memory store for tracking feedback generation status (not persistent; for demo/testing only)
 feedback_status = {}
 
 @router.post("/upload")
@@ -28,7 +36,7 @@ async def upload_audio(
     """
     try:
         # Get current user from Supabase authentication
-        user = SupabaseService.get_current_user(request)
+        user = supabase_service.get_current_user(request)
         if not user or "error" in user:
             raise HTTPException(status_code=401, detail="Authentication required")
         
@@ -36,7 +44,7 @@ async def upload_audio(
         
         # Upload the audio file using the FeedbackService
         # This will upload to Gemini and Supabase storage, and create user_responses record
-        recording_data = await FeedbackService.upload_audio_file(
+        recording_data = await feedback_service.upload_audio_file(
             file, interview_id, question_id, question_text, question_order, user_id, mime_type
         )
         
@@ -67,6 +75,8 @@ async def upload_audio(
                 "recording": recording_data
             }
             
+    except HTTPException as exc:
+        raise exc
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error uploading audio: {str(e)}")
@@ -78,9 +88,9 @@ async def generate_feedback_background(interview_id: str, user_id: str):
     """
     try:
         # Call the service to generate feedback
-        await FeedbackService.generate_feedback(interview_id, user_id) 
+        await feedback_service.generate_feedback(interview_id, user_id) 
         # Update user_responses to mark as processed
-        SupabaseService.update_user_responses_processed(interview_id)
+        supabase_service.update_user_responses_processed(interview_id)
 
         feedback_status[interview_id] = {
             "status": "completed",
@@ -100,7 +110,7 @@ async def check_feedback_status(interview_id: str, request: Request):
     """
     try:
         # Get current user from Supabase authentication
-        user = SupabaseService.get_current_user(request)
+        user = supabase_service.get_current_user(request)
         if not user or "error" in user:
             raise HTTPException(status_code=401, detail="Authentication required")
             
@@ -109,7 +119,7 @@ async def check_feedback_status(interview_id: str, request: Request):
             return feedback_status[interview_id]
         
         # If no status found, check if feedback exists in Supabase
-        feedback = SupabaseService.get_feedback(interview_id)
+        feedback = supabase_service.get_feedback(interview_id)
         
         if feedback:
             # Handle feedback whether it's a list or a dictionary
@@ -128,6 +138,8 @@ async def check_feedback_status(interview_id: str, request: Request):
         
         return {"status": "not_started"}
         
+    except HTTPException as exc:
+        raise exc
     except Exception as e:
         print(f"DEBUG: Error in check_feedback_status: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error checking feedback status: {str(e)}")
@@ -139,7 +151,7 @@ async def get_feedback(interview_id: str, request: Request):
     """
     try:
         # Get current user from Supabase authentication
-        user = SupabaseService.get_current_user(request)
+        user = supabase_service.get_current_user(request)
         if not user or "error" in user:
             raise HTTPException(status_code=401, detail="Authentication required")
         
@@ -153,7 +165,7 @@ async def get_feedback(interview_id: str, request: Request):
                 return {"status": "error", "message": f"Error generating feedback: {error_msg}"}
         
         # Try to fetch feedback from Supabase
-        feedback = SupabaseService.get_feedback(interview_id)
+        feedback = supabase_service.get_feedback(interview_id)
         
         if not feedback:
             return {
@@ -173,6 +185,8 @@ async def get_feedback(interview_id: str, request: Request):
                 "feedback": feedback.get("feedback_data")
             }
             
+    except HTTPException as exc:
+        raise exc
     except Exception as e:
         print(f"DEBUG: Error in get_feedback: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error retrieving feedback: {str(e)}")
@@ -188,7 +202,7 @@ async def trigger_feedback_generation(
     """
     try:
         # Get current user from Supabase authentication
-        user = SupabaseService.get_current_user(request)
+        user = supabase_service.get_current_user(request)
         if not user or "error" in user:
             raise HTTPException(status_code=401, detail="Authentication required")
         
@@ -218,6 +232,8 @@ async def trigger_feedback_generation(
             "message": "Feedback generation started"
         }
         
+    except HTTPException as exc:
+        raise exc
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error triggering feedback generation: {str(e)}")
 
@@ -229,7 +245,7 @@ async def feedback_generation_test(interview_id: str, user_id: str):
     """
     try:
         # Start background task
-        feedback_result = await FeedbackService.generate_feedback(user_id, interview_id)
+        feedback_result = await feedback_service.generate_feedback(user_id, interview_id)
         
         return {
             "status": "success",
@@ -237,5 +253,7 @@ async def feedback_generation_test(interview_id: str, user_id: str):
             "feedback": feedback_result
         }
         
+    except HTTPException as exc:
+        raise exc
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error in feedback generation test: {str(e)}")

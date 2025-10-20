@@ -1,4 +1,9 @@
- "use client";
+/**
+ * WorkflowStageRenderer.tsx - Renders the current workflow stage component.
+ * Handles dynamic stage mapping, scroll-to-stage, and visual transitions between stages.
+ * Integrates with workflow context for state and navigation.
+ */
+"use client";
 import React, { useEffect, useRef } from "react";
 import { useWorkflow } from "@/context/WorkflowContext";
 import ResumeUploadStage from "./stages/ResumeUploadStage";
@@ -6,7 +11,11 @@ import ResumePreviewStage from "./stages/ResumePreviewStage";
 import JobDetailsStage from "./stages/JobDetailsStage";
 import { CardContent } from "@/components/ui/card";
 
-// Map stage IDs to their respective components
+
+/**
+ * Maps workflow stage IDs to their corresponding React components.
+ * Extend this object to add new workflow stages.
+ */
 const stageComponents: Record<string, React.ComponentType> = {
   "resume-upload": ResumeUploadStage,
   "resume-preview": ResumePreviewStage,
@@ -14,6 +23,12 @@ const stageComponents: Record<string, React.ComponentType> = {
   // Add new stages here as they are created
 };
 
+/**
+ * WorkflowStageRenderer component for rendering the active workflow stage.
+ * Handles scrolling to the current stage and visual transitions between stages.
+ *
+ * @returns {JSX.Element} The rendered workflow stage(s).
+ */
 const WorkflowStageRenderer = () => {
   const { stages, currentStageIndex } = useWorkflow();
   const stageRefs = useRef<(HTMLElement | null)[]>([]);

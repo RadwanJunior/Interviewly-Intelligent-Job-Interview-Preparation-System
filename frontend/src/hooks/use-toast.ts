@@ -2,6 +2,12 @@ import * as React from "react";
 
 import type {
   ToastActionElement,
+  /**
+   * use-toast.ts - Custom React hook and utility for toast notifications
+   * Provides a global toast system with add, update, dismiss, and remove functionality.
+   * Includes a reducer, state management, and a hook for use in components.
+   */
+
   ToastProps,
 } from "@/components/ui/toast";
 
@@ -9,7 +15,13 @@ const TOAST_LIMIT = 1;
 const TOAST_REMOVE_DELAY = 1000000;
 
 type ToasterToast = ToastProps & {
+  /**
+   * Maximum number of toasts to display at once.
+   */
   id: string;
+  /**
+   * Delay (ms) before a dismissed toast is removed from state.
+   */
   title?: React.ReactNode;
   description?: React.ReactNode;
   action?: ToastActionElement;
@@ -19,6 +31,9 @@ type ToasterToast = ToastProps & {
 type Action =
   | { type: "ADD_TOAST"; toast: ToasterToast }
   | { type: "UPDATE_TOAST"; toast: Partial<ToasterToast> }
+  /**
+   * Toast object with required and optional properties for display and actions.
+   */
   | { type: "DISMISS_TOAST"; toastId?: ToasterToast["id"] }
   | { type: "REMOVE_TOAST"; toastId?: ToasterToast["id"] };
 
@@ -54,6 +69,9 @@ const addToRemoveQueue = (toastId: string) => {
 export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case "ADD_TOAST":
+  /**
+   * Reducer function for managing toast state transitions.
+   */
       return {
         ...state,
         toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),
@@ -110,6 +128,9 @@ let memoryState: State = { toasts: [] };
 function dispatch(action: Action) {
   memoryState = reducer(memoryState, action);
   listeners.forEach((listener) => {
+  /**
+   * Dispatches an action to update the global toast state and notifies listeners.
+   */
     listener(memoryState);
   });
 }
@@ -119,6 +140,11 @@ type Toast = Omit<ToasterToast, "id">;
 function toast({ ...props }: Toast) {
   const id = genId();
 
+  /**
+   * Creates and displays a new toast notification.
+   * @param props - Toast properties (title, description, etc.)
+   * @returns Object with toast id, dismiss, and update methods
+   */
   const update = (props: ToasterToast) =>
     dispatch({
       type: "UPDATE_TOAST",
@@ -148,6 +174,10 @@ function toast({ ...props }: Toast) {
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState);
 
+  /**
+   * Custom React hook to access and control toast notifications.
+   * Returns the current toasts, a toast creator, and a dismiss function.
+   */
   React.useEffect(() => {
     listeners.push(setState);
     return () => {

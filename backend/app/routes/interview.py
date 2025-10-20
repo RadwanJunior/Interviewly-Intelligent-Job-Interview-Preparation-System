@@ -1,38 +1,58 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
+# Imports fastapi modules to be used. APIRouter to create a router object for all my interview related endpoints which are registered on this router.
+# Import Dpeends which injects dependencies in FastAPI. In this file used to inject the currently autheticated user.
+# HTTP Exception to raise HTTP errors with specific status codes and messages.
+# BackgroundTasks to run tasks in the background after returning a response to the client (to us).
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+# BaseModel is used to define and validate the structure of my data that my API expects or returns.
 from pydantic import BaseModel
+# Import the InterviewService class from my services module. This class contains the business logic for handling interview-related operations.
 from app.services.interview_service import InterviewService
-from app.services.supabase_service import SupabaseService
+# Import Supabase service to interact with the database and storage.
+from app.services.supabase_service import supabase_service
+# provides support for writing non blocking code using the async and await syntax
 import asyncio
 
 router = APIRouter()
-
-# Global dictionary to simulate progress storage (in production, use persistent storage)
+interview_service = InterviewService()
+# In-memory progress store (replace with persistent storage in production)
 PROGRESS_STORE = {}
 
 class CreateInterviewRequest(BaseModel):
-        job_description_id: str
+    """Request body for creating an interview session."""
+    job_description_id: str
 
 async def simulate_progress(session_id: str):
+    """
+    Simulates progress for an interview session by incrementing progress every second.
+    """
     progress = 0
     while progress < 100:
         await asyncio.sleep(1)
         progress += 10
         PROGRESS_STORE[session_id] = progress
-    # Mark as complete when done
-    PROGRESS_STORE[session_id] = 100
+    PROGRESS_STORE[session_id] = 100  # Mark as complete
 
 @router.post("/create")
 async def create_interview_session(
     request_data: CreateInterviewRequest,
     background_tasks: BackgroundTasks,
-    current_user: dict = Depends(SupabaseService.get_current_user)
+    current_user: dict = Depends(supabase_service.get_current_user)
 ):
-# Validate user authentication
+    """
+    Creates a new interview session, generates questions, and starts a background progress task.
+
+    Args:
+        request_data (CreateInterviewRequest): The job description ID for the interview.
+        background_tasks (BackgroundTasks): FastAPI background task manager.
+        current_user (dict): The authenticated user.
+    """
+    # Validate user authentication
     if not current_user or not getattr(current_user, "id", None):
         raise HTTPException(status_code=401, detail="Unauthorized")
     user_id = current_user.id
 
-    resume_response = SupabaseService.get_resume_table(user_id)
+    # Retrieve user's resume
+    resume_response = supabase_service.get_resume_table(user_id)
     if "error" in resume_response or not resume_response.data:
         raise HTTPException(status_code=404, detail="Resume not found")
     resume_record = resume_response.data[0]
@@ -40,7 +60,7 @@ async def create_interview_session(
         raise HTTPException(status_code=403, detail="Invalid resume for this user")
 
     # Fetch the specific job description using its ID
-    job_response = SupabaseService.get_job_description(request_data.job_description_id)
+    job_response = supabase_service.get_job_description(request_data.job_description_id)
     if "error" in job_response or not job_response.data:
         raise HTTPException(status_code=404, detail="Job description not found")
     job_record = job_response.data
@@ -67,7 +87,7 @@ async def create_interview_session(
         raise HTTPException(status_code=500, detail="Failed to generate interview questions")
     
     # Create the interview session record with an empty questions list initially
-    interview_session_response = SupabaseService.create_interview_session(
+    interview_session_response = supabase_service.create_interview_session(
         user_id, resume_record["id"], request_data.job_description_id, []
     )
     if "error" in interview_session_response or not interview_session_response.data:
@@ -75,7 +95,7 @@ async def create_interview_session(
     interview_session = interview_session_response.data[0]
     session_id = interview_session["id"]
 
-    # Prepare questions insertion as before
+    # Prepare and insert questions
     question_records = []
     count = 0
     for q in questions_list:
@@ -87,11 +107,11 @@ async def create_interview_session(
                 "question": question_text,
                 "order": count
             })
-    question_insert_response = SupabaseService.insert_interview_questions(question_records)
+    question_insert_response = supabase_service.insert_interview_questions(question_records)
     if "error" in question_insert_response or not question_insert_response.data:
         raise HTTPException(status_code=500, detail="Failed to insert interview questions")
     question_ids = [record["id"] for record in question_insert_response.data]
-    update_response = SupabaseService.update_interview_session_questions(session_id, question_ids)
+    update_response = supabase_service.update_interview_session_questions(session_id, question_ids)
     if "error" in update_response:
         raise HTTPException(status_code=500, detail="Failed to update interview session with questions")
 
@@ -103,7 +123,7 @@ async def create_interview_session(
 # get questions for a specific interview session
 @router.get("/questions/{session_id}")
 async def get_questions(session_id: str):
-    questions_response = SupabaseService.get_interview_question_table(session_id)
+    questions_response = supabase_service.get_interview_question_table(session_id)
     if "error" in questions_response or not questions_response.data:
         raise HTTPException(status_code=404, detail="Questions not found")
     return questions_response.data
