@@ -1,4 +1,3 @@
-
 # Standard library imports
 import os
 import time
@@ -403,30 +402,47 @@ class SupabaseService:
         except Exception as e:
             return {"error": {"message": str(e)}}
     
-    async def upload_recording_file(self, user_id: str, file_path: str, bucket_name: str = "recordings", interview_id: str = None):
+    async def upload_recording_file(
+        self,
+        user_id: str,
+        file_path: str,
+        interview_id: str,
+        bucket_name: str = "recordings",
+    ):
         """Uploads a file to Supabase Storage."""
         try:
-            # Read the file from the path
             with open(file_path, "rb") as f:
                 file_content = f.read()
-                
-            # Create a filename for storage
+
             filename = os.path.basename(file_path)
             storage_path = f"{user_id}/{interview_id}/{filename}"
-            
-            # Upload to Supabase storage
+
             response = self.client.storage.from_(bucket_name).upload(
-                storage_path, 
-                file_content
+                storage_path,
+                file_content,
             )
-            
-            # Generate and return the public URL
-            if "error" not in response:
-                file_url = self.client.storage.from_(bucket_name).get_public_url(
-                    storage_path
+
+            # Handle UploadResponse correctly
+            if hasattr(response, "error") and response.error:
+                message = (
+                    response.error.message
+                    if hasattr(response.error, "message")
+                    else str(response.error)
                 )
-                return file_url
-            return response
+                return {"error": {"message": message}}
+            if isinstance(response, dict) and response.get("error"):
+                return response
+
+            file_url = self.client.storage.from_(bucket_name).get_public_url(
+                storage_path
+            )
+
+            if isinstance(file_url, dict):
+                if file_url.get("error"):
+                    return file_url
+                file_url = file_url.get("publicUrl")
+
+            return file_url
         except Exception as e:
             return {"error": {"message": str(e)}}
     
@@ -497,7 +513,7 @@ class SupabaseService:
         """
         try:
             response = self.client.table("user_responses").update({"processed": True}).eq("interview_id", interview_id).execute()
-            return response.data if hasattr(response, "data") else response
+            return response.data if hasattr(response, "data") and response.data else {"message": "No records updated"}
         except Exception as e:
             return {"error": {"message": str(e)}}
 
