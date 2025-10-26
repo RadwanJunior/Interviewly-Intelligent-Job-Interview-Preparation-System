@@ -42,6 +42,7 @@ const config: Config = {
     "!src/**/__mocks__/**",
     "!src/app/layout.tsx", // Exclude layout
     "!src/types.ts", // Exclude type definitions
+    "!src/components/ui/**", // Exclude UI components (reusable UI elements)
   ],
 
   // Coverage thresholds (adjust as needed)

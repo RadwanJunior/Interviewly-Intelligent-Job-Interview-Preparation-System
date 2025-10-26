@@ -3,7 +3,7 @@
  * Tests the complete user flow on the home page including rendering, navigation, and interactions
  */
 
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Index from "@/app/page";
 import { useAuth } from "@/context/AuthContext";
@@ -218,6 +218,233 @@ describe("Landing Page Integration Tests", () => {
     });
   });
 
+  describe("Visual Design and User Experience", () => {
+    it("has proper section structure with navigation anchors", () => {
+      render(<Index />);
+
+      // Verify sections exist with proper IDs for navigation
+      expect(document.getElementById("features")).toBeInTheDocument();
+      expect(document.getElementById("how-it-works")).toBeInTheDocument();
+      expect(document.getElementById("pricing")).toBeInTheDocument();
+    });
+
+    it("includes proper gradient backgrounds and styling", () => {
+      render(<Index />);
+
+      // Check for gradient background classes
+      const mainContainer = document.querySelector(".bg-gradient-to-b");
+      expect(mainContainer).toBeInTheDocument();
+
+      // Check for responsive container classes
+      const containers = document.querySelectorAll(".container");
+      expect(containers.length).toBeGreaterThan(0);
+    });
+
+    it("displays icons properly throughout sections", () => {
+      render(<Index />);
+
+      // Feature icons
+      expect(screen.getByTestId("upload-icon")).toBeInTheDocument();
+      expect(screen.getByTestId("video-icon")).toBeInTheDocument();
+      expect(screen.getByTestId("message-icon")).toBeInTheDocument();
+
+      // CTA section award icon
+      expect(screen.getByTestId("award-icon")).toBeInTheDocument();
+
+      // Arrow icons in buttons and navigation
+      const arrowIcons = screen.getAllByTestId("arrow-right-icon");
+      expect(arrowIcons.length).toBeGreaterThan(0);
+
+      // Check icons for pricing features
+      const checkIcons = screen.getAllByTestId("check-icon");
+      expect(checkIcons.length).toBeGreaterThan(0);
+    });
+
+    it("includes animation and hover classes for interactivity", () => {
+      render(<Index />);
+
+      // Should have animation classes
+      const animatedElements = document.querySelectorAll(
+        "[class*='animate-fade']"
+      );
+      expect(animatedElements.length).toBeGreaterThan(0);
+
+      // Feature cards should have hover effects
+      const hoverElements = document.querySelectorAll(
+        "[class*='hover:shadow']"
+      );
+      expect(hoverElements.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Data-Driven Content Rendering", () => {
+    it("renders all pricing plan features from data arrays", () => {
+      render(<Index />);
+
+      // Basic plan features (4 features) - using more specific text to avoid duplication with section headings
+      expect(
+        screen.getByText(/3 mock interviews per month/i)
+      ).toBeInTheDocument();
+      expect(screen.getByText(/basic ai feedback/i)).toBeInTheDocument();
+      expect(screen.getByText(/job description matching/i)).toBeInTheDocument();
+
+      // Pro plan features (4 features)
+      expect(
+        screen.getByText(/unlimited mock interviews/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/detailed performance analytics/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/personalized improvement plan/i)
+      ).toBeInTheDocument();
+      expect(screen.getByText(/video mock interviews/i)).toBeInTheDocument();
+    });
+
+    it("displays all how-it-works steps with proper descriptions", () => {
+      render(<Index />);
+
+      // Step descriptions should be comprehensive
+      expect(
+        screen.getByText(
+          /Submit your resume and the job description you're applying for/i
+        )
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Our AI analyzes both documents to generate relevant interview questions/i
+        )
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Record your answers in a simulated interview environment/i
+        )
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Receive AI-powered analysis and suggestions to improve your performance/i
+        )
+      ).toBeInTheDocument();
+    });
+
+    it("renders feature cards with comprehensive descriptions", () => {
+      render(<Index />);
+
+      // Feature descriptions should be detailed and informative
+      expect(
+        screen.getByText(
+          /Upload your resume and job description for tailored interview questions/i
+        )
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Record your responses and get instant feedback on your performance/i
+        )
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Receive detailed analysis and suggestions to improve your answers/i
+        )
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe("SEO and Meta Information", () => {
+    it("renders proper page title and meta description", () => {
+      render(<Index />);
+
+      // Page title should be set for SEO
+      expect(document.title).toBe(
+        "Interviewly - Master Your Interviews with AI"
+      );
+
+      // Meta description content should be accessible
+      expect(
+        screen.getByText(
+          /Practice with personalized interview questions based on your resume and dream job/i
+        )
+      ).toBeInTheDocument();
+    });
+
+    it("has complete heading structure for SEO", () => {
+      render(<Index />);
+
+      // Should have proper h1, h2, h3 hierarchy
+      const h1Elements = screen.getAllByRole("heading", { level: 1 });
+      const h2Elements = screen.getAllByRole("heading", { level: 2 });
+      const h3Elements = screen.getAllByRole("heading", { level: 3 });
+
+      expect(h1Elements.length).toBe(1); // Main hero heading
+      expect(h2Elements.length).toBeGreaterThan(0); // Section headings
+      expect(h3Elements.length).toBeGreaterThan(0); // Subsection headings
+    });
+  });
+
+  describe("Complete User Journey Flow", () => {
+    it("supports complete landing to conversion flow", async () => {
+      const user = userEvent.setup();
+      render(<Index />);
+
+      // 1. User lands and sees value proposition
+      expect(
+        screen.getByText("Master Your Interviews with AI")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("AI-Powered Interview Preparation")
+      ).toBeInTheDocument();
+
+      // 2. User learns about features
+      expect(screen.getByText("Why Choose Interviewly")).toBeInTheDocument();
+
+      // 3. User understands the process
+      expect(screen.getByText("How It Works")).toBeInTheDocument();
+
+      // 4. User sees pricing options
+      expect(
+        screen.getByText("Simple, Transparent Pricing")
+      ).toBeInTheDocument();
+
+      // 5. User sees final CTA
+      expect(
+        screen.getByText("Ready to Excel in Your Interviews?")
+      ).toBeInTheDocument();
+
+      // 6. User can click any CTA to start
+      const heroCTA = screen.getByRole("button", { name: /start practicing/i });
+      const finalCTA = screen.getByRole("button", { name: /get started now/i });
+
+      expect(heroCTA).toBeInTheDocument();
+      expect(finalCTA).toBeInTheDocument();
+
+      // Test main navigation flow
+      await user.click(heroCTA);
+      expect(mockPush).toHaveBeenCalledWith("/dashboard");
+    });
+
+    it("provides multiple engagement touchpoints", () => {
+      render(<Index />);
+
+      // Multiple CTA buttons for different user readiness levels
+      expect(
+        screen.getByRole("button", { name: /start practicing/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /try it now/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /get started now/i })
+      ).toBeInTheDocument();
+
+      // Pricing plan CTAs
+      expect(
+        screen.getByRole("button", { name: /^get started$/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /start free trial/i })
+      ).toBeInTheDocument();
+    });
+  });
+
   describe("Accessibility", () => {
     it("has proper heading hierarchy", () => {
       render(<Index />);
@@ -245,6 +472,18 @@ describe("Landing Page Integration Tests", () => {
       buttons.forEach((button) => {
         expect(button).toHaveAccessibleName();
       });
+    });
+
+    it("provides proper semantic structure", () => {
+      render(<Index />);
+
+      // Should use semantic sections
+      const sections = document.querySelectorAll("section");
+      expect(sections.length).toBeGreaterThanOrEqual(5);
+
+      // Should have proper list structures for features
+      const lists = document.querySelectorAll("ul");
+      expect(lists.length).toBeGreaterThan(0);
     });
   });
 });
