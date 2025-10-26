@@ -29,7 +29,7 @@ describe("Confirm Email Page Integration", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
-    
+
     (useRouter as jest.Mock).mockReturnValue({ push: mockPush });
     (useToast as jest.Mock).mockReturnValue({ toast: mockToast });
   });
@@ -41,7 +41,7 @@ describe("Confirm Email Page Integration", () => {
   describe("Complete Email Confirmation Workflow", () => {
     it("should handle successful email confirmation via manual check", async () => {
       const user = userEvent.setup({ delay: null });
-      
+
       // Setup successful confirmation response
       mockRefreshToken.mockResolvedValueOnce({
         user: { id: "123", email: "test@example.com" },
@@ -50,11 +50,21 @@ describe("Confirm Email Page Integration", () => {
       render(<ConfirmEmail />);
 
       // 1. Verify initial render
-      expect(screen.getByRole("heading", { name: /confirm your email/i })).toBeInTheDocument();
-      expect(screen.getByText(/an email has been sent to your address/i)).toBeInTheDocument();
-      expect(screen.getByText(/please click the confirmation link to activate your account/i)).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: /confirm your email/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/an email has been sent to your address/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /please click the confirmation link to activate your account/i
+        )
+      ).toBeInTheDocument();
 
-      const button = screen.getByRole("button", { name: /i have confirmed my email/i });
+      const button = screen.getByRole("button", {
+        name: /i have confirmed my email/i,
+      });
       expect(button).toBeInTheDocument();
       expect(button).not.toBeDisabled();
 
@@ -84,7 +94,9 @@ describe("Confirm Email Page Integration", () => {
       mockRefreshToken
         .mockResolvedValueOnce({ user: null })
         .mockResolvedValueOnce({ user: null })
-        .mockResolvedValueOnce({ user: { id: "456", email: "user@example.com" } });
+        .mockResolvedValueOnce({
+          user: { id: "456", email: "user@example.com" },
+        });
 
       render(<ConfirmEmail />);
 
@@ -131,13 +143,15 @@ describe("Confirm Email Page Integration", () => {
 
     it("should handle mixed manual and automatic checking workflow", async () => {
       const user = userEvent.setup({ delay: null });
-      
+
       mockRefreshToken.mockResolvedValue({ user: null });
 
       render(<ConfirmEmail />);
 
       // 1. Manual check first
-      const button = screen.getByRole("button", { name: /i have confirmed my email/i });
+      const button = screen.getByRole("button", {
+        name: /i have confirmed my email/i,
+      });
       await act(async () => {
         await user.click(button);
       });
@@ -148,7 +162,9 @@ describe("Confirm Email Page Integration", () => {
 
       // Button re-enables after manual check
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /i have confirmed my email/i })).not.toBeDisabled();
+        expect(
+          screen.getByRole("button", { name: /i have confirmed my email/i })
+        ).not.toBeDisabled();
       });
 
       // 2. Automatic polling continues
@@ -162,7 +178,9 @@ describe("Confirm Email Page Integration", () => {
 
       // 3. Another manual check
       await act(async () => {
-        await user.click(screen.getByRole("button", { name: /i have confirmed my email/i }));
+        await user.click(
+          screen.getByRole("button", { name: /i have confirmed my email/i })
+        );
       });
 
       await waitFor(() => {
@@ -175,13 +193,15 @@ describe("Confirm Email Page Integration", () => {
     it("should handle network errors gracefully without breaking user experience", async () => {
       const user = userEvent.setup({ delay: null });
       const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
-      
+
       // Network error on manual check
       mockRefreshToken.mockRejectedValueOnce(new Error("Network error"));
-      
+
       render(<ConfirmEmail />);
 
-      const button = screen.getByRole("button", { name: /i have confirmed my email/i });
+      const button = screen.getByRole("button", {
+        name: /i have confirmed my email/i,
+      });
       await act(async () => {
         await user.click(button);
       });
@@ -200,7 +220,9 @@ describe("Confirm Email Page Integration", () => {
 
       // Button re-enables after error
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /i have confirmed my email/i })).not.toBeDisabled();
+        expect(
+          screen.getByRole("button", { name: /i have confirmed my email/i })
+        ).not.toBeDisabled();
       });
 
       // Polling continues despite manual error
@@ -218,7 +240,7 @@ describe("Confirm Email Page Integration", () => {
 
     it("should handle polling errors without interrupting service", async () => {
       const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
-      
+
       // First poll errors, second succeeds
       mockRefreshToken
         .mockRejectedValueOnce(new Error("Polling failed"))
@@ -269,10 +291,12 @@ describe("Confirm Email Page Integration", () => {
       // Test undefined response
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mockRefreshToken.mockResolvedValueOnce(undefined as any);
-      
+
       render(<ConfirmEmail />);
 
-      const button = screen.getByRole("button", { name: /i have confirmed my email/i });
+      const button = screen.getByRole("button", {
+        name: /i have confirmed my email/i,
+      });
       await act(async () => {
         await user.click(button);
       });
@@ -305,23 +329,28 @@ describe("Confirm Email Page Integration", () => {
 
     it("should prevent duplicate requests during manual checking", async () => {
       const user = userEvent.setup({ delay: null });
-      
+
       // Slow response to test race conditions
       mockRefreshToken.mockImplementation(
-        () => new Promise((resolve) => 
-          setTimeout(() => resolve({ user: null }), 200)
-        )
+        () =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve({ user: null }), 200)
+          )
       );
 
       render(<ConfirmEmail />);
 
-      const button = screen.getByRole("button", { name: /i have confirmed my email/i });
-      
+      const button = screen.getByRole("button", {
+        name: /i have confirmed my email/i,
+      });
+
       // Rapid clicks
       await act(async () => {
         await user.click(button);
         // Try to click again while first request is pending
-        const checkingButton = screen.getByRole("button", { name: /checking/i });
+        const checkingButton = screen.getByRole("button", {
+          name: /checking/i,
+        });
         expect(checkingButton).toBeDisabled();
         await user.click(checkingButton); // Should be ignored
       });
@@ -340,17 +369,20 @@ describe("Confirm Email Page Integration", () => {
   describe("User Experience and Accessibility", () => {
     it("should provide clear visual feedback for all user interactions", async () => {
       const user = userEvent.setup({ delay: null });
-      
+
       mockRefreshToken.mockImplementation(
-        () => new Promise((resolve) => 
-          setTimeout(() => resolve({ user: null }), 100)
-        )
+        () =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve({ user: null }), 100)
+          )
       );
 
       render(<ConfirmEmail />);
 
       // 1. Initial state feedback
-      const initialButton = screen.getByRole("button", { name: /i have confirmed my email/i });
+      const initialButton = screen.getByRole("button", {
+        name: /i have confirmed my email/i,
+      });
       expect(initialButton).not.toBeDisabled();
       expect(initialButton).toHaveAccessibleName(/i have confirmed my email/i);
 
@@ -369,7 +401,9 @@ describe("Confirm Email Page Integration", () => {
       });
 
       await waitFor(() => {
-        const resetButton = screen.getByRole("button", { name: /i have confirmed my email/i });
+        const resetButton = screen.getByRole("button", {
+          name: /i have confirmed my email/i,
+        });
         expect(resetButton).not.toBeDisabled();
       });
     });
@@ -378,7 +412,9 @@ describe("Confirm Email Page Integration", () => {
       const { container } = render(<ConfirmEmail />);
 
       // Semantic structure
-      expect(screen.getByRole("heading", { name: /confirm your email/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: /confirm your email/i })
+      ).toBeInTheDocument();
       expect(screen.getByRole("button")).toBeInTheDocument();
 
       // Layout accessibility
@@ -387,7 +423,9 @@ describe("Confirm Email Page Integration", () => {
       expect(container.querySelector(".text-center")).toBeInTheDocument();
 
       // Heading hierarchy
-      const heading = screen.getByRole("heading", { name: /confirm your email/i });
+      const heading = screen.getByRole("heading", {
+        name: /confirm your email/i,
+      });
       expect(heading.tagName).toBe("H2");
     });
 
@@ -413,12 +451,12 @@ describe("Confirm Email Page Integration", () => {
 
     it("should handle sustained polling without memory leaks", async () => {
       mockRefreshToken.mockResolvedValue({ user: null });
-      
+
       render(<ConfirmEmail />);
 
       // Run extended polling session (5 minutes worth)
       const pollCycles = 30; // 30 cycles * 10 seconds = 5 minutes
-      
+
       for (let i = 0; i < pollCycles; i++) {
         await act(async () => {
           jest.advanceTimersByTime(10000);
@@ -431,14 +469,16 @@ describe("Confirm Email Page Integration", () => {
 
       // Component should still be responsive
       expect(screen.getByText(/confirm your email/i)).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /i have confirmed my email/i })).not.toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /i have confirmed my email/i })
+      ).not.toBeDisabled();
     });
   });
 
   describe("Integration with Auth Flow", () => {
     it("should work correctly as part of signup → confirm → dashboard flow", async () => {
       const user = userEvent.setup({ delay: null });
-      
+
       // Simulate the flow: user just came from signup
       mockRefreshToken.mockResolvedValueOnce({
         user: { id: "new-user-123", email: "newuser@example.com" },
@@ -448,10 +488,14 @@ describe("Confirm Email Page Integration", () => {
 
       // User sees confirmation page (as expected after signup)
       expect(screen.getByText(/confirm your email/i)).toBeInTheDocument();
-      expect(screen.getByText(/an email has been sent to your address/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/an email has been sent to your address/i)
+      ).toBeInTheDocument();
 
       // User clicks after confirming email externally
-      const button = screen.getByRole("button", { name: /i have confirmed my email/i });
+      const button = screen.getByRole("button", {
+        name: /i have confirmed my email/i,
+      });
       await act(async () => {
         await user.click(button);
       });

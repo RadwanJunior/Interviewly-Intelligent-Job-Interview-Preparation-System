@@ -264,11 +264,15 @@ describe("Landing Page Integration Tests", () => {
       render(<Index />);
 
       // Should have animation classes
-      const animatedElements = document.querySelectorAll("[class*='animate-fade']");
+      const animatedElements = document.querySelectorAll(
+        "[class*='animate-fade']"
+      );
       expect(animatedElements.length).toBeGreaterThan(0);
 
       // Feature cards should have hover effects
-      const hoverElements = document.querySelectorAll("[class*='hover:shadow']");
+      const hoverElements = document.querySelectorAll(
+        "[class*='hover:shadow']"
+      );
       expect(hoverElements.length).toBeGreaterThan(0);
     });
   });
@@ -278,14 +282,22 @@ describe("Landing Page Integration Tests", () => {
       render(<Index />);
 
       // Basic plan features (4 features) - using more specific text to avoid duplication with section headings
-      expect(screen.getByText(/3 mock interviews per month/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/3 mock interviews per month/i)
+      ).toBeInTheDocument();
       expect(screen.getByText(/basic ai feedback/i)).toBeInTheDocument();
       expect(screen.getByText(/job description matching/i)).toBeInTheDocument();
 
       // Pro plan features (4 features)
-      expect(screen.getByText(/unlimited mock interviews/i)).toBeInTheDocument();
-      expect(screen.getByText(/detailed performance analytics/i)).toBeInTheDocument();
-      expect(screen.getByText(/personalized improvement plan/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/unlimited mock interviews/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/detailed performance analytics/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/personalized improvement plan/i)
+      ).toBeInTheDocument();
       expect(screen.getByText(/video mock interviews/i)).toBeInTheDocument();
     });
 
@@ -293,19 +305,47 @@ describe("Landing Page Integration Tests", () => {
       render(<Index />);
 
       // Step descriptions should be comprehensive
-      expect(screen.getByText(/Submit your resume and the job description you're applying for/i)).toBeInTheDocument();
-      expect(screen.getByText(/Our AI analyzes both documents to generate relevant interview questions/i)).toBeInTheDocument();
-      expect(screen.getByText(/Record your answers in a simulated interview environment/i)).toBeInTheDocument();
-      expect(screen.getByText(/Receive AI-powered analysis and suggestions to improve your performance/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Submit your resume and the job description you're applying for/i
+        )
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Our AI analyzes both documents to generate relevant interview questions/i
+        )
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Record your answers in a simulated interview environment/i
+        )
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Receive AI-powered analysis and suggestions to improve your performance/i
+        )
+      ).toBeInTheDocument();
     });
 
     it("renders feature cards with comprehensive descriptions", () => {
       render(<Index />);
 
       // Feature descriptions should be detailed and informative
-      expect(screen.getByText(/Upload your resume and job description for tailored interview questions/i)).toBeInTheDocument();
-      expect(screen.getByText(/Record your responses and get instant feedback on your performance/i)).toBeInTheDocument();
-      expect(screen.getByText(/Receive detailed analysis and suggestions to improve your answers/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Upload your resume and job description for tailored interview questions/i
+        )
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Record your responses and get instant feedback on your performance/i
+        )
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Receive detailed analysis and suggestions to improve your answers/i
+        )
+      ).toBeInTheDocument();
     });
   });
 
@@ -314,10 +354,16 @@ describe("Landing Page Integration Tests", () => {
       render(<Index />);
 
       // Page title should be set for SEO
-      expect(document.title).toBe("Interviewly - Master Your Interviews with AI");
+      expect(document.title).toBe(
+        "Interviewly - Master Your Interviews with AI"
+      );
 
       // Meta description content should be accessible
-      expect(screen.getByText(/Practice with personalized interview questions based on your resume and dream job/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Practice with personalized interview questions based on your resume and dream job/i
+        )
+      ).toBeInTheDocument();
     });
 
     it("has complete heading structure for SEO", () => {
@@ -340,8 +386,12 @@ describe("Landing Page Integration Tests", () => {
       render(<Index />);
 
       // 1. User lands and sees value proposition
-      expect(screen.getByText("Master Your Interviews with AI")).toBeInTheDocument();
-      expect(screen.getByText("AI-Powered Interview Preparation")).toBeInTheDocument();
+      expect(
+        screen.getByText("Master Your Interviews with AI")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("AI-Powered Interview Preparation")
+      ).toBeInTheDocument();
 
       // 2. User learns about features
       expect(screen.getByText("Why Choose Interviewly")).toBeInTheDocument();
@@ -350,10 +400,14 @@ describe("Landing Page Integration Tests", () => {
       expect(screen.getByText("How It Works")).toBeInTheDocument();
 
       // 4. User sees pricing options
-      expect(screen.getByText("Simple, Transparent Pricing")).toBeInTheDocument();
+      expect(
+        screen.getByText("Simple, Transparent Pricing")
+      ).toBeInTheDocument();
 
       // 5. User sees final CTA
-      expect(screen.getByText("Ready to Excel in Your Interviews?")).toBeInTheDocument();
+      expect(
+        screen.getByText("Ready to Excel in Your Interviews?")
+      ).toBeInTheDocument();
 
       // 6. User can click any CTA to start
       const heroCTA = screen.getByRole("button", { name: /start practicing/i });
@@ -371,13 +425,23 @@ describe("Landing Page Integration Tests", () => {
       render(<Index />);
 
       // Multiple CTA buttons for different user readiness levels
-      expect(screen.getByRole("button", { name: /start practicing/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /try it now/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /get started now/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /start practicing/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /try it now/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /get started now/i })
+      ).toBeInTheDocument();
 
       // Pricing plan CTAs
-      expect(screen.getByRole("button", { name: /^get started$/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /start free trial/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /^get started$/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /start free trial/i })
+      ).toBeInTheDocument();
     });
   });
 

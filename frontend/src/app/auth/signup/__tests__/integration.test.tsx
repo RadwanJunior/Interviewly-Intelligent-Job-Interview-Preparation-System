@@ -39,15 +39,19 @@ describe("SignUp Auth Integration", () => {
       render(<SignUp />);
 
       // 1. Verify initial form state
-      expect(screen.getByRole("heading", { name: /create an account/i })).toBeInTheDocument();
-      expect(screen.getByText(/sign up to start your interview preparation/i)).toBeInTheDocument();
-      
+      expect(
+        screen.getByRole("heading", { name: /create an account/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/sign up to start your interview preparation/i)
+      ).toBeInTheDocument();
+
       const firstNameInput = screen.getByLabelText(/first name/i);
       const lastNameInput = screen.getByLabelText(/last name/i);
       const emailInput = screen.getByLabelText(/email/i);
       const passwordInput = screen.getByLabelText(/password/i);
       const submitButton = screen.getByRole("button", { name: /sign up/i });
-      
+
       expect(firstNameInput).toBeInTheDocument();
       expect(lastNameInput).toBeInTheDocument();
       expect(emailInput).toBeInTheDocument();
@@ -73,7 +77,7 @@ describe("SignUp Auth Integration", () => {
       await waitFor(() => {
         expect(mockSignup).toHaveBeenCalledWith(
           "John",
-          "Doe", 
+          "Doe",
           "john.doe@example.com",
           "password123"
         );
@@ -119,12 +123,14 @@ describe("SignUp Auth Integration", () => {
       expect(mockPush).not.toHaveBeenCalled();
 
       // Verify form remains interactive
-      expect(screen.getByRole("button", { name: /sign up/i })).not.toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /sign up/i })
+      ).not.toBeDisabled();
     });
 
     it("should handle loading states during signup process", async () => {
       const user = userEvent.setup();
-      
+
       // Create a promise we can control
       let resolveSignup: () => void;
       const signupPromise = new Promise<void>((resolve) => {
@@ -143,7 +149,9 @@ describe("SignUp Auth Integration", () => {
 
       // Verify loading state
       await waitFor(() => {
-        const loadingButton = screen.queryByRole("button", { name: /signing up/i });
+        const loadingButton = screen.queryByRole("button", {
+          name: /signing up/i,
+        });
         if (loadingButton) {
           expect(loadingButton).toBeDisabled();
         }
@@ -171,12 +179,17 @@ describe("SignUp Auth Integration", () => {
 
       // Verify input types for accessibility and validation
       expect(screen.getByLabelText(/email/i)).toHaveAttribute("type", "email");
-      expect(screen.getByLabelText(/password/i)).toHaveAttribute("type", "password");
+      expect(screen.getByLabelText(/password/i)).toHaveAttribute(
+        "type",
+        "password"
+      );
 
       // Verify proper form structure
-      const form = screen.getByRole("button", { name: /sign up/i }).closest("form");
+      const form = screen
+        .getByRole("button", { name: /sign up/i })
+        .closest("form");
       expect(form).toBeInTheDocument();
-      
+
       const requiredInputs = form?.querySelectorAll("input[required]");
       expect(requiredInputs?.length).toBe(4);
     });
@@ -201,20 +214,23 @@ describe("SignUp Auth Integration", () => {
     it("should handle edge cases and special characters", async () => {
       const user = userEvent.setup();
       mockSignup.mockResolvedValueOnce(undefined);
-      
+
       render(<SignUp />);
 
       // Test with special characters and edge cases
       await user.type(screen.getByLabelText(/first name/i), "José");
       await user.type(screen.getByLabelText(/last name/i), "O'Brien");
-      await user.type(screen.getByLabelText(/email/i), "jose.obrien+test@example.com");
+      await user.type(
+        screen.getByLabelText(/email/i),
+        "jose.obrien+test@example.com"
+      );
       await user.type(screen.getByLabelText(/password/i), "P@ssw0rd!#$");
       await user.click(screen.getByRole("button", { name: /sign up/i }));
 
       await waitFor(() => {
         expect(mockSignup).toHaveBeenCalledWith(
           "José",
-          "O'Brien", 
+          "O'Brien",
           "jose.obrien+test@example.com",
           "P@ssw0rd!#$"
         );
@@ -240,12 +256,12 @@ describe("SignUp Auth Integration", () => {
       mockSignup.mockImplementation(
         () => new Promise((resolve) => setTimeout(resolve, 100))
       );
-      
+
       render(<SignUp />);
 
       // Fill form
       await user.type(screen.getByLabelText(/first name/i), "John");
-      await user.type(screen.getByLabelText(/last name/i), "Doe"); 
+      await user.type(screen.getByLabelText(/last name/i), "Doe");
       await user.type(screen.getByLabelText(/email/i), "john@example.com");
       await user.type(screen.getByLabelText(/password/i), "password123");
 
@@ -264,7 +280,7 @@ describe("SignUp Auth Integration", () => {
   describe("Error Recovery and User Guidance", () => {
     it("should handle different error types and provide appropriate feedback", async () => {
       const user = userEvent.setup();
-      
+
       // Test generic error handling
       mockSignup.mockRejectedValueOnce("Network error");
       render(<SignUp />);
@@ -286,10 +302,10 @@ describe("SignUp Auth Integration", () => {
 
     it("should allow form resubmission after error recovery", async () => {
       const user = userEvent.setup();
-      
+
       // First attempt fails
       mockSignup.mockRejectedValueOnce(new Error("Network error"));
-      
+
       render(<SignUp />);
 
       await user.type(screen.getByLabelText(/first name/i), "John");
@@ -330,18 +346,22 @@ describe("SignUp Auth Integration", () => {
       // Verify placeholders for user guidance
       expect(screen.getByPlaceholderText("First Name")).toBeInTheDocument();
       expect(screen.getByPlaceholderText("Last Name")).toBeInTheDocument();
-      expect(screen.getByPlaceholderText("you@example.com")).toBeInTheDocument();
+      expect(
+        screen.getByPlaceholderText("you@example.com")
+      ).toBeInTheDocument();
       expect(screen.getByPlaceholderText("••••••••")).toBeInTheDocument();
 
       // Verify proper form structure for screen readers
-      const form = screen.getByRole("button", { name: /sign up/i }).closest("form");
+      const form = screen
+        .getByRole("button", { name: /sign up/i })
+        .closest("form");
       expect(form).toBeInTheDocument();
     });
 
     it("should handle long input values appropriately", async () => {
       const user = userEvent.setup();
       mockSignup.mockResolvedValueOnce(undefined);
-      
+
       render(<SignUp />);
 
       // Test with longer but reasonable inputs

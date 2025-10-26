@@ -51,7 +51,12 @@ describe("Footer Integration", () => {
       const brandLink = screen.getByRole("link", { name: /interviewly/i });
       expect(brandLink).toBeInTheDocument();
       expect(brandLink).toHaveAttribute("href", "/");
-      expect(brandLink).toHaveClass("text-primary", "font-heading", "font-bold", "text-xl");
+      expect(brandLink).toHaveClass(
+        "text-primary",
+        "font-heading",
+        "font-bold",
+        "text-xl"
+      );
 
       // 3. Navigation links with proper structure
       const privacyLink = screen.getByRole("link", { name: /privacy policy/i });
@@ -63,14 +68,20 @@ describe("Footer Integration", () => {
       expect(contactLink).toBeInTheDocument();
 
       // Verify navigation link styling for consistency
-      [privacyLink, termsLink, contactLink].forEach(link => {
-        expect(link).toHaveClass("text-gray-600", "hover:text-primary", "transition-colors");
+      [privacyLink, termsLink, contactLink].forEach((link) => {
+        expect(link).toHaveClass(
+          "text-gray-600",
+          "hover:text-primary",
+          "transition-colors"
+        );
         expect(link).toHaveAttribute("href", "#");
       });
 
       // 4. Copyright with dynamic year
       const currentYear = new Date().getFullYear();
-      const copyrightText = screen.getByText(`© ${currentYear} Interviewly. All rights reserved.`);
+      const copyrightText = screen.getByText(
+        `© ${currentYear} Interviewly. All rights reserved.`
+      );
       expect(copyrightText).toBeInTheDocument();
       expect(copyrightText).toHaveClass("mt-4", "md:mt-0", "text-gray-500");
     });
@@ -84,7 +95,9 @@ describe("Footer Integration", () => {
       expect(containerDiv).toHaveClass("mx-auto", "px-4");
 
       // Flex layout for responsive behavior
-      const flexContainer = container.querySelector(".flex.flex-col.md\\:flex-row");
+      const flexContainer = container.querySelector(
+        ".flex.flex-col.md\\:flex-row"
+      );
       expect(flexContainer).toBeInTheDocument();
       expect(flexContainer).toHaveClass("justify-between", "items-center");
 
@@ -111,15 +124,23 @@ describe("Footer Integration", () => {
       expect(links).toHaveLength(4);
 
       // Each link should have accessible name
-      links.forEach(link => {
+      links.forEach((link) => {
         expect(link).toHaveAccessibleName();
       });
 
       // Descriptive link text without generic terms
-      expect(screen.getByRole("link", { name: /interviewly/i })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: /privacy policy/i })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: /terms of service/i })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: /contact/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: /interviewly/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: /privacy policy/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: /terms of service/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: /contact/i })
+      ).toBeInTheDocument();
     });
 
     it("should handle layout and spacing correctly across breakpoints", () => {
@@ -148,11 +169,18 @@ describe("Footer Integration", () => {
 
       // Brand styling verification
       const brandLink = screen.getByRole("link", { name: /interviewly/i });
-      expect(brandLink).toHaveClass("text-primary", "font-heading", "font-bold", "text-xl");
+      expect(brandLink).toHaveClass(
+        "text-primary",
+        "font-heading",
+        "font-bold",
+        "text-xl"
+      );
 
       // Copyright content and styling
       const currentYear = new Date().getFullYear();
-      const copyrightElement = screen.getByText(new RegExp(`© ${currentYear} Interviewly\\. All rights reserved\\.`));
+      const copyrightElement = screen.getByText(
+        new RegExp(`© ${currentYear} Interviewly\\. All rights reserved\\.`)
+      );
       expect(copyrightElement).toBeInTheDocument();
       expect(copyrightElement).toHaveClass("text-gray-500");
 
@@ -160,11 +188,15 @@ describe("Footer Integration", () => {
       const navigationLinks = [
         screen.getByRole("link", { name: /privacy policy/i }),
         screen.getByRole("link", { name: /terms of service/i }),
-        screen.getByRole("link", { name: /contact/i })
+        screen.getByRole("link", { name: /contact/i }),
       ];
 
-      navigationLinks.forEach(link => {
-        expect(link).toHaveClass("text-gray-600", "hover:text-primary", "transition-colors");
+      navigationLinks.forEach((link) => {
+        expect(link).toHaveClass(
+          "text-gray-600",
+          "hover:text-primary",
+          "transition-colors"
+        );
       });
     });
 
@@ -179,17 +211,22 @@ describe("Footer Integration", () => {
       const brandLink = screen.getByRole("link", { name: /interviewly/i });
       expect(brandLink).toHaveClass("text-primary");
 
-      const copyrightText = screen.getByText(new RegExp(`© ${new Date().getFullYear()}`));
+      const copyrightText = screen.getByText(
+        new RegExp(`© ${new Date().getFullYear()}`)
+      );
       expect(copyrightText).toHaveClass("text-gray-500");
 
       // Navigation link color scheme
-      const navLinks = screen.getAllByRole("link").filter(link => 
-        link.textContent?.includes("Privacy") || 
-        link.textContent?.includes("Terms") || 
-        link.textContent?.includes("Contact")
-      );
-      
-      navLinks.forEach(link => {
+      const navLinks = screen
+        .getAllByRole("link")
+        .filter(
+          (link) =>
+            link.textContent?.includes("Privacy") ||
+            link.textContent?.includes("Terms") ||
+            link.textContent?.includes("Contact")
+        );
+
+      navLinks.forEach((link) => {
         expect(link).toHaveClass("text-gray-600");
       });
     });
@@ -217,7 +254,9 @@ describe("Footer Integration", () => {
 
       // Verify current year is calculated and displayed
       const currentYear = new Date().getFullYear();
-      const copyrightWithYear = screen.getByText(`© ${currentYear} Interviewly. All rights reserved.`);
+      const copyrightWithYear = screen.getByText(
+        `© ${currentYear} Interviewly. All rights reserved.`
+      );
       expect(copyrightWithYear).toBeInTheDocument();
 
       // Ensure it's not hardcoded by checking it's actually current year
@@ -242,8 +281,13 @@ describe("Footer Integration", () => {
       expect(contactLink).toHaveAttribute("href", "#");
 
       // All navigation should be easily discoverable
-      const allNavigationLinks = [homeLink, privacyLink, termsLink, contactLink];
-      allNavigationLinks.forEach(link => {
+      const allNavigationLinks = [
+        homeLink,
+        privacyLink,
+        termsLink,
+        contactLink,
+      ];
+      allNavigationLinks.forEach((link) => {
         expect(link).toBeVisible();
         expect(link).toHaveAccessibleName();
       });

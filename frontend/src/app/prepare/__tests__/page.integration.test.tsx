@@ -125,11 +125,17 @@ describe("Prepare Interview Page Integration", () => {
       });
 
       // Verify initial loading UI
-      expect(screen.getByText("Prepare for Your Interview")).toBeInTheDocument();
-      expect(screen.getByText("Generating interview questions")).toBeInTheDocument();
-      expect(screen.getByText("Preparing your tailored interview questions...")).toBeInTheDocument();
+      expect(
+        screen.getByText("Prepare for Your Interview")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Generating interview questions")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Preparing your tailored interview questions...")
+      ).toBeInTheDocument();
       expect(screen.getByRole("button")).toBeDisabled();
-      
+
       // Verify session creation was triggered
       await waitFor(() => {
         expect(createInterviewSession).toHaveBeenCalledWith({
@@ -141,7 +147,7 @@ describe("Prepare Interview Page Integration", () => {
       await act(async () => {
         jest.advanceTimersByTime(2000);
       });
-      
+
       await waitFor(() => {
         expect(screen.getByText("25%")).toBeInTheDocument();
       });
@@ -149,7 +155,7 @@ describe("Prepare Interview Page Integration", () => {
       await act(async () => {
         jest.advanceTimersByTime(2000);
       });
-      
+
       await waitFor(() => {
         expect(screen.getByText("50%")).toBeInTheDocument();
       });
@@ -157,7 +163,7 @@ describe("Prepare Interview Page Integration", () => {
       await act(async () => {
         jest.advanceTimersByTime(2000);
       });
-      
+
       await waitFor(() => {
         expect(screen.getByText("75%")).toBeInTheDocument();
       });
@@ -166,15 +172,19 @@ describe("Prepare Interview Page Integration", () => {
       await act(async () => {
         jest.advanceTimersByTime(2000);
       });
-      
+
       await waitFor(() => {
         expect(screen.getByText("100%")).toBeInTheDocument();
-        expect(screen.getByText("Your interview is ready!")).toBeInTheDocument();
+        expect(
+          screen.getByText("Your interview is ready!")
+        ).toBeInTheDocument();
         expect(screen.getByText("Start Interview")).toBeInTheDocument();
       });
 
       // Verify button is now enabled
-      const startButton = screen.getByRole("button", { name: /Start Interview/i });
+      const startButton = screen.getByRole("button", {
+        name: /Start Interview/i,
+      });
       expect(startButton).not.toBeDisabled();
 
       // 4. Navigate to interview
@@ -183,7 +193,7 @@ describe("Prepare Interview Page Integration", () => {
       });
 
       expect(mockPush).toHaveBeenCalledWith("/interview?sessionId=session-456");
-      
+
       // Verify polling stops after completion
       (getInterviewStatus as jest.Mock).mockClear();
       await act(async () => {
@@ -203,15 +213,27 @@ describe("Prepare Interview Page Integration", () => {
 
       // Verify preparation tips are shown
       expect(screen.getByText("Preparation Tips")).toBeInTheDocument();
-      expect(screen.getByText("Find a quiet location free from distractions.")).toBeInTheDocument();
-      expect(screen.getByText("Test your microphone before starting.")).toBeInTheDocument();
+      expect(
+        screen.getByText("Find a quiet location free from distractions.")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Test your microphone before starting.")
+      ).toBeInTheDocument();
       expect(screen.getByText("Keep water nearby.")).toBeInTheDocument();
-      expect(screen.getByText("You have 1.5 minutes for each answer.")).toBeInTheDocument();
-      expect(screen.getByText("Speak clearly and at a comfortable pace.")).toBeInTheDocument();
+      expect(
+        screen.getByText("You have 1.5 minutes for each answer.")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Speak clearly and at a comfortable pace.")
+      ).toBeInTheDocument();
 
       // Verify warning is displayed
       expect(screen.getByText("Important:")).toBeInTheDocument();
-      expect(screen.getByText("Once you start the interview, you cannot pause it. Make sure you're ready.")).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Once you start the interview, you cannot pause it. Make sure you're ready."
+        )
+      ).toBeInTheDocument();
 
       // Verify icons are present
       const checkIcons = screen.getAllByText("CheckCircle Icon");
@@ -239,7 +261,9 @@ describe("Prepare Interview Page Integration", () => {
       });
 
       // Should still show initial UI
-      expect(screen.getByText("Prepare for Your Interview")).toBeInTheDocument();
+      expect(
+        screen.getByText("Prepare for Your Interview")
+      ).toBeInTheDocument();
     });
 
     it("should handle session creation with no session ID", async () => {
@@ -286,7 +310,9 @@ describe("Prepare Interview Page Integration", () => {
       });
 
       // Should not crash the application
-      expect(screen.getByText("Prepare for Your Interview")).toBeInTheDocument();
+      expect(
+        screen.getByText("Prepare for Your Interview")
+      ).toBeInTheDocument();
 
       consoleSpy.mockRestore();
     });
@@ -416,7 +442,9 @@ describe("Prepare Interview Page Integration", () => {
       });
 
       // Should handle gracefully
-      expect(screen.getByText("Prepare for Your Interview")).toBeInTheDocument();
+      expect(
+        screen.getByText("Prepare for Your Interview")
+      ).toBeInTheDocument();
     });
   });
 });
