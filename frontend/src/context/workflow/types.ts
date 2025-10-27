@@ -62,6 +62,7 @@ export type JobDetailsData = {
  * @property {() => void} goToPreviousStage - Moves to the previous stage.
  * @property {(index: number) => void} goToStage - Jumps to a specific stage by index.
  * @property {() => void} completeCurrentStage - Marks the current stage as completed.
+ * @property {() => void} resetWorkflow - Resets the workflow to its initial state.
  * @property {ResumeData} resumeData - Resume data for the workflow.
  * @property {(data: Partial<ResumeData>) => void} updateResumeData - Updates resume data.
  * @property {JobDetailsData} jobDetailsData - Job details data for the workflow.
@@ -74,6 +75,7 @@ export type WorkflowContextType = {
   goToPreviousStage: () => void;
   goToStage: (index: number) => void;
   completeCurrentStage: () => void;
+  resetWorkflow: () => void;
   resumeData: ResumeData;
   updateResumeData: (data: Partial<ResumeData>) => void;
   jobDetailsData: JobDetailsData;

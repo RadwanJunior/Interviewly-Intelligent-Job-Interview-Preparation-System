@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { getFeedback, getFeedbackStatus } from "@/lib/api";
+import { useWorkflow } from "@/context/WorkflowContext";
 
 // Update the ApiFeedback interface to handle both structures
 interface ApiFeedback {
@@ -85,6 +86,7 @@ const Feedback = () => {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("sessionId");
   const { toast } = useToast();
+  const { resetWorkflow } = useWorkflow();
 
   const [feedback, setFeedback] = useState<FormattedFeedback>(INITIAL_FEEDBACK);
   const [loading, setLoading] = useState(true);
@@ -452,8 +454,9 @@ ${feedback.overallFeedback}
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Retry the interview
+  // Retry the interview - reset workflow state and navigate to start
   const handleRetry = () => {
+    resetWorkflow();
     router.push("/Workflow");
   };
 
