@@ -440,9 +440,14 @@ class SupabaseService:
             if isinstance(file_url, dict):
                 if file_url.get("error"):
                     return file_url
-                file_url = file_url.get("publicUrl")
+                public_url = file_url.get("publicUrl") or file_url.get("public_url")
+            else:
+                public_url = file_url
 
-            return file_url
+            if not public_url:
+                return {"error": {"message": "Failed to retrieve uploaded file URL"}}
+
+            return {"publicUrl": public_url}
         except Exception as e:
             return {"error": {"message": str(e)}}
     

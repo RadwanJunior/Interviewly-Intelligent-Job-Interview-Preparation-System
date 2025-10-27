@@ -6,7 +6,8 @@ import os
 import json
 
 # Initialize the Gemini client with API key from environment variables
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+_gemini_api_key = os.getenv("GEMINI_API_KEY")
+client = genai.Client(api_key=_gemini_api_key) if _gemini_api_key else None
 
 # Define the model to use for generating interview questions. In this case the gemini-2.0-flash model.
 # This model is optimized for generating high speed, high quality, cost effective text completions.
@@ -69,6 +70,10 @@ class InterviewService:
         #     model="gemini-2.0-flash", contents=prompt
         # )
 
+        if client is None:
+            # Graceful fallback when no API key is configured (eg, CI tests)
+            return []
+
         try:
           # Generate questions using gemini API
           # The model will return a JSON array of questions as a string
@@ -95,4 +100,3 @@ class InterviewService:
           # Log the error and return an empty list if anything goes wrong
           print("Error generating questions:", str(e))
           return []
-
