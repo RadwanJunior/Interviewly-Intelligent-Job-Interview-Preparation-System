@@ -11,7 +11,33 @@ import os
 from typing import List, Dict
 from fastapi import UploadFile, HTTPException
 import io
-from google.api_core.exceptions import GoogleAPIError, BadRequest, Unauthorized, Forbidden, ClientError
+# google.api_core isn't installed in CI by default; fall back to simple stubs when unavailable.
+try:
+    from google.api_core.exceptions import (
+        GoogleAPIError,
+        BadRequest,
+        Unauthorized,
+        Forbidden,
+        ClientError,
+    )
+except ModuleNotFoundError:  # pragma: no cover - exercised only in minimal CI envs
+    class _GoogleApiCoreFallback(Exception):
+        """Fallback exception base when google-api-core isn't installed."""
+
+    class GoogleAPIError(_GoogleApiCoreFallback):
+        pass
+
+    class BadRequest(_GoogleApiCoreFallback):
+        pass
+
+    class Unauthorized(_GoogleApiCoreFallback):
+        pass
+
+    class Forbidden(_GoogleApiCoreFallback):
+        pass
+
+    class ClientError(_GoogleApiCoreFallback):
+        pass
 import traceback
 import time
 import re
@@ -20,7 +46,13 @@ from datetime import datetime, timezone
 
 from app.services.supabase_service import supabase_service
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+_gemini_api_key = os.getenv("GEMINI_API_KEY")
+client = None
+if _gemini_api_key:
+    try:
+        client = genai.Client(api_key=_gemini_api_key)
+    except Exception as exc:  # pragma: no cover - logged for operator visibility
+        print(f"Warning: unable to initialize Gemini client ({exc}).")
 MODEL = "gemini-2.0-flash"
 
 PROMPT_TEMPLATE = """
