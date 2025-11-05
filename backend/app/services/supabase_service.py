@@ -1,4 +1,5 @@
 # Standard library imports
+import asyncio
 import os
 import time
 import logging
@@ -418,44 +419,67 @@ class SupabaseService:
         except Exception as e:
             return {"error": {"message": str(e)}}
     
-    async def upload_recording_file(self, user_id: str, file_path: str, bucket_name: str = "recordings", interview_id: str = None):
-        """Uploads a file to Supabase Storage."""
+    async def upload_recording_file(
+        self,
+        user_id: str,
+        interview_id: str,
+        file_content: bytes,
+        file_extension: str,
+        bucket_name: str = "recordings"
+    ) -> Optional[str]:
+        """
+        Uploads audio file content to Supabase Storage and returns a secure, time-limited signed URL.
+
+        This method is designed for private buckets, ensuring that audio files are not publicly accessible.
+        It handles the entire process of creating a unique path, uploading, and generating a usable URL.
+
+        Args:
+            user_id: The ID of the user uploading the file.
+            interview_id: The ID of the interview session.
+            file_content: The raw bytes of the audio file.
+            file_extension: The extension of the file (e.g., "webm", "mp4").
+            bucket_name: The name of the Supabase storage bucket.
+
+        Returns:
+            A string containing the signed URL on success, or None on failure.
+        """
         try:
-            # Read the file from the path
-            with open(file_path, "rb") as f:
-                file_content = f.read()
-                
-            # Create a filename for storage
-            filename = os.path.basename(file_path)
-            storage_path = f"{user_id}/{interview_id}/{filename}"
+            # 1. Create a unique, deterministic file path in storage.
+            # This is cleaner than using temporary file names.
+            timestamp = int(time.time() * 1000)
+            storage_path = f"{user_id}/{interview_id}/{timestamp}.{file_extension}"
             
-            # Upload to Supabase storage
-            response = self.client.storage.from_(bucket_name).upload(
-                storage_path, 
-                file_content
+            logging.info(f"[Supabase] Uploading {len(file_content)} bytes to bucket '{bucket_name}' at path: {storage_path}")
+
+            # 2. Upload the file content.
+            # The `file_options={"upsert": "true"}` will overwrite if a file with the exact same millisecond timestamp exists.
+            self.client.storage.from_(bucket_name).upload(
+                path=storage_path,
+                file=file_content,
+                file_options={"upsert": "true"} # Use upsert to prevent errors on retries
             )
             
-            # Generate and return the public URL
-            if "error" not in response:
-                try:
-                    # Get public URL directly instead of relying on upload response
-                    file_url = self.client.storage.from_(bucket_name).get_public_url(storage_path)
-                    return file_url
-                except Exception as url_err:
-                    print(f"ERROR: Could not get public URL, trying signed URL: {url_err}")
-                    try:
-                        # Try signed URL as fallback
-                        signed_url = self.client.storage.from_(bucket_name).create_signed_url(
-                            storage_path, 
-                            60 * 60 * 24 # 24 hour expiry
-                        )
-                        return signed_url
-                    except Exception as signed_err:
-                        print(f"ERROR: Could not get signed URL either: {signed_err}")
-                        # Return upload response as last resort
-                        return response
+            # 3. Generate a signed URL. This is the secure way for private buckets.
+            # It creates a temporary URL that expires after one hour.
+            signed_url_response = self.client.storage.from_(bucket_name).create_signed_url(
+                path=storage_path,
+                expires_in=3600  # Expires in 1 hour
+            )
+
+            # 4. The Supabase client returns a dictionary. We must safely extract the URL string.
+            if not signed_url_response or 'signedURL' not in signed_url_response:
+                logging.error(f"[Supabase] Failed to create signed URL for {storage_path}. Response was empty or invalid.")
+                return None
+
+            file_url = signed_url_response['signedURL']
+            logging.info(f"[Supabase] Successfully generated signed URL for {storage_path}")
+            
+            return file_url
+
         except Exception as e:
-            return {"error": {"message": str(e)}}
+            # Log the full exception for detailed debugging.
+            logging.error(f"[Supabase] An exception occurred in upload_recording_file for interview {interview_id}: {str(e)}", exc_info=True)
+            return None
     
     async def get_interview_data(self, user_id: str, interview_id: str) -> dict:
         """
@@ -527,7 +551,7 @@ class SupabaseService:
         except Exception as e:
             return {"error": {"message": str(e)}}
     
-    def update_user_responses_processed(self, interview_id: str):
+    async def update_user_responses_processed(self, interview_id: str):
         """
         Updates all user responses for a specific interview to mark them as processed.
         """
@@ -574,7 +598,7 @@ class SupabaseService:
             print(f"Error getting feedback: {str(e)}")
             return {"error": str(e)}
 
-    def update_interview(self, interview_id: str, update_data: dict):
+    async def update_interview(self, interview_id: str, update_data: dict):
         """Update interview data"""
         try:
             response = self.client.table("interviews").update(update_data).eq("id", interview_id).execute()
@@ -692,51 +716,85 @@ class SupabaseService:
         except Exception:
             return ""
 
+    # async def upload_audio_to_storage(self, user_id: str, interview_id: str, audio_data: bytes, filename: str) -> str:
+    #     """
+    #     Uploads audio data to Supabase Storage and returns the URL.
+    #     """
+    #     try:
+    #         bucket_name = "recordings"
+    #         storage_path = f"{user_id}/{interview_id}/{filename}"
+            
+    #         # Upload the audio data
+    #         logging.info(f"Uploading {len(audio_data)} bytes to {storage_path}")
+    #         upload_response = self.client.storage.from_(bucket_name).upload(
+    #             storage_path,
+    #             audio_data,
+    #             file_options={"upsert": True} 
+    #         )
+            
+    #         # Check for error in response
+    #         if isinstance(upload_response, dict) and upload_response.get("error"):
+    #             logging.error(f"Upload error: {upload_response.get('error')}")
+    #             return None
+                
+    #         # Generate the public URL directly (don't try to extract from response)
+    #         try:
+    #             # For public buckets, get the public URL
+    #             public_url = self.client.storage.from_(bucket_name).get_public_url(storage_path)
+    #             logging.info(f"Generated public URL: {public_url}")
+    #             return public_url
+    #         except Exception as e:
+    #             logging.error(f"Error generating public URL: {str(e)}")
+                
+    #             # Try signed URL as backup
+    #             try:
+    #                 signed_url = self.client.storage.from_(bucket_name).create_signed_url(
+    #                     storage_path,
+    #                     3600  # 1 hour expiry
+    #                 )
+    #                 logging.info(f"Generated signed URL as fallback")
+    #                 return signed_url
+    #             except Exception as sign_err:
+    #                 logging.error(f"Error generating signed URL: {str(sign_err)}")
+                    
+    #         return None
+    #     except Exception as e:
+    #         logging.error(f"Error uploading audio to storage: {str(e)}")
+    #         return None
     async def upload_audio_to_storage(self, user_id: str, interview_id: str, audio_data: bytes, filename: str) -> str:
         """
-        Uploads audio data to Supabase Storage and returns the URL.
+        Uploads audio data to Supabase Storage with retry logic and returns the URL.
         """
-        try:
-            bucket_name = "recordings"
-            storage_path = f"{user_id}/{interview_id}/{filename}"
-            
-            # Upload the audio data
-            logging.info(f"Uploading {len(audio_data)} bytes to {storage_path}")
-            upload_response = self.client.storage.from_(bucket_name).upload(
-                storage_path,
-                audio_data
-            )
-            
-            # Check for error in response
-            if isinstance(upload_response, dict) and upload_response.get("error"):
-                logging.error(f"Upload error: {upload_response.get('error')}")
-                return None
-                
-            # Generate the public URL directly (don't try to extract from response)
+        bucket_name = "recordings"
+        storage_path = f"{user_id}/{interview_id}/{filename}"
+        max_retries = 3
+        
+        for attempt in range(max_retries):
             try:
-                # For public buckets, get the public URL
+                logging.info(f"Uploading {len(audio_data)} bytes to {storage_path} (Attempt {attempt + 1}/{max_retries})")
+                
+                # Use upsert=True to prevent "Duplicate" errors on retries
+                self.client.storage.from_(bucket_name).upload(
+                    path=storage_path,
+                    file=audio_data,
+                    file_options={"upsert": "true"} 
+                )
+                
+                # If upload succeeds, generate and return the URL
                 public_url = self.client.storage.from_(bucket_name).get_public_url(storage_path)
                 logging.info(f"Generated public URL: {public_url}")
                 return public_url
-            except Exception as e:
-                logging.error(f"Error generating public URL: {str(e)}")
                 
-                # Try signed URL as backup
-                try:
-                    signed_url = self.client.storage.from_(bucket_name).create_signed_url(
-                        storage_path,
-                        3600  # 1 hour expiry
-                    )
-                    logging.info(f"Generated signed URL as fallback")
-                    return signed_url
-                except Exception as sign_err:
-                    logging.error(f"Error generating signed URL: {str(sign_err)}")
-                    
-            return None
-        except Exception as e:
-            logging.error(f"Error uploading audio to storage: {str(e)}")
-            return None
-
+            except Exception as e:
+                logging.error(f"Attempt {attempt + 1} failed for {storage_path}: {str(e)}")
+                if attempt < max_retries - 1:
+                    # Exponential backoff: wait 1s, 2s before retrying
+                    wait_time = 2 ** attempt
+                    logging.info(f"Retrying in {wait_time} second(s)...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    logging.error(f"All {max_retries} upload attempts failed for {storage_path}.")
+                    return None # Return None after all retries fail```
     async def save_conversation_turn(self, turn_data: dict):
         """
         Saves a conversation turn to the database. Normalizes audio_url and includes user_id if present.

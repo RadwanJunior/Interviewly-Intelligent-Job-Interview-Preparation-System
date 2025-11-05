@@ -30,8 +30,7 @@ async def generate_questions_task(
     job_title: str,
     job_description: str,
     company_name: str,
-    location: str,
-    interview_type: str
+    location: str
 ):
     """
     Background task to generate questions after RAG enhancement completes.
@@ -40,75 +39,78 @@ async def generate_questions_task(
     try:
         logging.info(f"[Interview] Starting question generation task for interview {session_id}")
         
-        # Wait for RAG enhancement with timeout
+        # Wait for RAG enhancement with a 2-minute timeout
         rag_result = await rag_service.wait_for_enhancement(
             interview_id=session_id,
-            timeout=120  # 2 minute timeout
+            timeout=120
         )
         
-        # Get enhanced prompt if available
         enhanced_prompt = None
         if rag_result.get("status") == "success":
             enhanced_prompt = rag_result.get("enhanced_prompt")
-            logging.info(f"[Interview] Using enhanced prompt for interview {session_id}")
+            logging.info(f"[Interview] RAG enhancement successful. Using enhanced prompt for interview {session_id}")
         else:
             logging.warning(
-                f"[Interview] RAG enhancement did not complete successfully: {rag_result.get('status')}. "
-                f"Falling back to basic questions."
+                f"[Interview] RAG enhancement failed or timed out: {rag_result.get('status')}. "
+                f"Falling back to standard questions."
             )
-            # Update status to processing while generating questions
             await supabase_service.update_interview_status(session_id, "processing")
 
-        
-        # Generate questions with or without enhanced prompt
+        # Generate questions using the interview service
         questions_list = interview_service.generate_questions(
             resume_text, job_title, job_description, company_name, location,
             enhanced_prompt=enhanced_prompt
         )
         
         if not questions_list:
-            logging.error(f"[Interview] Failed to generate questions for interview {session_id}")
+            logging.error(f"[Interview] Failed to generate any questions for interview {session_id}")
             await supabase_service.update_interview_status(session_id, "failed")
             return
         
-        # Store questions
-        question_records = []
-        for idx, q in enumerate(questions_list, start=1):
-            question_text = q.get("question")
-            if question_text:
-                question_records.append({
-                    "interview_id": session_id,
-                    "question": question_text,
-                    "order": idx
-                })
+        # Prepare question records for batch insertion
+        question_records = [
+            {
+                "interview_id": session_id,
+                "question": q.get("question"),
+                "order": idx
+            }
+            for idx, q in enumerate(questions_list, start=1)
+            if q.get("question")
+        ]
         
         if not question_records:
-            logging.error(f"[Interview] No valid questions generated for interview {session_id}")
+            logging.error(f"[Interview] No valid questions could be formatted for interview {session_id}")
             await supabase_service.update_interview_status(session_id, "failed")
             return
         
-        # Insert questions
+        # 1. Insert questions into the 'interview_questions' table
         question_insert_response = supabase_service.insert_interview_questions(question_records)
         if "error" in question_insert_response or not question_insert_response.data:
-            logging.error(f"[Interview] Failed to insert questions: {question_insert_response}")
+            logging.error(f"[Interview] Failed to insert questions into DB: {question_insert_response.get('error')}")
             await supabase_service.update_interview_status(session_id, "failed")
             return
         
-        # Use the async method to update status to ready - THIS IS THE KEY FIX
-        status_update_result = await supabase_service.update_interview_status(session_id, "ready")
+        # *** THIS IS THE CRITICAL FIX ***
+        # 2. Extract the new question IDs from the response
+        question_ids = [record["id"] for record in question_insert_response.data]
         
-        if not status_update_result.get("success"):
-            logging.error(f"[Interview] Failed to update interview status to ready: {status_update_result}")
+        # 3. Link these question IDs back to the main 'interviews' table record
+        update_response = supabase_service.update_interview_session_questions(session_id, question_ids)
+        if "error" in update_response:
+            logging.error(f"[Interview] CRITICAL: Failed to link questions to interview session {session_id}: {update_response.get('error')}")
             await supabase_service.update_interview_status(session_id, "failed")
             return
+            
+        # 4. Finally, mark the interview as ready for the user
+        await supabase_service.update_interview_status(session_id, "ready")
         
-        logging.info(f"[Interview] Successfully generated {len(question_records)} questions for interview {session_id} and updated status to ready")
+        logging.info(f"[Interview] Successfully generated and linked {len(question_records)} questions for interview {session_id}.")
         
     except google_exceptions.ResourceExhausted as e:
-        logging.error(f"[Interview] Quota exceeded during question generation for {session_id}: {str(e)}")
+        logging.error(f"[Interview] Quota exceeded for {session_id}: {str(e)}")
         await supabase_service.update_interview_status(session_id, "quota_exceeded")
     except Exception as e:
-        logging.error(f"[Interview] Error in question generation task for {session_id}: {str(e)}")
+        logging.error(f"[Interview] Unhandled exception in generation task for {session_id}: {str(e)}", exc_info=True)
         await supabase_service.update_interview_status(session_id, "failed")
 
 
@@ -120,78 +122,85 @@ async def create_interview_session(
 ):
     """
     Creates an interview session and initiates RAG enhancement + question generation.
-    Returns immediately with interview session info - questions are generated in background.
-    Frontend should poll /interview/status/{session_id} to check when ready.
+    Returns immediately with interview session info.
     """
-    # Validation
-    if not current_user or not getattr(current_user, "id", None):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    user_id = current_user.id
+    try:
+        if not current_user or not getattr(current_user, "id", None):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        user_id = current_user.id
 
-    # Fetch resume and job data
-    resume_response = supabase_service.get_resume_table(user_id)
-    if "error" in resume_response or not resume_response.data:
-        raise HTTPException(status_code=404, detail="Resume not found")
-    resume_record = resume_response.data[0]
-    
-    job_response = supabase_service.get_job_description(request_data.job_description_id)
-    if "error" in job_response or not job_response.data:
-        raise HTTPException(status_code=404, detail="Job description not found")
-    job_record = job_response.data
+        # Fetch resume and job data
+        resume_response = supabase_service.get_resume_table(user_id)
+        if "error" in resume_response or not resume_response.data:
+            raise HTTPException(status_code=404, detail="Resume not found")
+        resume_record = resume_response.data[0]
+        
+        job_response = supabase_service.get_job_description(request_data.job_description_id)
+        if "error" in job_response or not job_response.data:
+            raise HTTPException(status_code=404, detail="Job description not found")
+        job_record = job_response.data
 
-    # Extract data
-    resume_text = getattr(resume_record, "extracted_text", None)
-    job_title = getattr(job_record, "title", None)
-    company_name = getattr(job_record, "company", None)
-    job_description = getattr(job_record, "description", None)
-    location = getattr(job_record, "location", None)
+        # Ownership validation
+        if job_record.get("user_id") != user_id or resume_record.get("user_id") != user_id:
+            raise HTTPException(status_code=403, detail="User does not have permission for the requested resume or job.")
 
-    # Create interview session with "enhancing" status
-    interview_session_response = supabase_service.create_interview_session(
-        user_id, 
-        resume_record["id"], 
-        request_data.job_description_id, 
-        [],  # Empty question list initially
-        request_data.type,  # Use the type from request instead of hardcoded
-        status=RAGStatus.ENHANCING.value
-    )
+        resume_text = resume_record.get("extracted_text", "No resume provided")
+        job_title = job_record.get("title", "Unknown Position")
+        company_name = job_record.get("company", "Unknown Company")
+        job_description = job_record.get("description", "No job description provided")
+        location = job_record.get("location", "")
 
-    
-    if "error" in interview_session_response or not interview_session_response.data:
-        raise HTTPException(status_code=500, detail="Failed to create interview session")
-    
-    interview_session = interview_session_response.data[0]
-    session_id = interview_session["id"]
-    
-    logging.info(f"[Interview] Created interview session {session_id} for user {user_id}")
-    logging.info(f"[Interview] Initiating RAG enhancement for interview {session_id} with these details: interview_type={request_data.type}, job_title={job_title}, company_name={company_name}, location={location}, job_description={job_description if job_description else 0}, resume_length={len(resume_text) if resume_text else 0}")
+        # Create interview session with "pending" status
+        interview_session_response = supabase_service.create_interview_session(
+            user_id=user_id, 
+            resume_id=resume_record["id"], 
+            job_description_id=request_data.job_description_id, 
+            questions=[],
+            ctype=request_data.type,
+            status="pending"
+        )
+        
+        if "error" in interview_session_response or not interview_session_response.data:
+            raise HTTPException(status_code=500, detail=f"Failed to create interview session: {interview_session_response.get('error')}")
+        
+        interview_session = interview_session_response.data[0]
+        session_id = interview_session["id"]
 
-    # Request RAG enhancement (non-blocking)
-    await rag_service.request_enhancement(
-        interview_id=session_id,
-        resume=resume_text,
-        job_description=job_description,
-        company=company_name,
-        job_title=job_title
-    )
-    
-    # Add background task to generate questions after RAG completes
-    background_tasks.add_task(
-        generate_questions_task,
-        session_id,
-        resume_text,
-        job_title,
-        job_description,
-        company_name,
-        location,
-        request_data.type  # Use the actual type from request instead of hardcoded "technical"
-    )
-    
-    # Return immediately - client will poll for status
-    return {
-        "session": interview_session,
-        "message": "Interview session created. Questions are being generated with enhanced context."
-    }
+        # Initiate RAG enhancement (non-blocking)
+        await rag_service.request_enhancement(
+            interview_id=session_id,
+            resume=resume_text,
+            job_description=job_description,
+            company=company_name,
+            job_title=job_title
+        )
+        
+        # Update status to "enhancing" to inform the user
+        await supabase_service.update_interview_status(session_id, "enhancing")
+        
+        # Schedule the background task to do the heavy lifting
+        background_tasks.add_task(
+            generate_questions_task,
+            session_id,
+            resume_text,
+            job_title,
+            job_description,
+            company_name,
+            location
+        )
+        
+        logging.info(f"[Interview] Created session {session_id}. Handed off to background RAG and generation task.")
+        
+        return {
+            "session": interview_session,
+            "message": "Interview session created. Personalizing questions now."
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"[Interview] Error during /create endpoint: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An internal error occurred while creating the interview.")
 
 # get questions for a specific interview session
 @router.get("/questions/{session_id}")

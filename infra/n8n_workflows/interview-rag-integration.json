@@ -221,7 +221,7 @@
       "name": "Extract Content With Gemini1",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 3,
-      "position": [1168, 40],
+      "position": [1168, 48],
       "id": "81be5583-e8a3-4bc2-bed3-ef9f6852edc6",
       "retryOnFail": true,
       "maxTries": 2,

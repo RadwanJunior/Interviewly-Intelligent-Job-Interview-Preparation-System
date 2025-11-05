@@ -10,11 +10,14 @@ from fastapi.background import BackgroundTasks
 import wave
 import io
 from websockets.exceptions import ConnectionClosed
+from app.services.conversation_service import ConversationService
 
 # --- LOGGING AND CONSTANTS (UNCHANGED) ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 router = APIRouter()
+conversation_service = ConversationService(supabase_service)
+
 MODEL_NAME = "gemini-2.5-flash-native-audio-preview-09-2025"  # New native audio model
 SYSTEM_PROMPT_TEMPLATE = """
 You are an expert technical interviewer named 'Alex'. You are conducting a professional job interview for a technical role. Treat this like a real interview at a top company.
@@ -47,7 +50,7 @@ Job Description:
 Remember to remain professional but persistent. Your job is to thoroughly assess the candidate's qualifications and ensure they provide substantive answers with specific examples.
 """
 
-# --- CONVERSATION TURN & DB HELPERS (UNCHANGED) ---
+# --- CONVERSATION TURN & DB HELPERS ---
 class ConversationTurn:
     def __init__(self, speaker: str):
         self.speaker = speaker
@@ -64,20 +67,6 @@ async def process_and_save_turn(turn: ConversationTurn, interview_id: str, turn_
             return
             
         logging.info(f"[{interview_id}] Processing turn {turn_index} for {turn.speaker} with {len(turn.audio_chunks) if turn.audio_chunks else 0} audio chunks")
-        
-        # Import the service here to avoid circular imports
-        try:
-            from app.services.conversation_service import ConversationService
-            logging.info(f"[{interview_id}] Successfully imported ConversationService")
-        except ImportError as imp_err:
-            logging.error(f"[{interview_id}] Failed to import ConversationService: {imp_err}", exc_info=True)
-            # Create a basic fallback implementation if import fails
-            class FallbackService:
-                @staticmethod
-                async def process_turn_audio(*args, **kwargs):
-                    logging.error(f"[{interview_id}] Using fallback service - original service import failed")
-                    return {"status": "error", "reason": "service_import_failed"}
-            ConversationService = FallbackService
         
         # Verify we have something to save (either audio OR text)
         total_audio_size = sum(len(chunk) for chunk in turn.audio_chunks) if turn.audio_chunks else 0
@@ -97,7 +86,7 @@ async def process_and_save_turn(turn: ConversationTurn, interview_id: str, turn_
         
         # Use our service
         logging.info(f"[{interview_id}] Calling ConversationService.process_turn_audio for turn {turn_index}")
-        result = await ConversationService.process_turn_audio(
+        result = await conversation_service.process_turn_audio(
             turn_data=turn_data,
             interview_id=interview_id,
             user_id=user_id,
@@ -206,7 +195,7 @@ async def client_to_gemini_task(websocket: WebSocket, session: genai.live.AsyncS
                             logging.info(f"[{interview_id}] Created new AI turn {turn_index_ref['value']} for next response")
     
                         try:
-                            await session.send_realtime_input(audioStreamEnd=True)
+                            await session.send_realtime_input(audio_stream_end=True)
                         except Exception as end_err:
                             logging.error(f"[{interview_id}] Error sending audio_stream_end: {end_err}", exc_info=True)
 
@@ -217,6 +206,71 @@ async def client_to_gemini_task(websocket: WebSocket, session: genai.live.AsyncS
     except Exception as e:
         logging.error(f"[{interview_id}] Error in client-to-gemini task: {e}", exc_info=True)
 
+# async def client_to_gemini_task(websocket: WebSocket, session: genai.live.AsyncSession, interview_id: str, conversation_turns: list, background_tasks: BackgroundTasks, user_id: str, turn_index_ref: dict):
+#     """
+#     Handles streaming user audio to Gemini and saving the completed user turn.
+#     This version uses the original background task logic.
+#     """
+#     logging.info(f"[{interview_id}] Starting client-to-gemini task.")
+#     try:
+#         while True:
+#             try:
+#                 event = await websocket.receive()
+
+#                 if 'bytes' in event and event['bytes'] is not None:
+#                     chunk = event['bytes']
+#                     if conversation_turns and conversation_turns[-1].speaker == "user":
+#                         conversation_turns[-1].audio_chunks.append(chunk)
+                    
+#                     try:
+#                         await session.send_realtime_input(
+#                             audio=types.Blob(data=chunk, mime_type="audio/pcm;rate=16000")
+#                         )
+#                     except Exception as send_err:
+#                         logging.error(f"[{interview_id}] Error sending audio to Gemini: {send_err}")
+
+#                 elif 'text' in event and event['text'] is not None:
+#                     message = json.loads(event['text'])
+#                     if message.get("type") == "USER_AUDIO_END":
+#                         logging.info(f"[{interview_id}] Received USER_AUDIO_END signal from client.")
+                        
+#                         if conversation_turns and conversation_turns[-1].speaker == "user":
+#                             user_turn = conversation_turns[-1]
+#                             if message.get("transcription"):
+#                                 user_turn.text = message.get("transcription")
+                            
+#                             # Using the original background task as requested
+#                             logging.info(f"[{interview_id}] Scheduling save for user turn {turn_index_ref['value']}.")
+#                             background_tasks.add_task(
+#                                 process_and_save_turn, 
+#                                 user_turn, 
+#                                 interview_id, 
+#                                 turn_index_ref['value'],
+#                                 user_id
+#                             )
+#                             setattr(user_turn, '_saved', True) # Optimistic marking
+                            
+#                             # Increment turn index and create placeholder for the AI's response
+#                             turn_index_ref['value'] += 1
+#                             conversation_turns.append(ConversationTurn("ai"))
+#                             logging.info(f"[{interview_id}] Created placeholder for AI turn {turn_index_ref['value']}.")
+    
+#                         try:
+#                             # FIX #1: Use the correct snake_case argument to prevent the TypeError.
+#                             await session.send_realtime_input(audio_stream_end=True)
+#                             logging.info(f"[{interview_id}] Successfully sent audio_stream_end=True signal to Gemini.")
+#                         except Exception as end_err:
+#                             logging.error(f"[{interview_id}] Error sending audio_stream_end signal: {end_err}", exc_info=True)
+
+#             except ConnectionClosed:
+#                 logging.warning(f"[{interview_id}] Client disconnected from client-to-gemini task.")
+#                 break
+
+#     except Exception as e:
+#         if "Cannot call \"receive\"" in str(e):
+#              logging.warning(f"[{interview_id}] Gracefully handling client disconnect in client_to_gemini task.")
+#         else:
+#              logging.error(f"[{interview_id}] Error in client-to-gemini task: {e}", exc_info=True)
 
 async def gemini_to_client_task(websocket: WebSocket, session: genai.live.AsyncSession, interview_id: str, background_tasks: BackgroundTasks, conversation_turns: list, user_id: str, turn_index_ref: dict):
     """Receives audio chunks from Gemini, converts them to WAV, and alternates between speakers."""
@@ -226,92 +280,94 @@ async def gemini_to_client_task(websocket: WebSocket, session: genai.live.AsyncS
         while True:
             try:
                 message = await session._receive()
+
+                # 🔍 ADD COMPREHENSIVE DEBUG LOGGING
+                debug_gemini_message(message, interview_id)
                 
-                # Add more detailed logging about the message
-                if message.server_content:
-                    logging.info(f"[{interview_id}] Server content received. Turn complete: {message.server_content.turn_complete}")
-                if message.text:
-                    logging.info(f"[{interview_id}] Text received: {message.text[:50]}...")
-                if message.data:
-                    logging.info(f"[{interview_id}] Received {len(message.data)} bytes of audio data")
+                # Extract text and audio from the proper locations
+                extracted_text = None
+                extracted_audio = None
                 
-                # Handle audio data
-                if message.data:
-                    # Create a WAV wrapper for the PCM data
-                    pcm_data = message.data
+                # Check server_content.model_turn.parts (where everything actually is)
+                if message.server_content and hasattr(message.server_content, 'model_turn') and message.server_content.model_turn:
+                    if hasattr(message.server_content.model_turn, 'parts'):
+                        for i, part in enumerate(message.server_content.model_turn.parts):
+                            # Extract text
+                            if hasattr(part, 'text') and part.text and not extracted_text:
+                                extracted_text = part.text
+                                logging.info(f"[{interview_id}] ✅ Found text in part {i}: {extracted_text[:50]}...")
+                            
+                            # ✅ FIX: Extract audio correctly and BREAK
+                            if hasattr(part, 'inline_data') and part.inline_data and hasattr(part.inline_data, 'data'):
+                                extracted_audio = part.inline_data.data
+                                logging.info(f"[{interview_id}] ✅ Found AI audio in part {i}: {len(extracted_audio)} bytes")
+                                break  # Take the first audio chunk and stop looking
+                
+                # Fallback: Check direct attributes (probably never works but keep for safety)
+                if not extracted_text and hasattr(message, 'text') and message.text:
+                    extracted_text = message.text
+
+                if not extracted_audio and hasattr(message, 'data') and message.data:
+                    extracted_audio = message.data
+                
+                # Handle extracted text
+                if extracted_text:
+                    if conversation_turns and conversation_turns[-1].speaker == "ai":
+                        conversation_turns[-1].text += extracted_text
+                        logging.info(f"[{interview_id}] Added text to AI turn: {extracted_text[:50]}...")
+                
+                # Handle extracted audio
+                if extracted_audio:
+                    # Create WAV wrapper
                     wav_buffer = io.BytesIO()
-                    
                     with wave.open(wav_buffer, 'wb') as wav_file:
-                        wav_file.setnchannels(1)  # Mono
-                        wav_file.setsampwidth(2)  # 16-bit
-                        wav_file.setframerate(24000)  # Gemini uses 24kHz
-                        wav_file.writeframes(pcm_data)
+                        wav_file.setnchannels(1)
+                        wav_file.setsampwidth(2)
+                        wav_file.setframerate(24000)
+                        wav_file.writeframes(extracted_audio)
                     
                     wav_buffer.seek(0)
                     wav_data = wav_buffer.read()
                     
-                    # Send WAV to client and store original PCM for saving
+                    # Send to client and store
                     await websocket.send_bytes(wav_data)
                     
-                    # Only store audio in the current turn if it's the AI speaking
                     if conversation_turns and conversation_turns[-1].speaker == "ai":
-                        conversation_turns[-1].audio_chunks.append(pcm_data)
-                        logging.info(f"[{interview_id}] Added {len(pcm_data)} bytes to AI audio chunks. Total chunks: {len(conversation_turns[-1].audio_chunks)}")
+                        conversation_turns[-1].audio_chunks.append(extracted_audio)
+                        logging.info(f"[{interview_id}] Added {len(extracted_audio)} bytes to AI audio chunks. Total chunks: {len(conversation_turns[-1].audio_chunks)}")
                     
                     logging.info(f"[{interview_id}] Sent {len(wav_data)} bytes of WAV audio to client.")
                 
-                # When AI turn is complete, first ensure any previous user turn is saved
+                # Handle turn completion
                 if message.server_content and message.server_content.turn_complete:
-                    # Check for any unsaved user turn first
-                    for i, turn in enumerate(conversation_turns):
-                        if turn.speaker == "user" and (turn.audio_chunks or turn.text) and not hasattr(turn, '_saved'):
-                            logging.info(f"[{interview_id}] Found unsaved user turn at index {i}, saving it now")
-                            try:
-                                await process_and_save_turn(turn, interview_id, i, user_id)
-                                # Mark as saved
-                                setattr(turn, '_saved', True)
-                            except Exception as user_save_err:
-                                logging.error(f"[{interview_id}] Error saving user turn: {user_save_err}", exc_info=True)
-        
-                    # Now proceed with handling the AI turn as normal
+                    logging.info(f"[{interview_id}] AI turn {turn_index_ref['value']} is complete")
+                    
                     ai_turn = conversation_turns[-1]
                     
-                    # Store text if available
-                    if message.text:
-                        ai_turn.text = message.text
-                        logging.info(f"[{interview_id}] Set AI turn text: {message.text[:50]}...")
+                    # Debug what we have before saving
+                    audio_count = len(ai_turn.audio_chunks) if ai_turn.audio_chunks else 0
+                    audio_bytes = sum(len(chunk) for chunk in ai_turn.audio_chunks) if ai_turn.audio_chunks else 0
+                    text_length = len(ai_turn.text) if ai_turn.text else 0
                     
-                    # Log audio content before saving
-                    if ai_turn.audio_chunks:
-                        total_audio_bytes = sum(len(chunk) for chunk in ai_turn.audio_chunks)
-                        logging.info(f"[{interview_id}] AI turn has {len(ai_turn.audio_chunks)} chunks totaling {total_audio_bytes} bytes")
-                    else:
-                        logging.warning(f"[{interview_id}] AI turn has NO audio chunks!")
+                    logging.info(f"[{interview_id}] Pre-save debug: audio_chunks={audio_count}, total_bytes={audio_bytes}, text_length={text_length}")
                     
-                    # Force direct execution rather than background task for debugging
-                    logging.info(f"[{interview_id}] Processing AI turn {turn_index_ref['value']}...")
+                    # Save the turn
                     try:
                         await process_and_save_turn(ai_turn, interview_id, turn_index_ref['value'], user_id)
                         logging.info(f"[{interview_id}] Successfully processed AI turn {turn_index_ref['value']}")
+                        setattr(ai_turn, '_saved', True)
                     except Exception as save_err:
-                        logging.error(f"[{interview_id}] Error directly processing AI turn: {save_err}", exc_info=True)
-                        # Fall back to background task
-                        background_tasks.add_task(
-                            process_and_save_turn, 
-                            ai_turn, 
-                            interview_id, 
-                            turn_index_ref['value'],
-                            user_id
-                        )
+                        logging.error(f"[{interview_id}] Error processing AI turn: {save_err}", exc_info=True)
                         
                     turn_index_ref['value'] += 1
-                    
-                    # Create a USER turn next
                     conversation_turns.append(ConversationTurn("user"))
                     logging.info(f"[{interview_id}] Ready for user turn {turn_index_ref['value']}.")
                     
-                    # Signal frontend that it's time for user to speak
-                    await websocket.send_json({"type": "AI_TURN_COMPLETE"})
+                    try:
+                        await websocket.send_json({"type": "AI_TURN_COMPLETE"})
+                    except (ConnectionClosed, RuntimeError):
+                        logging.warning(f"[{interview_id}] Could not send AI_TURN_COMPLETE; socket was already closed.")
+                        break
             
             except ConnectionClosed:
                 logging.warning(f"[{interview_id}] WebSocket connection closed in gemini_to_client_task")
@@ -320,6 +376,70 @@ async def gemini_to_client_task(websocket: WebSocket, session: genai.live.AsyncS
     except Exception as e:
         logging.error(f"[{interview_id}] Error in gemini_to_client_task: {e}", exc_info=True)
 
+
+
+# async def gemini_to_client_task(websocket: WebSocket, session: genai.live.AsyncSession, interview_id: str, background_tasks: BackgroundTasks, conversation_turns: list, user_id: str, turn_index_ref: dict):
+#     """
+#     Receives audio/text from Gemini, sends to client, and saves the completed AI turn.
+#     This version uses the original background task logic and removes the duplicate save attempt.
+#     """
+#     logging.info(f"[{interview_id}] Starting gemini-to-client task.")
+#     try:
+#         while True:
+#             try:
+#                 message = await session._receive()
+                
+#                 # Accumulate AI text and audio
+#                 if conversation_turns and conversation_turns[-1].speaker == "ai":
+#                     current_ai_turn = conversation_turns[-1]
+#                     if message.text:
+#                         current_ai_turn.text += message.text
+#                     if message.data:
+#                         pcm_data = message.data
+#                         wav_buffer = io.BytesIO()
+#                         with wave.open(wav_buffer, 'wb') as wf:
+#                             wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(24000)
+#                             wf.writeframes(pcm_data)
+#                         wav_buffer.seek(0)
+#                         await websocket.send_bytes(wav_buffer.read())
+#                         current_ai_turn.audio_chunks.append(pcm_data)
+                
+#                 if message.server_content and message.server_content.turn_complete:
+#                     logging.info(f"[{interview_id}] AI turn is complete.")
+                    
+#                     # FIX #2: The loop that caused duplicate saves has been completely removed.
+                    
+#                     # Proceed with saving ONLY the current AI turn.
+#                     if conversation_turns and conversation_turns[-1].speaker == "ai":
+#                         ai_turn = conversation_turns[-1]
+                        
+#                         # Using the original background task as requested
+#                         logging.info(f"[{interview_id}] Scheduling save for AI turn {turn_index_ref['value']}.")
+#                         background_tasks.add_task(
+#                             process_and_save_turn, 
+#                             ai_turn, 
+#                             interview_id, 
+#                             turn_index_ref['value'],
+#                             user_id
+#                         )
+#                         setattr(ai_turn, '_saved', True) # Optimistic marking
+                        
+#                         # Increment turn index and create placeholder for the next user turn
+#                         turn_index_ref['value'] += 1
+#                         conversation_turns.append(ConversationTurn("user"))
+#                         logging.info(f"[{interview_id}] Created placeholder for user turn {turn_index_ref['value']}.")
+                        
+#                         try:
+#                             await websocket.send_json({"type": "AI_TURN_COMPLETE"})
+#                         except (ConnectionClosed, RuntimeError):
+#                             break
+            
+#             except ConnectionClosed:
+#                 logging.warning(f"[{interview_id}] WebSocket connection closed in gemini_to_client_task.")
+#                 break
+
+#     except Exception as e:
+#         logging.error(f"[{interview_id}] Error in gemini_to_client_task: {e}", exc_info=True)
 
 @router.websocket("/ws/{interview_id}")
 async def websocket_endpoint(
@@ -383,10 +503,10 @@ Job Description:
             "response_modalities": ["AUDIO"],
             "system_instruction": { "parts": [{"text": system_instruction_text}] }
         }   
-        
+        config = types.LiveConnectConfig.model_validate(gemini_config)
         logging.info(f"[{interview_id}] Connecting to Gemini Live API.")
-        
-        async with client.aio.live.connect(model=MODEL_NAME, config=gemini_config) as gemini_session:
+
+        async with client.aio.live.connect(model=MODEL_NAME, config=config) as gemini_session:
             logging.info(f"[{interview_id}] Gemini connection successful.")
             
             # Initialize with the first AI turn
@@ -456,3 +576,68 @@ async def keep_alive_websocket(websocket: WebSocket, interview_id: str):
                 break
     except asyncio.CancelledError:
         logging.debug(f"[{interview_id}] Keep-alive task cancelled")
+
+def debug_gemini_message(message, interview_id: str):
+    """Comprehensive debugging of Gemini message structure"""
+    logging.info(f"[{interview_id}] === GEMINI MESSAGE DEBUG ===")
+    
+    # Top-level attributes
+    logging.info(f"[{interview_id}] message type: {type(message)}")
+    logging.info(f"[{interview_id}] setup_complete: {message.setup_complete}")
+    logging.info(f"[{interview_id}] tool_call: {message.tool_call}")
+    logging.info(f"[{interview_id}] usage_metadata: {message.usage_metadata}")
+    
+    # Check for text (this will show us if text exists anywhere)
+    if hasattr(message, 'text') and message.text:
+        logging.info(f"[{interview_id}] Direct text: '{message.text[:100]}...'")
+    else:
+        logging.info(f"[{interview_id}] Direct text: None")
+    
+    # Check for data (audio)
+    if hasattr(message, 'data') and message.data:
+        logging.info(f"[{interview_id}] Direct data: {len(message.data)} bytes")
+    else:
+        logging.info(f"[{interview_id}] Direct data: None")
+    
+    # Server content analysis
+    if message.server_content:
+        sc = message.server_content
+        logging.info(f"[{interview_id}] server_content type: {type(sc)}")
+        logging.info(f"[{interview_id}] turn_complete: {sc.turn_complete}")
+        logging.info(f"[{interview_id}] generation_complete: {getattr(sc, 'generation_complete', 'N/A')}")
+        
+        # Model turn analysis
+        if hasattr(sc, 'model_turn') and sc.model_turn:
+            mt = sc.model_turn
+            logging.info(f"[{interview_id}] model_turn type: {type(mt)}")
+            
+            if hasattr(mt, 'parts') and mt.parts:
+                logging.info(f"[{interview_id}] model_turn has {len(mt.parts)} parts")
+                
+                for i, part in enumerate(mt.parts):
+                    logging.info(f"[{interview_id}] Part {i} type: {type(part)}")
+                    
+                    # Check for text in parts
+                    if hasattr(part, 'text') and part.text:
+                        logging.info(f"[{interview_id}] Part {i} text: '{part.text[:100]}...'")
+                    
+                    # Check for inline_data (audio)
+                    if hasattr(part, 'inline_data') and part.inline_data:
+                        blob = part.inline_data
+                        logging.info(f"[{interview_id}] Part {i} inline_data: {len(blob.data)} bytes, mime: {blob.mime_type}")
+                    
+                    # List all attributes of the part
+                    part_attrs = [attr for attr in dir(part) if not attr.startswith('_')]
+                    logging.info(f"[{interview_id}] Part {i} attributes: {part_attrs}")
+            else:
+                logging.info(f"[{interview_id}] model_turn has no parts")
+        else:
+            logging.info(f"[{interview_id}] No model_turn in server_content")
+    else:
+        logging.info(f"[{interview_id}] No server_content")
+    
+    # List all top-level attributes
+    msg_attrs = [attr for attr in dir(message) if not attr.startswith('_')]
+    logging.info(f"[{interview_id}] Message attributes: {msg_attrs}")
+    
+    logging.info(f"[{interview_id}] === END DEBUG ===")

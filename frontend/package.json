@@ -13,8 +13,6 @@
     "@react-three/drei": "^10.4.4",
     "@react-three/fiber": "^9.2.0",
     "@ricky0123/vad-web": "^0.0.24",
-    "@supabase/auth-helpers-react": "^0.5.0",
-    "@supabase/supabase-js": "^2.49.1",
     "autoprefixer": "^10.4.20",
     "axios": "^1.8.2",
     "class-variance-authority": "^0.7.1",

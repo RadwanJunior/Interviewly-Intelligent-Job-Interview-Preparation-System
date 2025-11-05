@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Request, Depends
-from app.services.supabase_service import SupabaseService
-from app.services.feedback_live_service import FeedbackLiveService, feedback_status
+from app.services.supabase_service import supabase_service
+from app.services.feedback_live_service import feedback_live_service, feedback_status
 import logging
 
 router = APIRouter()
@@ -14,7 +14,7 @@ async def trigger_live_feedback_generation(
     """ Triggers feedback generation for a COMPLETED LIVE interview. """
     try:
         # Authenticate the user
-        user = SupabaseService.get_current_user(request)
+        user = supabase_service.get_current_user(request)
         if not user or "error" in user:
             raise HTTPException(status_code=401, detail="Authentication required")
             
@@ -28,7 +28,7 @@ async def trigger_live_feedback_generation(
             }
             
         # Check if feedback already exists
-        existing_feedback = SupabaseService.get_feedback(interview_id)
+        existing_feedback = supabase_service.get_feedback(interview_id)
         if existing_feedback:
             return {
                 "status": "exists",
@@ -40,7 +40,7 @@ async def trigger_live_feedback_generation(
         
         # Start the background task
         background_tasks.add_task(
-            FeedbackLiveService.generate_live_feedback,
+            feedback_live_service.generate_live_feedback,
             interview_id=interview_id,
             user_id=user_id
         )
@@ -64,7 +64,7 @@ async def check_live_feedback_status(
     """Check the status of live feedback generation."""
     try:
         # Authenticate the user
-        user = SupabaseService.get_current_user(request)
+        user = supabase_service.get_current_user(request)
         if not user or "error" in user:
             raise HTTPException(status_code=401, detail="Authentication required")
             
@@ -73,7 +73,7 @@ async def check_live_feedback_status(
             return feedback_status[interview_id]
             
         # If not in memory, check if feedback exists in database
-        feedback = SupabaseService.get_feedback(interview_id)
+        feedback = supabase_service.get_feedback(interview_id)
         if feedback:
             return {
                 "status": "completed",
@@ -98,7 +98,7 @@ async def get_live_feedback(
     """Get generated live feedback for an interview."""
     try:
         # Authenticate the user
-        user = SupabaseService.get_current_user(request)
+        user = supabase_service.get_current_user(request)
         if not user or "error" in user:
             raise HTTPException(status_code=401, detail="Authentication required")
             
@@ -118,7 +118,7 @@ async def get_live_feedback(
                 }
         
         # Try to fetch feedback from database
-        feedback = SupabaseService.get_feedback(interview_id)
+        feedback = supabase_service.get_feedback(interview_id)
         
         if not feedback:
             return {

@@ -88,7 +88,7 @@ async def generate_feedback_background(interview_id: str, user_id: str):
         # Call the service to generate feedback
         await feedback_service.generate_feedback(interview_id, user_id) 
         # Update user_responses to mark as processed
-        supabase_service.update_user_responses_processed(interview_id)
+        await supabase_service.update_user_responses_processed(interview_id)
 
         feedback_status[interview_id] = {
             "status": "completed",

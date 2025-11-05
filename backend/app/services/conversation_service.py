@@ -1,13 +1,11 @@
 import logging
-import io
-import wave
-from app.services.supabase_service import SupabaseService
-from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 class ConversationService:
-    @staticmethod
+    def __init__(self, supabase_service):
+        self.supabase_service = supabase_service
     async def process_turn_audio(
+        self,
         turn_data: Dict[str, Any],
         interview_id: str,
         user_id: str,
@@ -42,7 +40,7 @@ class ConversationService:
                 }
                 
                 try:
-                    result = await SupabaseService.save_conversation_turn(turn_record)
+                    result = await self.supabase_service.save_conversation_turn(turn_record)
                     if isinstance(result, dict) and result.get("error"):
                         return {"status": "error", "reason": "db_save_failed", "details": str(result.get("error"))}
                     logging.info(f"[{interview_id}] Successfully saved text-only turn {turn_index} for {speaker}")
@@ -92,7 +90,7 @@ class ConversationService:
                     
                     # Upload the audio file to storage and get URL
                     logging.info(f"[{interview_id}] Uploading audio for turn {turn_index}")
-                    audio_url = await SupabaseService.upload_audio_to_storage(
+                    audio_url = await self.supabase_service.upload_audio_to_storage(
                         user_id=user_id,
                         interview_id=interview_id,
                         audio_data=wav_data,
@@ -105,7 +103,7 @@ class ConversationService:
                         return {"status": "error", "reason": "upload_url_missing"}
                     
                     # Normalize before saving
-                    audio_url = SupabaseService.normalize_public_url(audio_url)
+                    audio_url = self.supabase_service.normalize_public_url(audio_url)
                     
                     if not audio_url:
                         logging.error(f"[{interview_id}] Failed to upload audio for turn {turn_index}")
@@ -127,7 +125,7 @@ class ConversationService:
                     
                     # Save to database
                     logging.info(f"[{interview_id}] Saving turn {turn_index} to database")
-                    result = await SupabaseService.save_conversation_turn(turn_record)
+                    result = await self.supabase_service.save_conversation_turn(turn_record)
                     
                     if isinstance(result, dict) and result.get("error"):
                         logging.error(f"[{interview_id}] Database save error: {result.get('error')}")
@@ -157,7 +155,7 @@ class ConversationService:
                                 "audio_duration_seconds": 0,
                                 "user_id": user_id
                             }
-                            await SupabaseService.save_conversation_turn(fallback_record)
+                            await self.supabase_service.save_conversation_turn(fallback_record)
                             return {"status": "partial_success", "reason": "audio_failed_text_saved"}
                         except Exception:
                             pass  # Already in exception handler, just continue to final error
