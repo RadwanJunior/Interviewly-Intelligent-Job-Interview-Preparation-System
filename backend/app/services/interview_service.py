@@ -105,3 +105,29 @@ class InterviewService:
             print("Error generating questions:", str(e))
             return []
 
+        try:
+          # Generate questions using gemini API
+          # The model will return a JSON array of questions as a string
+          response = client.models.generate_content(
+            model=MODEL,
+            contents=[{"role": "user", "parts": [{"text": final_prompt}]}],
+            # config={"max_tokens": 700, "top_p": 0.90, "temperature": 0.8},
+          )
+
+          # Extract text response from the first candidate
+          if response and response.candidates:
+            raw_text = response.candidates[0].content.parts[0].text
+            # Remove code block markers if present (sometimes Gemini wraps JSON in markdown)
+            if raw_text.startswith("```json"):
+              # Remove the opening code block marker
+              raw_text = raw_text[7:]
+            if raw_text.endswith("```"):
+              # Remove the closing code block marker
+              raw_text = raw_text[:-3]
+            # Parse the JSON string into a Python list of questions
+            questions = json.loads(raw_text)
+            return questions
+        except Exception as e:
+          # Log the error and return an empty list if anything goes wrong
+          print("Error generating questions:", str(e))
+          return []

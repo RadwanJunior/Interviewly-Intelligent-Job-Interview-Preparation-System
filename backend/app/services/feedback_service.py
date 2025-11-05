@@ -7,15 +7,56 @@ from google import genai
 from google.genai import types
 import json
 import os
+<<<<<<< HEAD
 from fastapi import UploadFile
 import io
+=======
+from typing import List, Dict
+from fastapi import UploadFile, HTTPException
+import io
+# google.api_core isn't installed in CI by default; fall back to simple stubs when unavailable.
+try:
+    from google.api_core.exceptions import (
+        GoogleAPIError,
+        BadRequest,
+        Unauthorized,
+        Forbidden,
+        ClientError,
+    )
+except ModuleNotFoundError:  # pragma: no cover - exercised only in minimal CI envs
+    class _GoogleApiCoreFallback(Exception):
+        """Fallback exception base when google-api-core isn't installed."""
+
+    class GoogleAPIError(_GoogleApiCoreFallback):
+        pass
+
+    class BadRequest(_GoogleApiCoreFallback):
+        pass
+
+    class Unauthorized(_GoogleApiCoreFallback):
+        pass
+
+    class Forbidden(_GoogleApiCoreFallback):
+        pass
+
+    class ClientError(_GoogleApiCoreFallback):
+        pass
+>>>>>>> 32d61ad6b592fe1179f83f19d2a6fba1c6b58eae
 import traceback
 import time
 import re
 import json5
 from datetime import datetime, timezone
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+from app.services.supabase_service import supabase_service
+
+_gemini_api_key = os.getenv("GEMINI_API_KEY")
+client = None
+if _gemini_api_key:
+    try:
+        client = genai.Client(api_key=_gemini_api_key)
+    except Exception as exc:  # pragma: no cover - logged for operator visibility
+        print(f"Warning: unable to initialize Gemini client ({exc}).")
 MODEL = "gemini-2.0-flash"
 
 PROMPT_TEMPLATE = """
@@ -324,10 +365,8 @@ class FeedbackService:
                 except Exception as e:
                     raise Exception(f"Failed to fetch audio file {gemini_file_id} from Gemini: {str(e)}")
 
-            if len(prompt_parts) == 1 and user_responses_data: # Only context prompt, but responses existed (all skipped)
-                 raise Exception("No valid audio responses could be prepared for Gemini.")
-            elif len(prompt_parts) == 1 and not user_responses_data: # Only context prompt, no responses
-                 raise Exception("No user responses found to generate feedback.")
+            if len(prompt_parts) == 1 and user_responses_data:  # Only context prompt, but responses existed (all skipped)
+                raise Exception("No valid audio responses could be prepared for Gemini.")
 
 
             prompt_parts.append("\nPlease provide the full analysis in the specified JSON format based on all preceding questions and audio responses.")

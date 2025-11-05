@@ -75,6 +75,8 @@ async def upload_audio(
                 "recording": recording_data
             }
             
+    except HTTPException as exc:
+        raise exc
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error uploading audio: {str(e)}")
@@ -136,6 +138,8 @@ async def check_feedback_status(interview_id: str, request: Request):
         
         return {"status": "not_started"}
         
+    except HTTPException as exc:
+        raise exc
     except Exception as e:
         print(f"DEBUG: Error in check_feedback_status: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error checking feedback status: {str(e)}")
@@ -181,6 +185,8 @@ async def get_feedback(interview_id: str, request: Request):
                 "feedback": feedback.get("feedback_data")
             }
             
+    except HTTPException as exc:
+        raise exc
     except Exception as e:
         print(f"DEBUG: Error in get_feedback: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error retrieving feedback: {str(e)}")
@@ -226,6 +232,8 @@ async def trigger_feedback_generation(
             "message": "Feedback generation started"
         }
         
+    except HTTPException as exc:
+        raise exc
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error triggering feedback generation: {str(e)}")
 
@@ -245,5 +253,7 @@ async def feedback_generation_test(interview_id: str, user_id: str):
             "feedback": feedback_result
         }
         
+    except HTTPException as exc:
+        raise exc
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error in feedback generation test: {str(e)}")

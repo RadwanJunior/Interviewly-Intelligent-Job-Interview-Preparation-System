@@ -16,7 +16,6 @@ class JobDescriptionRequest(BaseModel):
 """
 Job Description Router: Handles creation of job descriptions for users.
 """
-
 @router.post("/")
 async def create_job_description(
     request: JobDescriptionRequest,

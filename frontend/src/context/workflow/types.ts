@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+
+>>>>>>> 32d61ad6b592fe1179f83f19d2a6fba1c6b58eae
 /**
  * Represents a single stage in the workflow process.
  * @property {string} id - Unique identifier for the stage.
@@ -65,8 +69,11 @@ export type JobDetailsData = {
  * @property {(data: Partial<ResumeData>) => void} updateResumeData - Updates resume data.
  * @property {JobDetailsData} jobDetailsData - Job details data for the workflow.
  * @property {(data: Partial<JobDetailsData>) => void} updateJobDetailsData - Updates job details data.
+<<<<<<< HEAD
  * @property {string} interviewType - Type of interview (text or call).
  * @property {(type: "text" | "call") => void} setInterviewType - Sets the interview type.
+=======
+>>>>>>> 32d61ad6b592fe1179f83f19d2a6fba1c6b58eae
  */
 export type WorkflowContextType = {
   stages: WorkflowStage[];

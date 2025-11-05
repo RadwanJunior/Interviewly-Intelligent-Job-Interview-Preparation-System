@@ -26,6 +26,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
 
 # Initialize Supabase client
 supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Expiry time for signed URLs (30 days)
 expiry = 60 * 60 * 24 * 30  # 30 days in seconds
 
 
@@ -364,16 +365,25 @@ class SupabaseService:
     async def insert_user_response(self, response: dict) -> dict:
         """
         Inserts a new user response record into the 'user_responses' table.
+        Supports both text and audio responses.
         """
         try:
-            response = self.client.table("user_responses").insert({
+            # Prepare insert data and remove None values so supabase won't complain
+            insert_data = {
                 "interview_id": response.get("interview_id"),
                 "question_id": response.get("question_id"),
+                "user_id": response.get("user_id"),
+                "response_text": response.get("response_text"),
                 "audio_url": response.get("audio_url"),
                 "gemini_file_id": response.get("gemini_file_id"),
-                "processed": response.get("processed"),
-            }).execute()
-            return response
+                "processed": response.get("processed", False),
+            }
+            
+            # Remove None values so supabase won't complain
+            insert_data = {k: v for k, v in insert_data.items() if v is not None}
+
+            resp = self.client.table("user_responses").insert(insert_data).execute()
+            return resp
         except Exception as e:
             return {"error": {"message": str(e)}}
     
