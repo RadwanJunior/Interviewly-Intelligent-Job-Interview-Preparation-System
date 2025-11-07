@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-=======
-
->>>>>>> 32d61ad6b592fe1179f83f19d2a6fba1c6b58eae
 /**
  * Represents a single stage in the workflow process.
  * @property {string} id - Unique identifier for the stage.
@@ -18,7 +14,6 @@ export type WorkflowStage = {
   isActive: boolean;
 };
 
-
 /**
  * Represents the user's resume data in the workflow.
  * @property {string | undefined} fileName - Name of the uploaded resume file.
@@ -34,7 +29,6 @@ export type ResumeData = {
   hasExisting: boolean;
   resumeId: string | undefined;
 };
-
 
 /**
  * Represents job details data provided by the user.
@@ -56,7 +50,6 @@ export type JobDetailsData = {
   description: string;
 };
 
-
 /**
  * The context type for the workflow, including state and actions.
  * @property {WorkflowStage[]} stages - Array of workflow stages.
@@ -69,11 +62,8 @@ export type JobDetailsData = {
  * @property {(data: Partial<ResumeData>) => void} updateResumeData - Updates resume data.
  * @property {JobDetailsData} jobDetailsData - Job details data for the workflow.
  * @property {(data: Partial<JobDetailsData>) => void} updateJobDetailsData - Updates job details data.
-<<<<<<< HEAD
  * @property {string} interviewType - Type of interview (text or call).
  * @property {(type: "text" | "call") => void} setInterviewType - Sets the interview type.
-=======
->>>>>>> 32d61ad6b592fe1179f83f19d2a6fba1c6b58eae
  */
 export type WorkflowContextType = {
   stages: WorkflowStage[];

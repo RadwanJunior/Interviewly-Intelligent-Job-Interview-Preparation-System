@@ -7,41 +7,8 @@ from google import genai
 from google.genai import types
 import json
 import os
-<<<<<<< HEAD
 from fastapi import UploadFile
 import io
-=======
-from typing import List, Dict
-from fastapi import UploadFile, HTTPException
-import io
-# google.api_core isn't installed in CI by default; fall back to simple stubs when unavailable.
-try:
-    from google.api_core.exceptions import (
-        GoogleAPIError,
-        BadRequest,
-        Unauthorized,
-        Forbidden,
-        ClientError,
-    )
-except ModuleNotFoundError:  # pragma: no cover - exercised only in minimal CI envs
-    class _GoogleApiCoreFallback(Exception):
-        """Fallback exception base when google-api-core isn't installed."""
-
-    class GoogleAPIError(_GoogleApiCoreFallback):
-        pass
-
-    class BadRequest(_GoogleApiCoreFallback):
-        pass
-
-    class Unauthorized(_GoogleApiCoreFallback):
-        pass
-
-    class Forbidden(_GoogleApiCoreFallback):
-        pass
-
-    class ClientError(_GoogleApiCoreFallback):
-        pass
->>>>>>> 32d61ad6b592fe1179f83f19d2a6fba1c6b58eae
 import traceback
 import time
 import re

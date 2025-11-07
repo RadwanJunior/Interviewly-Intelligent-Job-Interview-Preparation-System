@@ -118,15 +118,7 @@ const Dashboard = () => {
   };
 
   const handleStartInterview = (type: "text" | "call") => {
-<<<<<<< HEAD
     router.push(`/Workflow?type=${type}`);
-=======
-    if (type === "text") {
-      router.push("/Workflow");
-    } else {
-      router.push("/Workflow");
-    }
->>>>>>> 32d61ad6b592fe1179f83f19d2a6fba1c6b58eae
   };
 
   const handleViewFeedback = (interviewId: string) => {
