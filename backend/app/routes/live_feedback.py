@@ -119,6 +119,14 @@ async def get_live_feedback(
         
         # Try to fetch feedback from database
         feedback = supabase_service.get_feedback(interview_id)
+
+        if isinstance(feedback, dict) and "error" in feedback:
+            error_msg = feedback["error"].get("message", "Unknown error")
+            logging.error(f"Error from supabase_service.get_feedback: {error_msg}")
+            return {
+                "status": "error",
+                "message": "Error generating feedback. Please try again later."
+        }
         
         if not feedback:
             return {
@@ -131,6 +139,12 @@ async def get_live_feedback(
             return {
                 "status": "success",
                 "feedback": feedback[0].get("feedback_data")
+            }
+        elif isinstance(feedback, dict) and "error" in feedback:
+            logging.error(f"Database error while retrieving feedback: {feedback['error'].get('message', repr(feedback['error']))}")
+            return {
+                "status": "error",
+                "message": "Failed to retrieve feedback."
             }
         else:
             return {
