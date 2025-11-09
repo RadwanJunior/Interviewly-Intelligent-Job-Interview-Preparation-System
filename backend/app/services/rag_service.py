@@ -103,7 +103,7 @@ class RAGService:
             await supabase_service.update_interview_status(interview_id, RAGStatus.FAILED.value)
             return {
                 "status": "error",
-                "message": str(e),
+                "message": "An error occurred while requesting enhancement",
                 "interview_id": interview_id
             }
     
@@ -138,7 +138,7 @@ class RAGService:
             logging.error(f"[RAG] Error getting enhancement status: {str(e)}")
             return {
                 "status": "error",
-                "message": str(e),
+                "message": "An error occurred while fetching status",
                 "interview_id": interview_id
             }
     

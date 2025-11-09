@@ -166,6 +166,13 @@ async def get_feedback(interview_id: str, request: Request):
         
         # Try to fetch feedback from Supabase
         feedback = supabase_service.get_feedback(interview_id)
+
+        if isinstance(feedback, dict) and "error" in feedback:
+            error_msg = feedback["error"].get("message", "Unknown error")
+            return {
+                "status": "error",
+                "message": "Error generating feedback. Please try again later."
+        }
         
         if not feedback:
             return {
@@ -178,6 +185,11 @@ async def get_feedback(interview_id: str, request: Request):
             return {
                 "status": "success",
                 "feedback": feedback[0].get("feedback_data")
+            } 
+        elif isinstance(feedback, dict) and "error" in feedback:
+            return {
+                "status": "error",
+                "message": "Failed to retrieve feedback."
             }
         else:
             return {
