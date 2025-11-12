@@ -1,0 +1,120 @@
+version: "3.9"
+
+services:
+  # -------------------------
+  # Redis for local dev only (Upstash used in production)
+  # -------------------------
+  redis:
+    image: redis:7
+    container_name: infra_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------
+  # Backend (FastAPI)
+  # -------------------------
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: backend_app
+    restart: on-failure
+    env_file:
+      - ../infra/env/dev.backend.env
+    volumes:
+      - ../backend:/app:cached
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+
+  # -------------------------
+  # Frontend (Next.js)
+  # -------------------------
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: frontend_app
+    restart: on-failure
+    env_file:
+      - ../infra/env/dev.frontend.env
+    volumes:
+      - ../frontend:/app:cached
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/_next/ || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+
+  # -------------------------
+  # n8n (workflow orchestrator)
+  # -------------------------
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: interviewly_n8n
+    restart: unless-stopped
+    env_file:
+      - ./env/dev.n8n.env
+    environment:
+      - N8N_HOST=n8n
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=interviewly
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://n8n:5678/
+      - EXECUTIONS_PROCESS=main
+      - GENERIC_TIMEZONE=UTC
+      # Use REDIS_URL from env file for Upstash connection
+    ports:
+      - "5678:5678"
+    volumes:
+      - ./n8n_data:/home/node/.n8n
+    depends_on:
+      - postgres
+      # Redis still needed for local dev
+      - redis
+    networks:
+      - app-network
+
+  # -------------------------
+  # Worker (optional) - runs background jobs (import your worker code)
+  # -------------------------
+  worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.worker
+    container_name: job_worker
+    restart: on-failure
+    env_file:
+      - ../infra/env/dev.backend.env
+    volumes:
+      - ../backend:/app:cached
+    depends_on:
+      - redis
+      - postgres
+
+volumes:
+  pgdata:
+  redisdata:
+  n8n_data:

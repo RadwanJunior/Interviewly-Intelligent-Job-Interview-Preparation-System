@@ -6,6 +6,7 @@
 
 "use client";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { WorkflowStage, WorkflowContextType } from "./types";
 import {
   initialStages,
@@ -22,12 +23,8 @@ export const useWorkflowState = (): WorkflowContextType => {
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
   const [resumeData, setResumeData] = useState(initialResumeData);
   const [jobDetailsData, setJobDetailsData] = useState(initialJobDetailsData);
-  // const [loaderState, setLoaderState] = useState({
-  //   isVisible: false,
-  //   progress: 0,
-  //   isComplete: false,
-  //   jobDescriptionId: "",
-  // });
+  // Add state for interview type
+  const [interviewType, setInterviewType] = useState<"text" | "call">("text");
 
   /**
    * Advances the workflow to the next stage.
@@ -142,9 +139,7 @@ export const useWorkflowState = (): WorkflowContextType => {
     updateResumeData,
     jobDetailsData,
     updateJobDetailsData,
-    // loaderState,
-    // showLoader,
-    // hideLoader,
-    // updateLoaderProgress,
+    interviewType, // Expose the type
+    setInterviewType, // Expose the setter
   };
 };

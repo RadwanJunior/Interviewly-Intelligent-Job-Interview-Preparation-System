@@ -90,7 +90,7 @@ async def generate_feedback_background(interview_id: str, user_id: str):
         # Call the service to generate feedback
         await feedback_service.generate_feedback(interview_id, user_id) 
         # Update user_responses to mark as processed
-        supabase_service.update_user_responses_processed(interview_id)
+        await supabase_service.update_user_responses_processed(interview_id)
 
         feedback_status[interview_id] = {
             "status": "completed",
@@ -166,6 +166,13 @@ async def get_feedback(interview_id: str, request: Request):
         
         # Try to fetch feedback from Supabase
         feedback = supabase_service.get_feedback(interview_id)
+
+        if isinstance(feedback, dict) and "error" in feedback:
+            error_msg = feedback["error"].get("message", "Unknown error")
+            return {
+                "status": "error",
+                "message": "Error generating feedback. Please try again later."
+        }
         
         if not feedback:
             return {
@@ -178,6 +185,11 @@ async def get_feedback(interview_id: str, request: Request):
             return {
                 "status": "success",
                 "feedback": feedback[0].get("feedback_data")
+            } 
+        elif isinstance(feedback, dict) and "error" in feedback:
+            return {
+                "status": "error",
+                "message": "Failed to retrieve feedback."
             }
         else:
             return {

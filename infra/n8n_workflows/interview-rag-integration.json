@@ -1,0 +1,631 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ Object.assign({}, $('Parse Request1').item.json, $json) }}\n",
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [272, -80],
+      "id": "2e67aade-b70b-4734-bee6-dbb7279feeda",
+      "name": "Re-add Interview Context1"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ Object.assign({}, $('Parse Request1').item.json, $json) }}\n",
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-400, 16],
+      "id": "584ebca2-031e-4abe-a0ff-567da8668179",
+      "name": "Re-add Context from DB"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ Object.assign({}, $('Parse Request1').item.json, $json) }}\n",
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [496, 112],
+      "id": "114b5baa-5840-4d24-8f12-dfeb62c1e787",
+      "name": "Re-add Interview Context"
+    },
+    {
+      "parameters": {
+        "channels": "interviewly:request-rag",
+        "options": {}
+      },
+      "name": "Redis Trigger1",
+      "type": "n8n-nodes-base.redisTrigger",
+      "typeVersion": 1,
+      "position": [-1744, 16],
+      "id": "9384c02b-78aa-4630-b34b-92409dd3af82",
+      "credentials": {
+        "redis": {
+          "id": "bWGrVbuj0Hi8Mhlb",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = JSON.parse($input.item.json.message || '{}');\n\n// Output the parsed data to continue the workflow\nreturn {\n  json: data\n};"
+      },
+      "name": "Parse Request1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [-1520, 16],
+      "id": "28ff10ef-af63-4e5f-b29b-350d95c47795"
+    },
+    {
+      "parameters": {
+        "jsCode": "const embeddingResponse = $input.item.json.embedding;\n\n// Extract just the values array from the embedding object\nconst embedding = embeddingResponse && embeddingResponse.values \n  ? embeddingResponse.values   // If it has a 'values' property, use that\n  : embeddingResponse;         // Otherwise use as is\n\nreturn {\n  json: {\n    ...$json,\n    embedding\n  }\n};"
+      },
+      "name": "Extract Embedding1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [-848, 16],
+      "id": "17b4a2d0-ba6d-48ee-9f3c-08753e4ec447"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://jdtuplcyczhtpljofwjg.supabase.co/rest/v1/rpc/match_context",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query_embedding",
+              "value": "={{ $json.embedding }}"
+            },
+            {
+              "name": "similarity_threshold",
+              "value": 0.7
+            },
+            {
+              "name": "match_count",
+              "value": 15
+            },
+            {
+              "name": "p_company",
+              "value": "={{ $json.company }}"
+            },
+            {
+              "name": "p_job_title",
+              "value": "={{ $json.job_title }}"
+            }
+          ]
+        },
+        "options": {
+          "redirect": {
+            "redirect": {}
+          },
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "name": "Search Vector DB1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [-624, 16],
+      "id": "a3d4edc8-19f5-4a30-bf3d-e1dcc9063bfb",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "zRDKpsdTHaXcFpaq",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// The DB results are now in the 'body' property because of the merge.\nconst results = $input.item.body || [];\nconst hasResults = results.length > 0;\nconst goodResults = results.filter(r => r.similarity > 0.8);\nconst hasQualityResults = goodResults.length >= 3;\n\nconst resultsByType = {};\nif (hasResults) {\n  results.forEach(item => {\n    const docType = item.doc_type || 'other';\n    if (!resultsByType[docType]) {\n      resultsByType[docType] = [];\n    }\n    resultsByType[docType].push(item);\n  });\n}\n\n// Now, we correctly merge the original data with the new evaluation.\nreturn {\n  json: {\n    ...$input.item.json, // Pass through all original data\n    searchResults: results,\n    resultsByType,\n    hasQualityResults\n  }\n};"
+      },
+      "name": "Evaluate Results1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [-176, 16],
+      "id": "ab2af8e9-bab3-40e4-af89-eca67c8cc317"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "{{ $json.hasQualityResults }}"
+            }
+          ]
+        }
+      },
+      "name": "Branch Based on Results1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [48, 16],
+      "id": "65422f11-b7a5-4530-b556-361ba01e942f"
+    },
+    {
+      "parameters": {
+        "url": "https://serpapi.com/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "serpApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "engine",
+              "value": "google"
+            },
+            {
+              "name": "q",
+              "value": "={{ $json.company && $json.job_title ? \n        `${$json.company} interview questions for ${$json.job_title}` : \n        'interview questions' }}"
+            },
+            {
+              "name": "num",
+              "value": "5"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Search SerpAPI1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [272, 112],
+      "id": "e333787f-815f-4e78-94dc-09c857026433",
+      "credentials": {
+        "serpApi": {
+          "id": "QGLoRswavOexgrGL",
+          "name": "SerpAPI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const incomingData = $input.item.json;\nconst results = incomingData.organic_results || [];\nconst webResults = results.filter(r => !r.link.includes('youtube.com'));\nconst urls = webResults.length > 0 ? webResults.map(r => r.link) : results.map(r => r.link);\n\nconst batchId = Date.now().toString();\n\nreturn {\n  json: {\n    ...incomingData, // Pass through all original data\n    urls: [...new Set(urls)].slice(0, 5),\n    urlCount: Math.min([...new Set(urls)].slice(0, 5).length, 5),\n    batchId\n  }\n};"
+      },
+      "name": "Extract URLs1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [720, 112],
+      "id": "48405803-74c1-4f9e-9760-1aba41aaf76b"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gemini-2.5-flash\",\n  \"contents\": [\n    {\n      \"role\": \"user\",\n      \"parts\": [\n        {\n          \"text\": \"URL: {{$json.url}}\\n\\nPlease analyze this page about {{$json.job_title || ''}} positions at {{$json.company || ''}} or similar companies.\\n\\nExtract the following information:\\n1. Interview questions specific to this role\\n2. Company culture insights\\n3. Required skills and qualifications\\n4. Interview process details\\n5. Tips from past interviewees\\n\\nFormat your response as a JSON array of objects with these properties:\\n- content: The extracted text\\n- doc_type: One of [\\\"interview_questions\\\", \\\"company_info\\\", \\\"role_requirements\\\", \\\"interview_process\\\", \\\"candidate_advice\\\"]\\n\\nOnly return valid JSON.  ensure that all special characters like newlines and double-quotes within the 'content' string value are properly JSON-escaped (e.g., \\\\n and \\\\\\\" )\"\n        }\n      ]\n    }\n  ],\n  \"system_instruction\": {\n    \"parts\": [\n      {\n        \"text\": \"You are a helpful assistant that extracts structured information from web content. Format your response as a JSON array of objects with these properties:\\n- content: The extracted text\\n- doc_type: One of [\\\"interview_questions\\\", \\\"company_info\\\", \\\"role_requirements\\\", \\\"interview_process\\\", \\\"candidate_advice\\\"]\\n\\nOnly return valid JSON. Crucially, ensure that all special characters like newlines and double-quotes within the 'content' string value are properly JSON-escaped (e.g., \\\\n and \\\\\\\" ).\"\n      }\n    ]\n  },\n  \"generation_config\": {\n    \"top_p\": 0.8,\n    \"top_k\": 40,\n    \"response_mime_type\": \"application/json\"\n  }\n}\n",
+        "options": {
+          "response": {
+            "response": {}
+          }
+        }
+      },
+      "name": "Extract Content With Gemini1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1168, 48],
+      "id": "81be5583-e8a3-4bc2-bed3-ef9f6852edc6",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "J2zPWzwsjjf1IbNn",
+          "name": "Google Gemini(PaLM) Api account MM"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// let extractedContent = [];\n// // The raw response from the Gemini HTTP node is in the 'body' property\n// const geminiResponse = $json;\n// const currentUrl = $input.item.json.url || 'unknown URL';\n\n// try {\n//   // 1. Safely access the text content from the Gemini response\n//   let jsonString = geminiResponse?.candidates?.[0]?.content?.parts?.[0]?.text;\n\n//   if (jsonString && typeof jsonString === 'string') {\n//     // 2. Clean the string: remove markdown wrappers and trim whitespace.\n//     // This makes it more robust against common LLM formatting habits.\n//     jsonString = jsonString.trim().replace(/^```json/, '').replace(/```$/, '').trim();\n\n//     // 3. Parse the cleaned string into a JavaScript object/array\n//     const parsed = JSON.parse(jsonString);\n\n//     // 4. Ensure the result is an array and add the source URL to each item\n//     if (Array.isArray(parsed)) {\n//       extractedContent = parsed.map(item => ({\n//         ...item,\n//         source_url: currentUrl\n//       }));\n//     } else if (parsed && typeof parsed === 'object') {\n//       // If Gemini returned a single object instead of an array, wrap it in an array\n//       extractedContent = [{ ...parsed, source_url: currentUrl }];\n//     }\n//   } else {\n//     console.log(\"Warning: Could not find the JSON text string in the Gemini response for URL:\", currentUrl);\n//   }\n// } catch (err) {\n//   // Log detailed errors for easier debugging in the future\n//   console.log(\"CRITICAL ERROR: Failed to parse Gemini response for URL:\", currentUrl);\n//   console.log(\"Error message:\", err.message);\n//   // Also log the raw text that failed to parse so you can see why\n//   console.log(\"Raw text that failed parsing:\", geminiResponse?.candidates?.[0]?.content?.parts?.[0]?.text);\n// }\n\n// // 5. Return a new, clean object containing ONLY the data the next nodes need.\n// // We keep the original context fields and add the new 'extractedContent' array.\n// return {\n//   json: {\n//     company: $input.item.json.company,\n//     job_title: $input.item.json.job_title,\n//     batchId: $input.item.json.batchId,\n//     interview_id: $input.item.json.interview_id,\n//     url: currentUrl,\n//     extractedContent: extractedContent\n//   }\n// };\n// This node runs once for each URL that was processed by Gemini.\nconst geminiResponse = $input.item.json; // This is the raw Gemini response\n\n// CRITICAL FIX: Get the original item from before the HTTP call.\n// n8n's item linking ensures we get the correct corresponding item that had our context.\nconst originalItem = $('Create URL Items').item.json;\n\n// Now we can safely get the URL and other context from the original data\nconst currentUrl = originalItem.url || 'unknown URL';\nlet extractedContent = [];\nlet aggregatedText = '';\n\ntry {\n  // The rest of this logic is the same, it correctly parses the Gemini response\n  const jsonString = geminiResponse?.candidates?.[0]?.content?.parts?.[0]?.text;\n\n  if (jsonString && typeof jsonString === 'string') {\n    const parsedData = JSON.parse(jsonString);\n    if (Array.isArray(parsedData)) {\n      extractedContent = parsedData;\n    }\n  } else {\n    console.log(`Warning: No content found for URL: ${currentUrl}`);\n  }\n} catch (error) {\n  console.error(`CRITICAL: Failed to parse Gemini JSON for URL: ${currentUrl}. Error: ${error.message}`);\n}\n\nif (extractedContent.length > 0) {\n  aggregatedText = extractedContent.map(chunk => {\n    const title = (chunk.doc_type || 'content').replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase());\n    return `--- ${title} ---\\n${chunk.content || ''}`;\n  }).join('\\n\\n');\n}\n\n// Build the final output by MERGING the context from 'originalItem'\n// with the new content we just processed.\nreturn {\n  json: {\n    // The spread operator brings in all the original context:\n    // company, job_title, resume, job_description, interview_id, etc.\n    ...originalItem,\n\n    // Now we add the new fields we just created\n    aggregated_content: aggregatedText,\n    extractedContent: extractedContent.map(item => ({...item, source_url: currentUrl }))\n  }\n};"
+      },
+      "name": "Process Content1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1616, 112],
+      "id": "c6bf1238-28d8-4957-8b3b-478017373f88"
+    },
+    {
+      "parameters": {
+        "operation": "publish",
+        "channel": "interviewly:prompt-ready",
+        "messageData": "==={{ JSON.stringify({ interview_id: $json.interview_id, enhanced_prompt: $json.enhanced_prompt, source: 'existing_data' }) }}\n"
+      },
+      "name": "Notify Enhanced Prompt (Existing)1",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [720, -80],
+      "id": "d2a41980-4aea-46d9-87ed-ee32be1db0f6",
+      "credentials": {
+        "redis": {
+          "id": "bWGrVbuj0Hi8Mhlb",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "publish",
+        "channel": "interviewly:prompt-ready",
+        "messageData": "=={{ JSON.stringify({ interview_id: $json.interview_id, enhanced_prompt: $json.enhanced_prompt, source: 'new_data' }) }}"
+      },
+      "id": "76064bfc-7953-45df-a77c-c47a0dba6d41",
+      "name": "Notify Enhanced Prompt (Redis)",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [2288, 16],
+      "credentials": {
+        "redis": {
+          "id": "bWGrVbuj0Hi8Mhlb",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// // Build doc_text for embedding per chunk (runs per item)\n// const content = ($json.content || '').trim();\n// const company = $json.company || '';\n// const jobTitle = $json.job_title || '';\n// const safeContent = content.length > 10000 ? content.slice(0, 10000) : content; // limit size\n// const doc_text = `Company: ${company}\\nJob Title: ${jobTitle}\\nContent: ${safeContent}`.trim();\n// return { json: { ...$json, doc_text } };\n// Build the final doc_text for embedding from the aggregated content.\n// Build the final doc_text for embedding from the aggregated content.\nconst item = $json;\nconst company = item.company || '';\nconst jobTitle = item.job_title || '';\nconst aggregatedContent = item.aggregated_content || '';\n\n// Ensure we don't send excessively large content to the embedding model.\nconst safeContent = aggregatedContent.length > 15000 ? aggregatedContent.slice(0, 15000) : aggregatedContent;\n\nconst doc_text = `Company: ${company}\\nJob Title: ${jobTitle}\\n\\nContent:\\n${safeContent}`.trim();\n\nreturn {\n  json: {\n    ...item,\n    doc_text: doc_text\n  }\n};"
+      },
+      "id": "3d056caf-4620-4c72-8b54-6c1d1d3d85e4",
+      "name": "Build Doc Text2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1840, 112]
+    },
+    {
+      "parameters": {
+        "jsCode": "// const items = $items.map(i => i.json);\n// const firstItem = items[0] || {}; // fallback\n// const basePrompt = `You are an AI interviewer for ${firstItem.company || ''} interviewing a candidate for ${firstItem.job_title || ''}.\\n\\nCandidate Resume:\\n${firstItem.resume || ''}\\n\\nJob Description:\\n${firstItem.job_description || ''}`;\n// let enhanced = basePrompt;\n\n// // Optional content from retrieved context\n// if (firstItem.companyInfo) enhanced += `\\n\\nCompany Info:\\n${firstItem.companyInfo}`;\n// if (firstItem.roleRequirements) enhanced += `\\n\\nRole Requirements:\\n${firstItem.roleRequirements}`;\n// if (firstItem.interviewQuestions) enhanced += `\\n\\nCommon Interview Questions:\\n${firstItem.interviewQuestions}`;\n// if (firstItem.interviewProcess) enhanced += `\\n\\nInterview Process:\\n${firstItem.interviewProcess}`;\n// if (firstItem.candidateAdvice) enhanced += `\\n\\nInterview Advice:\\n${firstItem.candidateAdvice}`;\n\n// enhanced += \"\\n\\nInstructions:\\n1. Ask challenging but fair questions that assess both technical skills and cultural fit.\\n2. Mix of technical, behavioral, and company-specific questions.\\n3. Ask follow-up questions to dive deeper into candidate responses.\\n4. Be professional but conversational in your interview style.\";\n\n// return { json: { enhanced_prompt: enhanced, interview_id: firstItem.interview_id } };\n// 1. Get all incoming items. $input.all() returns an array of n8n data objects.\nconst allItems = $input.all();\n\n// 2. Safely get the JSON data from the very first item in the array.\n// We use optional chaining (?.) and a fallback to an empty object {}\n// to prevent errors if for some reason no items arrive.\nconst firstItem = allItems[0]?.json || {};\n\n// 3. The rest of the logic is the same, as it correctly operates on the single 'firstItem' object.\nconst basePrompt = `You are an AI interviewer for ${firstItem.company || ''} interviewing a candidate for ${firstItem.job_title || ''}.\\n\\nCandidate Resume:\\n${firstItem.resume || ''}\\n\\nJob Description:\\n${firstItem.job_description || ''}`;\nlet enhanced = basePrompt;\n\n// Optional content from retrieved context\n// NOTE: This part seems to be from an older version of your node.\n// Based on your \"Format Results & Build Prompt\" logic, you should be using 'contexts'.\n// I will include the logic from that node to make sure it's correct.\n\nconst contexts = firstItem.contexts || [];\nif (contexts.length > 0) {\n  enhanced += `\\n\\nRelevant context (retrieved from knowledge base):\\n${contexts.join('\\n\\n')}`;\n} else {\n  enhanced += '\\n\\nRelevant context (retrieved from knowledge base):\\nNo additional context available.';\n}\n\nenhanced += \"\\n\\nInstructions:\\n1. Ask challenging but fair questions that assess both technical skills and cultural fit.\\n2. Mix of technical, behavioral, and company-specific questions.\\n3. Ask follow-up questions to dive deeper into candidate responses.\\n4. Be professional but conversational in your interview style.\";\n\nreturn {\n  json: {\n    enhanced_prompt: enhanced,\n    interview_id: firstItem.interview_id\n  }\n};"
+      },
+      "id": "bfc9ef97-228b-4815-9dfc-6633a4d49457",
+      "name": "Build Enhanced Prompt1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2064, 16]
+    },
+    {
+      "parameters": {
+        "jsCode": "const resume = $json.resume || '';\nconst jobTitle = $json.job_title || '';\nconst company = $json.company || '';\n\n// Extract top lines + skills from resume\nconst lines = resume.split(/\\r?\\n/).map(l => l.trim()).filter(Boolean);\nconst topLines = lines.slice(0, 5).join(' ');\nconst skillsMatch = resume.match(/skills[:\\s]*([^\\n\\r]{1,300})/i);\nconst skills = skillsMatch ? skillsMatch[1].split(/[,;|�]/).slice(0,10).join(', ') : '';\n\nconst query_text = `Job Title: ${jobTitle}\\nCompany: ${company}\\nSummary: ${topLines}\\nSkills: ${skills}`;\nreturn { json: { ...$json, query_text } };\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1296, 16],
+      "id": "76b5307c-b007-466f-8268-873e4ce8f9e5",
+      "name": "Build Query Text"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format Results & Build Prompt (Run once for all items)\n// Expected incoming JSON fields: resume, job_title, job_description, company, searchResults (array)\n// searchResults items expected to have: content, doc_type, similarity (float)\n\ntry {\n  const resume = $json.resume || '';\n  const job_title = $json.job_title || '';\n  const job_description = $json.job_description || '';\n  const company = $json.company || '';\n  const rawResults = $json.searchResults || [];\n\n  // Defensive: ensure array\n  const results = Array.isArray(rawResults) ? rawResults : [];\n\n  // Sort by similarity desc and take top N (choose 5)\n  const topN = 5;\n  const top = results\n    .slice()\n    .sort((a,b) => (b.similarity || 0) - (a.similarity || 0))\n    .slice(0, topN);\n\n  // Build a compact context block: each item on its own paragraph\n  const contexts = top.map((r, i) => {\n    const type = r.doc_type || 'context';\n    const content = (r.content || '').trim();\n    // Limit snippet length to 1000 chars for prompt safety\n    const snippet = content.length > 1000 ? content.slice(0,1000) + '...' : content;\n    return `${i+1}. [${type}] ${snippet}`.trim();\n  });\n\n  // Build the enhanced prompt (clean)\n  const enhanced_prompt = [\n    `You are an AI interviewer assistant.`,\n    `Company: ${company}`,\n    `Job Title: ${job_title}`,\n    ``,\n    `Candidate Resume:`,\n    resume,\n    ``,\n    `Job Description:`,\n    job_description,\n    ``,\n    `Relevant context (retrieved from knowledge base):`,\n    contexts.length ? contexts.join('\\n\\n') : 'No additional context available.',\n    ``,\n    `Instructions: Ask a sequence of challenging but fair interview questions that assess both technical skills and cultural fit. Mix technical, behavioral, and company-specific questions. Ask follow-ups when appropriate.`\n  ].join('\\n');\n\n  // Return: include both structured contexts array and prompt string\n  return {\n    json: {\n      interview_id: $json.interview_id || null,\n      company,\n      job_title,\n      resume,\n      job_description,\n      contexts, // array of short strings (no similarity scores)\n      enhanced_prompt\n    }\n  };\n} catch (err) {\n  // On error, return a payload indicating failure so downstream nodes can detect\n  return {\n    json: {\n      error: true,\n      error_message: err.message,\n      debug: (err.stack || '').slice(0,1000)\n    }\n  };\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [496, -80],
+      "id": "25f00f96-a4ec-49ff-8426-2ff38b38155d",
+      "name": "Format Results & Build Prompt"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  \"model\": \"embedding-001\",\n  \"content\": {\n    \"parts\": [\n      {\n        \"text\": $json.query_text\n      }\n    ]\n  }\n}) }}",
+        "options": {}
+      },
+      "name": "Generate Gemini Embedding",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [-1072, 16],
+      "id": "94ac130f-5be6-4b60-a8c7-da1b9415eeb3",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "J2zPWzwsjjf1IbNn",
+          "name": "Google Gemini(PaLM) Api account MM"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $input.item.json;\nconst urls = inputData.urls || [];\n\nif (!Array.isArray(urls) || urls.length === 0) {\n  return []; // Return nothing if there are no URLs to process\n}\n\n// Map each url to its own item.\n// Crucially, copy ALL data from the original item (`...inputData`)\n// and then set the specific 'url' for the new item.\nreturn urls.map(url => ({\n  json: {\n    ...inputData, // This copies company, job_title, resume, etc.\n    url: url      // Overwrite/set the url for this specific new item\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [944, 112],
+      "id": "d2d910f3-e704-4361-8eb8-528a119000ee",
+      "name": "Create URL Items"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [1392, 112],
+      "id": "c225f959-b4df-493e-8f1c-7345f203ab61",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "operation": "publish",
+        "channel": "interviewly:process-embedding",
+        "messageData": "===={{ JSON.stringify($json) }}\n"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [2064, 208],
+      "id": "518dbdd3-100a-4fcb-bf52-935988079472",
+      "name": "Queue for Embedding",
+      "credentials": {
+        "redis": {
+          "id": "bWGrVbuj0Hi8Mhlb",
+          "name": "Redis account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Re-add Interview Context1": {
+      "main": [
+        [
+          {
+            "node": "Format Results & Build Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Re-add Context from DB": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Results1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Re-add Interview Context": {
+      "main": [
+        [
+          {
+            "node": "Extract URLs1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Parse Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Request1": {
+      "main": [
+        [
+          {
+            "node": "Build Query Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Embedding1": {
+      "main": [
+        [
+          {
+            "node": "Search Vector DB1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Vector DB1": {
+      "main": [
+        [
+          {
+            "node": "Re-add Context from DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Results1": {
+      "main": [
+        [
+          {
+            "node": "Branch Based on Results1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Branch Based on Results1": {
+      "main": [
+        [
+          {
+            "node": "Re-add Interview Context1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Search SerpAPI1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search SerpAPI1": {
+      "main": [
+        [
+          {
+            "node": "Re-add Interview Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract URLs1": {
+      "main": [
+        [
+          {
+            "node": "Create URL Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Content With Gemini1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Content1": {
+      "main": [
+        [
+          {
+            "node": "Build Doc Text2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Enhanced Prompt (Redis)": {
+      "main": [[]]
+    },
+    "Build Doc Text2": {
+      "main": [
+        [
+          {
+            "node": "Build Enhanced Prompt1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Queue for Embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Enhanced Prompt1": {
+      "main": [
+        [
+          {
+            "node": "Notify Enhanced Prompt (Redis)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Query Text": {
+      "main": [
+        [
+          {
+            "node": "Generate Gemini Embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Results & Build Prompt": {
+      "main": [
+        [
+          {
+            "node": "Notify Enhanced Prompt (Existing)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Gemini Embedding": {
+      "main": [
+        [
+          {
+            "node": "Extract Embedding1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create URL Items": {
+      "main": [
+        [
+          {
+            "node": "Extract Content With Gemini1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Process Content1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b4e6356340a5ffed9d47f619ec5d0af6291b4db54be51654b52515a0fce37134"
+  }
+}

@@ -6,38 +6,9 @@ Includes audio upload, prompt construction, and robust JSON repair for Gemini re
 from google import genai
 from google.genai import types
 import json
-import tempfile
 import os
-from typing import List, Dict
-from fastapi import UploadFile, HTTPException
+from fastapi import UploadFile
 import io
-# google.api_core isn't installed in CI by default; fall back to simple stubs when unavailable.
-try:
-    from google.api_core.exceptions import (
-        GoogleAPIError,
-        BadRequest,
-        Unauthorized,
-        Forbidden,
-        ClientError,
-    )
-except ModuleNotFoundError:  # pragma: no cover - exercised only in minimal CI envs
-    class _GoogleApiCoreFallback(Exception):
-        """Fallback exception base when google-api-core isn't installed."""
-
-    class GoogleAPIError(_GoogleApiCoreFallback):
-        pass
-
-    class BadRequest(_GoogleApiCoreFallback):
-        pass
-
-    class Unauthorized(_GoogleApiCoreFallback):
-        pass
-
-    class Forbidden(_GoogleApiCoreFallback):
-        pass
-
-    class ClientError(_GoogleApiCoreFallback):
-        pass
 import traceback
 import time
 import re
@@ -193,161 +164,73 @@ class FeedbackService:
     async def upload_audio_file(self, file: UploadFile, interview_id: str, question_id: str, question_text: str, question_order: int, user_id: str, mime_type: str) -> dict:
         """
         Uploads the audio file to Supabase storage service and Gemini.
-        The original browser recording is streamed directly to Gemini and stored in Supabase.
-        
-        Args:
-            file (UploadFile): The audio file from the frontend.
-            interview_id (str): The ID of the interview session.
-            question_id (str): The ID of the question.
-            question_text (str): The text of the question.
-            question_order (int): The order of the question.
-            user_id (str): The ID of the user.
-            mime_type (str): The actual MIME type of the audio recorded by the browser (e.g., "audio/webm; codecs=opus").
         """
-        original_temp_file_path = None
         # Safely get the base extension (e.g., "webm", "mp4")
         original_file_extension = mime_type.split('/')[1].split(';')[0]
-        unique_suffix = int(time.time() * 1000) # Milliseconds timestamp for more granularity
-
+        unique_suffix = int(time.time() * 1000)
         short_id = f"{interview_id[:8]}-{question_id[:8]}-{question_order}-{unique_suffix}".lower()
-
         
         try:
-            print(f"DEBUG: Starting upload_audio_file for interview_id={interview_id}, question_id={question_id}, mime_type={mime_type}")
-            print(f"DEBUG: Type of incoming 'file': {type(file)}")
-
             file_content = await file.read()
-            print(f"DEBUG: Successfully read file content. Length: {len(file_content)} bytes")
-
-            if not isinstance(file_content, bytes):
-                raise TypeError(f"file_content is not bytes, it's {type(file_content)}. Expected bytes from file.read().")
             if not file_content:
                 raise ValueError("File content is empty after reading from UploadFile.")
 
-            # --- Step 1: Write original content to a temporary file (for Supabase upload) ---
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{original_file_extension}') as temp_file:
-                temp_file.write(file_content)
-                original_temp_file_path = temp_file.name
-            print(f"DEBUG: Original temporary file created for Supabase & Gemini input at: {original_temp_file_path}")
-    
-            # --- Step 2: Create BytesIO from original file for Gemini upload ---
-            # Instead of reading converted file, read original file
-            file_stream_for_gemini = io.BytesIO(file_content)  # Use the original file_content
-            file_stream_for_gemini.name = f"{short_id}.{original_file_extension}"  # Use original extension
-
-            print(f"DEBUG: Attempting to upload to Gemini using in-memory BytesIO stream with mime_type: {mime_type}.")
-            print(f"DEBUG: Gemini client library version: {genai.__version__}")
-
+            # --- Step 1: Upload to Gemini ---
+            file_stream_for_gemini = io.BytesIO(file_content)
+            gemini_file = None
             try:
-                file_stream_for_gemini.seek(0)  # Reset stream position
-
                 gemini_file = client.files.upload(
                     file=file_stream_for_gemini,
                     config=types.UploadFileConfig(
-                        mime_type=mime_type,  # Use original mime_type, not "audio/wav"
+                        mime_type=mime_type,
                         name=short_id,
-                        display_name=f"{interview_id}_{question_id}_{question_order}.{original_file_extension}"  # Use original extension
+                        display_name=f"{interview_id}_{question_id}_{question_order}.{original_file_extension}"
                     )
                 )
-                print(f"DEBUG: Gemini upload response object type: {type(gemini_file)}")
-                print(f"DEBUG: Gemini upload response: {gemini_file}") # This should now be a File object if successful
-
-            # NEW: Catch more specific Google API exceptions
-            except (BadRequest, Unauthorized, Forbidden, ClientError, GoogleAPIError) as api_err:
-                # Log detailed API error information
-                print(f"ERROR: Caught GoogleAPIError during Gemini file upload.")
-                print(f"ERROR: API Error Type: {type(api_err).__name__}")
-                print(f"ERROR: API Error Message: {str(api_err)}")
-                # If the error object has a response/status, try to print it
-                if hasattr(api_err, 'response') and hasattr(api_err.response, 'text'):
-                    print(f"ERROR: API Error Response Body: {api_err.response.text}")
-                elif hasattr(api_err, 'status_code'):
-                    print(f"ERROR: API Error Status Code: {api_err.status_code}")
-                
-                # Re-raise with a more informative message
-                raise Exception(f"Gemini API upload failed due to API error: {str(api_err)}")
-            except Exception as other_err:
-                print(f"ERROR: An unexpected error occurred during Gemini file upload: {type(other_err).__name__} - {str(other_err)}")
-                traceback.print_exc() # Print full traceback for unexpected errors
-                raise Exception(f"Unexpected error during Gemini file upload: {str(other_err)}")
+                print(f"DEBUG: File uploaded to Gemini. Gemini File ID: {gemini_file.name}")
+            except Exception as gemini_err:
+                print(f"ERROR: An unexpected error occurred during Gemini file upload: {str(gemini_err)}", exc_info=True)
+                raise Exception(f"Unexpected error during Gemini file upload: {str(gemini_err)}")
             finally:
-                file_stream_for_gemini.close() # Ensure BytesIO stream is closed
+                file_stream_for_gemini.close()
 
-            print(f"DEBUG: File uploaded to Gemini. Gemini File ID: {gemini_file.name}")
+            if not hasattr(gemini_file, 'name') or not gemini_file.name:
+                raise Exception("Failed to upload file to Gemini: Response missing file ID.")
 
-            # The KeyError: 'file' occurred because gemini_file itself was an unexpected type or missing 'name'.
-            # The try/except block above should now catch this and provide more detail.
-            # This check below becomes redundant if the above try-except is robust.
-            if not hasattr(gemini_file, 'name') or not gemini_file.name: # Changed from 'not gemini_file or not gemini_file.name'
-                print("Failed to upload file to Gemini: gemini_file object or its name is missing.")
-                raise Exception("Failed to upload file to Gemini: Response missing ID.")
-
-            # --- Step 3: Upload original file to Supabase ---
-            print(f"DEBUG: Uploading original temp file to Supabase: {original_temp_file_path}")
-            response = await self.supabase_service.upload_recording_file(user_id, original_temp_file_path, interview_id, "recordings")
-
-            # FIXED: Better response handling for Supabase upload
-            file_url = None
+            # --- Step 2: Upload original file to Supabase using the new, robust service method ---
+            print(f"DEBUG: Uploading original content to Supabase via revised service method.")
             
-            # Check if response is an error dict first
-            if isinstance(response, dict) and 'error' in response:
-                error_msg = response['error'].get('message', str(response['error']))
-                raise Exception(f"Supabase upload failed: {error_msg}")
-            
-            # Handle successful responses
-            if isinstance(response, str):
-                file_url = response
-            elif hasattr(response, 'path'):
-                # Construct URL from bucket path
-                bucket_name = "recordings"
-                file_path = response.path
-                # Get public URL using Supabase client
-                file_url = self.supabase_service.supabase.storage.from_(bucket_name).get_public_url(file_path)
-            elif hasattr(response, 'get_public_url'):
-                file_url = response.get_public_url()
-            elif hasattr(response, 'url'):
-                file_url = response.url
-            elif isinstance(response, dict):
-                # Try various dict structures
-                if 'publicUrl' in response:
-                    file_url = response['publicUrl']
-                elif 'data' in response and isinstance(response['data'], dict):
-                    file_url = response['data'].get('publicUrl') or response['data'].get('path')
-                else:
-                    # Last resort - try to extract path and construct URL
-                    path = response.get('path') or response.get('Key')
-                    if path:
-                        file_url = self.supabase_service.supabase.storage.from_("recordings").get_public_url(path)
-                    else:
-                        file_url = str(response)
-            else:
-                # Absolute fallback
-                file_url = str(response)
+            # *** THIS IS THE SIMPLIFIED CALL ***
+            file_url = await self.supabase_service.upload_recording_file(
+                user_id=user_id,
+                interview_id=interview_id,
+                file_content=file_content,
+                file_extension=original_file_extension,
+                bucket_name="recordings" # Explicitly state the bucket name
+            )
 
+            # *** THIS IS THE SIMPLIFIED CHECK ***
             if not file_url:
-                raise Exception("Failed to extract file URL from Supabase upload response")
+                # The service function failed and has already logged the detailed error.
+                # We just need to raise a clean exception here.
+                raise Exception("Supabase upload succeeded, but failed to generate a valid file URL.")
 
-            print(f"DEBUG: File uploaded to Supabase bucket. URL: {file_url}")
+            print(f"DEBUG: File uploaded to Supabase successfully. URL retrieved: {file_url}")
 
-            # FIXED: Removed user_id - it doesn't exist in user_responses table schema
+            # --- Step 3: Insert record into the database ---
             file_data = {
                 "interview_id": interview_id,
                 "question_id": question_id,
                 "gemini_file_id": gemini_file.name,
-                "audio_url": file_url,
+                "audio_url": file_url,  # Use the guaranteed valid URL
                 "processed": False,
             }
 
             user_response = await self.supabase_service.insert_user_response(file_data)
             
-            # Better error handling for database insert
             if isinstance(user_response, dict) and "error" in user_response:
                 error_detail = user_response.get('error', {})
-                if isinstance(error_detail, dict):
-                    error_msg = error_detail.get('message', str(error_detail))
-                else:
-                    error_msg = str(error_detail)
-                raise Exception(f"Failed to save file data to the database: {error_msg}")
+                raise Exception(f"Failed to save file metadata to the database: {error_detail}")
 
             print(f"DEBUG: upload_audio_file completed successfully for {short_id}")
             return {
@@ -358,15 +241,8 @@ class FeedbackService:
         except Exception as e:
             traceback.print_exc() 
             print(f"ERROR: Final error in upload_audio_file: {str(e)}")
-            raise Exception(f"Error uploading audio file: {str(e)}")
-        finally:
-            # --- Cleanup temporary files ---
-            if original_temp_file_path and os.path.exists(original_temp_file_path):
-                try:
-                    os.unlink(original_temp_file_path)
-                    print(f"DEBUG: Cleaned up original temporary file: {original_temp_file_path}")
-                except Exception as cleanup_e:
-                    print(f"ERROR: Error during original temporary file cleanup: {cleanup_e}")
+            # Re-raise with a clean message for the frontend
+            raise Exception(f"An error occurred while uploading the audio file: {str(e)}")
 
     async def generate_feedback(self, interview_id: str, user_id: str) -> dict:
         """
@@ -556,7 +432,7 @@ class FeedbackService:
                 "status": "completed",  
             }
             
-            feedback_result = self.supabase_service.save_feedback(db_feedback_payload)
+            feedback_result = await self.supabase_service.save_feedback(db_feedback_payload)
             if "error" in feedback_result and feedback_result["error"]:
                 error_detail = feedback_result["error"].get("message", str(feedback_result["error"]))
                 raise Exception(f"Failed to save feedback to the database: {error_detail}")
@@ -599,7 +475,7 @@ class FeedbackService:
             if score is not None:
                 update_payload["score"] = score
                 
-            self.supabase_service.update_interview(interview_id, update_payload)
+            await self.supabase_service.update_interview(interview_id, update_payload)
 
             return {
                 "status": "success",
@@ -610,3 +486,4 @@ class FeedbackService:
             print(f"Error in generate_feedback for interview {interview_id}, user {user_id}: {str(e)}")
             # Re-raise the original exception or a new one with more context
             raise Exception(f"Error generating feedback: {str(e)}")
+        

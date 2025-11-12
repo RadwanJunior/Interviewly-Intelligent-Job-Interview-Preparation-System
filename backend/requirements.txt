@@ -8,10 +8,14 @@ pdfminer.six
 python-docx
 google-genai
 google
+google-api-core
+gotrue
+json5
+redis
+aioredis
 pytest-cov
 pytest
 httpx
 pytest-asyncio
 requests
 pytest-mock
-json5

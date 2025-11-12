@@ -518,7 +518,6 @@ ${feedback.overallFeedback}
             </p>
           </div>
 
-          {/* Rest of your component remains the same */}
           {/* Just use the feedback state variable which is now populated from the API */}
 
           {/* Overall Score Card */}

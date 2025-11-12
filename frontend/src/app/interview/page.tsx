@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Head from "next/head";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
-import { getInterviewQuestions, uploadAudio } from "@/lib/api";
+import { getInterviewQuestions, uploadAudio, triggerFeedbackGeneration } from "@/lib/api";
 import { Recording } from "../../components/interview/types";
 import {
   LoadingState,
@@ -445,9 +445,27 @@ const Interview = () => {
           description:
             "All questions have been answered. Preparing your feedback...",
         });
-        // Redirect to feedback page
+        // Trigger feedback generation and redirect to feedback page for text interview
         setActiveCall(false);
-        window.location.href = `/Feedback?sessionId=${sessionId}`;
+        if (!sessionId) {
+          toast({
+            title: "Error",
+            description: "No session ID found. Please start the interview again.",
+            variant: "destructive",
+          });
+          return;
+        }
+        try {
+          await triggerFeedbackGeneration(sessionId);
+          window.location.href = `/Feedback?sessionId=${sessionId}&type=text`;
+        } catch (error) {
+          console.error("Error triggering feedback generation:", error);
+          toast({
+            title: "Error",
+            description: "Failed to start feedback generation. Please try again.",
+            variant: "destructive",
+          });
+        }
       }
     } catch (err) {
       toast({

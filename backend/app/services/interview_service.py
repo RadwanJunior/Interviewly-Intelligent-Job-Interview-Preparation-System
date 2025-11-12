@@ -5,9 +5,10 @@ import os
 # import json library to handle JSON data
 import json
 
-# Initialize the Gemini client with API key from environment variables
-_gemini_api_key = os.getenv("GEMINI_API_KEY")
-client = genai.Client(api_key=_gemini_api_key) if _gemini_api_key else None
+# Use a helper function to get the client to avoid global initialization issues
+def get_gemini_client():
+    """Initializes and returns the Gemini client."""
+    return genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 # Define the model to use for generating interview questions. In this case the gemini-2.0-flash model.
 # This model is optimized for generating high speed, high quality, cost effective text completions.
@@ -51,12 +52,13 @@ Please **strictly** output the questions in **valid JSON format** as an array, w
 # Defines an InterviewService class to encapsulate the interview question generation logic
 class InterviewService:
     # Method to generate interview questions based on resume and job details
-    def generate_questions(resume_text: str, job_title: str, job_description: str, company_name: str, location: str) -> list:
+    def generate_questions(self, resume_text: str, job_title: str, job_description: str, company_name: str, location: str, enhanced_prompt: str = None) -> list:
         """
-        Generates interview questions based on the resume text, job title, job description, company name, and location.
+        Generates interview questions using Google's Gemini model.
+        Can be enhanced with a RAG-generated prompt.
         """
-        # Format the prompt with the provided variables
-        prompt = PROMPT_TEMPLATE.format(
+        # First, format the base prompt with the required variables
+        final_prompt = PROMPT_TEMPLATE.format(
             resume=resume_text,
             job_title=job_title,
             job_description=job_description,
@@ -64,14 +66,43 @@ class InterviewService:
             location=location
         )
 
+        # If an enhanced prompt exists, prepend it. This avoids the KeyError.
+        if enhanced_prompt:
+            final_prompt = f"Enhanced Context:\n{enhanced_prompt}\n\n{final_prompt}"
+
         # # Count tokens using the new client method.
         # # Can be printed if neeeded for debugging or monitoring token usage
         # total_tokens = client.models.count_tokens(
         #     model="gemini-2.0-flash", contents=prompt
         # )
 
-        if client is None:
-            # Graceful fallback when no API key is configured (eg, CI tests)
+        try:
+            # Get client using helper function to avoid initialization issues
+            client = get_gemini_client()
+            
+            # Generate questions using gemini API
+            # The model will return a JSON array of questions as a string
+            response = client.models.generate_content(
+                model=MODEL,
+                contents=[{"role": "user", "parts": [{"text": final_prompt}]}],
+            )
+
+            # Extract text response from the first candidate
+            if response and response.candidates:
+                raw_text = response.candidates[0].content.parts[0].text
+                # Remove code block markers if present (sometimes Gemini wraps JSON in markdown)
+                if raw_text.startswith("```json"):
+                    # Remove the opening code block marker
+                    raw_text = raw_text[7:]
+                if raw_text.endswith("```"):
+                    # Remove the closing code block marker
+                    raw_text = raw_text[:-3]
+                # Parse the JSON string into a Python list of questions
+                questions = json.loads(raw_text)
+                return questions
+        except Exception as e:
+            # Log the error and return an empty list if anything goes wrong
+            print("Error generating questions:", str(e))
             return []
 
         try:
@@ -79,7 +110,7 @@ class InterviewService:
           # The model will return a JSON array of questions as a string
           response = client.models.generate_content(
             model=MODEL,
-            contents=[{"role": "user", "parts": [{"text": prompt}]}],
+            contents=[{"role": "user", "parts": [{"text": final_prompt}]}],
             # config={"max_tokens": 700, "top_p": 0.90, "temperature": 0.8},
           )
 

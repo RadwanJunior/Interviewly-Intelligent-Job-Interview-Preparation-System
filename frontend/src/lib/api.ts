@@ -158,6 +158,7 @@ export async function createJobDescription(
  */
 export async function createInterviewSession(data: {
   job_description_id: string;
+  type: "text" | "call";
 }) {
   const response = await api.post("/interview/create", data);
   return response.data;
@@ -242,8 +243,17 @@ export async function triggerFeedbackGeneration(interview_id: string) {
  * @returns API response data
  */
 export async function getFeedbackStatus(interview_id: string) {
-  const response = await api.get(`/audio/status/${interview_id}`);
-  return response.data;
+  console.log(
+    `DEBUG API: getFeedbackStatus called for interview_id: ${interview_id}`
+  );
+  try {
+    const response = await api.get(`/audio/status/${interview_id}`);
+    console.log(`DEBUG API: getFeedbackStatus response:`, response.data);
+    return response.data;
+  } catch (error) {
+    console.error(`DEBUG API: getFeedbackStatus error:`, error);
+    throw error;
+  }
 }
 
 /**
@@ -252,8 +262,17 @@ export async function getFeedbackStatus(interview_id: string) {
  * @returns API response data
  */
 export async function getFeedback(interview_id: string) {
-  const response = await api.get(`/audio/feedback/${interview_id}`);
-  return response.data;
+  console.log(
+    `DEBUG API: getFeedback called for interview_id: ${interview_id}`
+  );
+  try {
+    const response = await api.get(`/audio/feedback/${interview_id}`);
+    console.log(`DEBUG API: getFeedback response:`, response.data);
+    return response.data;
+  } catch (error) {
+    console.error(`DEBUG API: getFeedback error:`, error);
+    throw error;
+  }
 }
 
 /**
@@ -319,4 +338,39 @@ export async function updatePreparationPlan(planId, updateData) {
     updateData
   );
   return response.data;
+}
+
+// Add these helper functions
+
+// Trigger live feedback generation
+export async function triggerLiveFeedbackGeneration(interview_id: string) {
+  const response = await api.post(
+    `/live_feedback/generate_live_feedback/${interview_id}`
+  );
+  return response.data;
+}
+
+// Get live feedback generation status
+export async function checkLiveFeedbackStatus(sessionId: string) {
+  const response = await api.get(`/live_feedback/status/${sessionId}`);
+  return response.data;
+}
+
+// Get generated live feedback
+export async function getLiveFeedback(interview_id: string) {
+  const response = await api.get(`/live_feedback/feedback/${interview_id}`);
+  return response.data;
+}
+
+// Clear feedback status (for debugging)
+export async function clearFeedbackStatus(interview_id: string) {
+  console.log(`DEBUG API: clearFeedbackStatus called for interview_id: ${interview_id}`);
+  try {
+    const response = await api.delete(`/audio/status/${interview_id}`);
+    console.log(`DEBUG API: clearFeedbackStatus response:`, response.data);
+    return response.data;
+  } catch (error) {
+    console.error(`DEBUG API: clearFeedbackStatus error:`, error);
+    throw error;
+  }
 }

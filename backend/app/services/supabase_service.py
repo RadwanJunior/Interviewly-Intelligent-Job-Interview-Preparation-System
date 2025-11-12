@@ -1,11 +1,17 @@
 # Standard library imports
+import asyncio
 import os
 import time
+import logging
 from datetime import datetime, timezone
+from typing import Dict, Any, Optional
+from urllib.parse import urlparse
+
 # Third-party imports
 from supabase import create_client, Client
 from dotenv import load_dotenv
-from fastapi import UploadFile, HTTPException, Request
+from fastapi import UploadFile, HTTPException, Request, WebSocket
+from gotrue.errors import AuthApiError
 
 
 
@@ -47,7 +53,6 @@ class SupabaseService:
         """Logs in a user and returns session tokens."""
         try:
             response = self.client.auth.sign_in_with_password({"email": email, "password": password})
-            print(response)
             if response and response.session:
                 return {
                     "access_token": response.session.access_token,
@@ -109,11 +114,22 @@ class SupabaseService:
         except Exception as e:
             return {"error": {"message": str(e)}}
 
+    def get_current_user_ws(self, websocket: WebSocket):
+        """
+        Retrieves the current user by extracting the token from WebSocket connection cookies.
+        """
+        token = websocket.cookies.get("access_token")
+        if not token:
+            return None
+        try:
+            response = self.client.auth.get_user(token)
+            return response.user
+        except (AuthApiError, Exception):
+            return None
+
     def get_file_url(self, file_path: str, bucket_name: str = "public"):
         """Generates a public URL for a file in Supabase Storage."""
         try:
-            print("file_path: ", file_path)
-            print("bucket_name: ", bucket_name)
             response = self.client.storage.from_(bucket_name).create_signed_url(file_path, expiry, {"download": True})
             return response
         except Exception as e:
@@ -155,11 +171,9 @@ class SupabaseService:
         Updates the extracted text of an existing resume record.
         """
         try:
-            print(f"Updating resume with ID: {resume_id}, extracted_text: {extracted_text}")
             response = self.client.table("resumes").update({
                 "extracted_text": extracted_text
             }).eq("id", resume_id).execute()
-            print(f"Supabase response: {response}")
             return response
         except Exception as e:
             print(f"Error updating resume: {str(e)}")
@@ -212,9 +226,9 @@ class SupabaseService:
         except Exception as e:
             return {"error": {"message": str(e)}}
     
-    def create_interview_session(self, user_id: str, resume_id: str, job_description_id: str, questions: list) -> dict:
+    def create_interview_session(self, user_id: str, resume_id: str, job_description_id: str, questions: list, ctype: str, status: str = "pending") -> dict:
         """
-        Inserts a new interview session record into the 'interview_sessions' table.
+        Inserts a new interview session record into the 'interviews' table.
         """
         try:
             response = self.client.table("interviews").insert({
@@ -222,20 +236,31 @@ class SupabaseService:
                 "resume_id": resume_id,
                 "job_description_id": job_description_id,
                 "interview_questions": questions,
-                "status": "pending"
+                "status": status,
+                "type": ctype
             }).execute()
-            print(f"Supabase response: {response}")
+            logging.info(f"Created interview session: {response}")
             return response
         except Exception as e:
-            print(f"Error creating interview session: {str(e)}")
+            logging.error(f"Error creating interview session: {str(e)}")
+            return {"error": {"message": str(e)}}
+    
+    def get_interview_session(self, interview_id: str) -> dict:
+        """
+        Retrieves a single interview session by ID.
+        """
+        try:
+            response = self.client.table("interviews").select("*").eq("id", interview_id).execute()
+            return response
+        except Exception as e:
             return {"error": {"message": str(e)}}
     
     def get_interview_sessions(self, user_id: str) -> dict:
         """
-        Retrieves all interview session records for a user from the 'interview_sessions' table.
+        Retrieves all interview session records for a user from the 'interviews' table.
         """
         try:
-            response = self.client.table("interview_sessions").select("*").eq("user_id", user_id).execute()
+            response = self.client.table("interviews").select("*").eq("user_id", user_id).execute()
             return response
         except Exception as e:
             return {"error": {"message": str(e)}}
@@ -245,7 +270,7 @@ class SupabaseService:
         Updates the status of an existing interview session record.
         """
         try:
-            response = self.client.table("interview_sessions").update({
+            response = self.client.table("interviews").update({
                 "status": status
             }).eq("id", session_id).execute()
             return response
@@ -264,7 +289,7 @@ class SupabaseService:
         
     def get_interview_questions(self, session_id: str) -> dict:
         """
-        Retrieves the interview questions for a specific session from the 'interview_sessions' table.
+        Retrieves the interview questions for a specific session from the 'interviews' table.
         """
         try:
             response = self.client.table("interviews").select("interview_questions").eq("id", session_id).execute()
@@ -343,23 +368,25 @@ class SupabaseService:
         Supports both text and audio responses.
         """
         try:
+            # Prepare insert data and remove None values so supabase won't complain
             insert_data = {
                 "interview_id": response.get("interview_id"),
                 "question_id": response.get("question_id"),
                 "user_id": response.get("user_id"),
-                "response_text": response.get("response_text"),  # NEW
+                "response_text": response.get("response_text"),
                 "audio_url": response.get("audio_url"),
                 "gemini_file_id": response.get("gemini_file_id"),
                 "processed": response.get("processed", False),
             }
-            # remove None values so supabase won’t complain
+            
+            # Remove None values so supabase won't complain
             insert_data = {k: v for k, v in insert_data.items() if v is not None}
 
             resp = self.client.table("user_responses").insert(insert_data).execute()
             return resp
         except Exception as e:
             return {"error": {"message": str(e)}}
-
+    
     def get_user_response(self, interview_id: str) -> dict:
         """
         Retrieves all user response records for a given interview from the 'user_responses' table.
@@ -405,51 +432,64 @@ class SupabaseService:
     async def upload_recording_file(
         self,
         user_id: str,
-        file_path: str,
         interview_id: str,
-        bucket_name: str = "recordings",
-    ):
-        """Uploads a file to Supabase Storage."""
+        file_content: bytes,
+        file_extension: str,
+        bucket_name: str = "recordings"
+    ) -> Optional[str]:
+        """
+        Uploads audio file content to Supabase Storage and returns a secure, time-limited signed URL.
+
+        This method is designed for private buckets, ensuring that audio files are not publicly accessible.
+        It handles the entire process of creating a unique path, uploading, and generating a usable URL.
+
+        Args:
+            user_id: The ID of the user uploading the file.
+            interview_id: The ID of the interview session.
+            file_content: The raw bytes of the audio file.
+            file_extension: The extension of the file (e.g., "webm", "mp4").
+            bucket_name: The name of the Supabase storage bucket.
+
+        Returns:
+            A string containing the signed URL on success, or None on failure.
+        """
         try:
-            with open(file_path, "rb") as f:
-                file_content = f.read()
+            # 1. Create a unique, deterministic file path in storage.
+            # This is cleaner than using temporary file names.
+            timestamp = int(time.time() * 1000)
+            storage_path = f"{user_id}/{interview_id}/{timestamp}.{file_extension}"
+            
+            logging.info(f"[Supabase] Uploading {len(file_content)} bytes to bucket '{bucket_name}' at path: {storage_path}")
 
-            filename = os.path.basename(file_path)
-            storage_path = f"{user_id}/{interview_id}/{filename}"
-
-            response = self.client.storage.from_(bucket_name).upload(
-                storage_path,
-                file_content,
+            # 2. Upload the file content.
+            # The `file_options={"upsert": "true"}` will overwrite if a file with the exact same millisecond timestamp exists.
+            self.client.storage.from_(bucket_name).upload(
+                path=storage_path,
+                file=file_content,
+                file_options={"upsert": "true"} # Use upsert to prevent errors on retries
+            )
+            
+            # 3. Generate a signed URL. This is the secure way for private buckets.
+            # It creates a temporary URL that expires after one hour.
+            signed_url_response = self.client.storage.from_(bucket_name).create_signed_url(
+                path=storage_path,
+                expires_in=3600  # Expires in 1 hour
             )
 
-            # Handle UploadResponse correctly
-            if hasattr(response, "error") and response.error:
-                message = (
-                    response.error.message
-                    if hasattr(response.error, "message")
-                    else str(response.error)
-                )
-                return {"error": {"message": message}}
-            if isinstance(response, dict) and response.get("error"):
-                return response
+            # 4. The Supabase client returns a dictionary. We must safely extract the URL string.
+            if not signed_url_response or 'signedURL' not in signed_url_response:
+                logging.error(f"[Supabase] Failed to create signed URL for {storage_path}. Response was empty or invalid.")
+                return None
 
-            file_url = self.client.storage.from_(bucket_name).get_public_url(
-                storage_path
-            )
+            file_url = signed_url_response['signedURL']
+            logging.info(f"[Supabase] Successfully generated signed URL for {storage_path}")
+            
+            return file_url
 
-            if isinstance(file_url, dict):
-                if file_url.get("error"):
-                    return file_url
-                public_url = file_url.get("publicUrl") or file_url.get("public_url")
-            else:
-                public_url = file_url
-
-            if not public_url:
-                return {"error": {"message": "Failed to retrieve uploaded file URL"}}
-
-            return {"publicUrl": public_url}
         except Exception as e:
-            return {"error": {"message": str(e)}}
+            # Log the full exception for detailed debugging.
+            logging.error(f"[Supabase] An exception occurred in upload_recording_file for interview {interview_id}: {str(e)}", exc_info=True)
+            return None
     
     async def get_interview_data(self, user_id: str, interview_id: str) -> dict:
         """
@@ -470,6 +510,15 @@ class SupabaseService:
                 # Fetch job description details
                 job_response = self.client.table("job_descriptions").select("*").eq("id", job_description_id).single().execute()
                 interview_data["job_description"] = getattr(job_response, "data", {})
+
+                # Fetch enhanced prompt if available
+                try:
+                    enhanced_prompt = await self.get_enhanced_prompt(interview_id)
+                    if enhanced_prompt:
+                        interview_data["enhanced_prompt"] = enhanced_prompt
+                except Exception as e:
+                    logging.warning(f"Could not fetch enhanced prompt for interview {interview_id}: {e}")
+                
                 return interview_data
         except Exception as e:
             return {"error": {"message": str(e)}}
@@ -512,7 +561,7 @@ class SupabaseService:
         except Exception as e:
             return {"error": {"message": str(e)}}
     
-    def update_user_responses_processed(self, interview_id: str):
+    async def update_user_responses_processed(self, interview_id: str):
         """
         Updates all user responses for a specific interview to mark them as processed.
         """
@@ -559,7 +608,7 @@ class SupabaseService:
             print(f"Error getting feedback: {str(e)}")
             return {"error": str(e)}
 
-    def update_interview(self, interview_id: str, update_data: dict):
+    async def update_interview(self, interview_id: str, update_data: dict):
         """Update interview data"""
         try:
             response = self.client.table("interviews").update(update_data).eq("id", interview_id).execute()
@@ -622,6 +671,435 @@ class SupabaseService:
         except Exception as e:
             print(f"Error updating preparation plan status: {str(e)}")
             return {"error": str(e)}
+
+    def normalize_public_url(self, url: str) -> str:
+        if not isinstance(url, str) or not url:
+            return ""
+        # Remove empty query and collapse double slashes after domain
+        url = url.rstrip("?")
+        sentinel = "§§SCHEME§§"
+        url = url.replace("://", sentinel)
+        while "//" in url:
+            url = url.replace("//", "/")
+        url = url.replace(sentinel, "://")
+        return url
+
+    def _parse_storage_object_from_url(self, url: str):
+        """
+        Parse bucket and object path from a Supabase Storage URL.
+        Supports /storage/v1/object/public/<bucket>/<key> and /storage/v1/object/sign/<bucket>/<key>?token=...
+        """
+        try:
+            path = urlparse(url).path
+            # Find segment after '/object/'
+            marker = "/storage/v1/object/"
+            if marker not in path:
+                return None, None
+            after = path.split(marker, 1)[1]  # e.g. 'public/recordings/user/.../file.wav'
+            parts = after.split("/")
+            if len(parts) < 3:
+                return None, None
+            # parts[0] = 'public' or 'sign'
+            bucket = parts[1]
+            obj_path = "/".join(parts[2:])
+            return bucket, obj_path
+        except Exception:
+            return None, None
+
+    def to_signed_url_from_public_url(self, url: str, expires_in: int = 60 * 60) -> str:
+        """
+        Convert any stored public URL into a fresh signed URL (works even if bucket is private).
+        """
+        clean = self.normalize_public_url(url)
+        bucket, obj_path = self._parse_storage_object_from_url(clean)
+        if not bucket or not obj_path:
+            return ""
+        try:
+            signed = self.client.storage.from_(bucket).create_signed_url(obj_path, expires_in)
+            # Pull out actual string URL from supabase response shapes
+            out = None
+            if hasattr(signed, "data") and isinstance(signed.data, dict):
+                out = signed.data.get("signedUrl")
+            elif isinstance(signed, dict):
+                out = signed.get("signedUrl")
+            return self.normalize_public_url(out or "")
+        except Exception:
+            return ""
+
+    # async def upload_audio_to_storage(self, user_id: str, interview_id: str, audio_data: bytes, filename: str) -> str:
+    #     """
+    #     Uploads audio data to Supabase Storage and returns the URL.
+    #     """
+    #     try:
+    #         bucket_name = "recordings"
+    #         storage_path = f"{user_id}/{interview_id}/{filename}"
+            
+    #         # Upload the audio data
+    #         logging.info(f"Uploading {len(audio_data)} bytes to {storage_path}")
+    #         upload_response = self.client.storage.from_(bucket_name).upload(
+    #             storage_path,
+    #             audio_data,
+    #             file_options={"upsert": True} 
+    #         )
+            
+    #         # Check for error in response
+    #         if isinstance(upload_response, dict) and upload_response.get("error"):
+    #             logging.error(f"Upload error: {upload_response.get('error')}")
+    #             return None
+                
+    #         # Generate the public URL directly (don't try to extract from response)
+    #         try:
+    #             # For public buckets, get the public URL
+    #             public_url = self.client.storage.from_(bucket_name).get_public_url(storage_path)
+    #             logging.info(f"Generated public URL: {public_url}")
+    #             return public_url
+    #         except Exception as e:
+    #             logging.error(f"Error generating public URL: {str(e)}")
+                
+    #             # Try signed URL as backup
+    #             try:
+    #                 signed_url = self.client.storage.from_(bucket_name).create_signed_url(
+    #                     storage_path,
+    #                     3600  # 1 hour expiry
+    #                 )
+    #                 logging.info(f"Generated signed URL as fallback")
+    #                 return signed_url
+    #             except Exception as sign_err:
+    #                 logging.error(f"Error generating signed URL: {str(sign_err)}")
+                    
+    #         return None
+    #     except Exception as e:
+    #         logging.error(f"Error uploading audio to storage: {str(e)}")
+    #         return None
+    async def upload_audio_to_storage(self, user_id: str, interview_id: str, audio_data: bytes, filename: str) -> str:
+        """
+        Uploads audio data to Supabase Storage with retry logic and returns the URL.
+        """
+        bucket_name = "recordings"
+        storage_path = f"{user_id}/{interview_id}/{filename}"
+        max_retries = 3
+        
+        for attempt in range(max_retries):
+            try:
+                logging.info(f"Uploading {len(audio_data)} bytes to {storage_path} (Attempt {attempt + 1}/{max_retries})")
+                
+                # Use upsert=True to prevent "Duplicate" errors on retries
+                self.client.storage.from_(bucket_name).upload(
+                    path=storage_path,
+                    file=audio_data,
+                    file_options={"upsert": "true"} 
+                )
+                
+                # If upload succeeds, generate and return the URL
+                public_url = self.client.storage.from_(bucket_name).get_public_url(storage_path)
+                logging.info(f"Generated public URL: {public_url}")
+                return public_url
+                
+            except Exception as e:
+                logging.error(f"Attempt {attempt + 1} failed for {storage_path}: {str(e)}")
+                if attempt < max_retries - 1:
+                    # Exponential backoff: wait 1s, 2s before retrying
+                    wait_time = 2 ** attempt
+                    logging.info(f"Retrying in {wait_time} second(s)...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    logging.error(f"All {max_retries} upload attempts failed for {storage_path}.")
+                    return None # Return None after all retries fail```
+    async def save_conversation_turn(self, turn_data: dict):
+        """
+        Saves a conversation turn to the database. Normalizes audio_url and includes user_id if present.
+        """
+        try:
+            record = {
+                "interview_id": turn_data.get("interview_id"),
+                "turn_index": turn_data.get("turn_index"),
+                "speaker": turn_data.get("speaker"),
+                "text_content": turn_data.get("text_content", ""),
+                "audio_url": self.normalize_public_url(turn_data.get("audio_url") or ""),
+                "audio_duration_seconds": turn_data.get("audio_duration_seconds"),
+            }
+            if turn_data.get("user_id"):
+                record["user_id"] = turn_data.get("user_id")
+
+            print(f"Saving conversation turn: {record}")
+            response = self.client.table("conversation_turns").insert(record).execute()
+            return response.data if hasattr(response, "data") else {"message": "Turn saved successfully"}
+        except Exception as e:
+            print(f"Error saving conversation turn: {str(e)}")
+            return {"error": {"message": str(e)}}
+    
+    async def get_all_conversation_turns(self, interview_id: str):
+        """
+        Retrieves all conversation turns for an interview, sorted by turn_index.
+        """
+        try:
+            response = self.client.table("conversation_turns")\
+                .select("*")\
+                .eq("interview_id", interview_id)\
+                .order("turn_index")\
+                .execute()
+            return response.data if hasattr(response, "data") else []
+        except Exception as e:
+            print(f"Error fetching conversation turns: {str(e)}")
+            return []
+
+    async def update_conversation_turn(self, turn_id: str, update_data: dict):
+        """
+        Updates a conversation turn record by id.
+        """
+        try:
+            response = self.client.table("conversation_turns")\
+                .update(update_data)\
+                .eq("id", turn_id)\
+                .execute()
+            return response.data if hasattr(response, "data") else {"message": "updated"}
+        except Exception as e:
+            print(f"Error updating conversation turn: {str(e)}")
+            return {"error": {"message": str(e)}}
+
+    async def save_feedback(self, feedback: dict) -> dict:
+        """
+        Saves feedback for a specific interview. (Async to match callers)
+        """
+        try:
+            response = self.client.table("feedback").insert({
+                "interview_id": feedback.get("interview_id"),
+                "user_id": feedback.get("user_id"),
+                "feedback_data": feedback.get("feedback_data"),
+                "status": feedback.get("status", "pending"),
+                "error_msg": feedback.get("error_msg", ""),
+                "updated_at": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+            }).execute()
+            return response.data if hasattr(response, "data") else response
+        except Exception as e:
+            return {"error": {"message": str(e)}}
+
+    # RAG-specific methods
+    async def store_enhanced_prompt(self, interview_id: str, enhanced_prompt: str, source: str = "rag") -> Dict[str, Any]:
+        """
+        Stores an enhanced prompt for an interview.
+        
+        Args:
+            interview_id: UUID of the interview
+            enhanced_prompt: Text content of the enhanced prompt (max 50KB recommended)
+            source: Source of the prompt (rag, existing_data, new_data)
+        
+        Returns:
+            dict: {"success": True, "data": {...}} or {"success": False, "error": "..."}
+        """
+        try:
+            # Validate inputs
+            if not interview_id:
+                logging.error("[Supabase] store_enhanced_prompt: Missing interview_id")
+                return {"success": False, "error": "Missing interview_id"}
+            
+            if not enhanced_prompt:
+                logging.error(f"[Supabase] store_enhanced_prompt: Missing enhanced_prompt for interview {interview_id}")
+                return {"success": False, "error": "Missing enhanced_prompt"}
+            
+            if not isinstance(enhanced_prompt, str):
+                logging.error(f"[Supabase] store_enhanced_prompt: enhanced_prompt must be string, got {type(enhanced_prompt)}")
+                return {"success": False, "error": f"Invalid type for enhanced_prompt: {type(enhanced_prompt).__name__}"}
+            
+            # Execute insert
+            response = self.client.table("interview_enhanced_prompts").insert({
+                "interview_id": interview_id,
+                "prompt": enhanced_prompt,
+                "source": source
+            }).execute()
+            
+            # Check response
+            if not response.data or len(response.data) == 0:
+                logging.error(f"[Supabase] store_enhanced_prompt: No data returned from insert for interview {interview_id}")
+                return {"success": False, "error": "Insert failed - no data returned"}
+            
+            logging.info(f"[Supabase] Successfully stored enhanced prompt for interview {interview_id}")
+            return {"success": True, "data": response.data[0]}
+            
+        except Exception as e:
+            logging.error(f"[Supabase] store_enhanced_prompt: Exception for interview {interview_id}: {str(e)}")
+            return {"success": False, "error": str(e)}
+
+    async def get_enhanced_prompt(self, interview_id):
+        """Gets the RAG-enhanced prompt for an interview if available"""
+        try:
+            response = self.client.table("interview_enhanced_prompts") \
+                .select("prompt") \
+                .eq("interview_id", interview_id) \
+                .order("created_at", desc=True) \
+                .limit(1) \
+                .execute()
+            
+            if response.data and len(response.data) > 0:
+                return response.data[0]["prompt"]
+            return None
+        except Exception as e:
+            logging.error(f"Error fetching enhanced prompt: {str(e)}")
+            return None
+
+    async def update_interview_status(self, session_id: str, status: str):
+        """Updates the status of an interview session."""
+        try:
+            response = (
+                self.client.table("interviews")
+                .update({"status": status})
+                .eq("id", session_id)
+                .execute()
+            )
+            logging.info(f"[Supabase] Successfully updated interview {session_id} status to '{status}'")
+            return {"success": True, "data": response.data}
+        except Exception as e:
+            logging.error(f"[Supabase] Failed to update interview status for {session_id}: {e}")
+            return {"success": False, "error": str(e)}
+        
+    async def get_interview_status(self, session_id: str):
+        """Fetches the current status of an interview session."""
+        try:
+            response = (
+                self.client.table("interviews")
+                .select("status")
+                .eq("id", session_id)
+                .single()
+                .execute()
+            )
+            if response.data and "status" in response.data:
+                return response.data["status"]
+            return None
+        except Exception as e:
+            logging.error(f"[Supabase] Failed to fetch interview status for {session_id}: {e}")
+            return None
+
+    async def store_enhanced_prompt_and_update_status(
+        self, interview_id: str, enhanced_prompt: str, source: str = "rag", target_status: str = "ready"
+    ) -> Dict[str, Any]:
+        """
+        Atomically stores an enhanced prompt AND updates interview status.
+        This prevents race conditions where prompt is stored but status update fails.
+        
+        Args:
+            interview_id: UUID of the interview
+            enhanced_prompt: Text content of the enhanced prompt
+            source: Source of the prompt (rag, existing_data, new_data)
+            target_status: Status to set after successful storage (default: "ready")
+            
+        Returns:
+            dict: {"success": True, "data": {...}} or {"success": False, "error": "...", "rollback": bool}
+        """
+        prompt_stored = False
+        prompt_record = None
+        
+        try:
+            # Step 1: Store the enhanced prompt
+            store_result = await self.store_enhanced_prompt(
+                interview_id=interview_id,
+                enhanced_prompt=enhanced_prompt,
+                source=source
+            )
+            
+            if not store_result.get("success"):
+                # Prompt storage failed - nothing to rollback
+                logging.error(
+                    f"[Supabase] store_enhanced_prompt_and_update_status: "
+                    f"Failed to store prompt for interview {interview_id}: {store_result.get('error')}"
+                )
+                return {
+                    "success": False,
+                    "error": f"Prompt storage failed: {store_result.get('error')}",
+                    "rollback": False
+                }
+            
+            prompt_stored = True
+            prompt_record = store_result.get("data")
+            logging.info(f"[Supabase] Prompt stored successfully for interview {interview_id}, updating status...")
+            
+            # Step 2: Update the interview status
+            status_result = await self.update_interview_status(
+                session_id=interview_id,
+                status=target_status
+            )
+            
+            if not status_result.get("success"):
+                # Status update failed - prompt is orphaned!
+                logging.error(
+                    f"[Supabase] store_enhanced_prompt_and_update_status: "
+                    f"CRITICAL - Prompt stored but status update failed for interview {interview_id}. "
+                    f"Prompt ID: {prompt_record.get('id')}, Error: {status_result.get('error')}"
+                )
+                
+                # Attempt to delete the orphaned prompt (rollback)
+                try:
+                    logging.warning(f"[Supabase] Attempting to rollback orphaned prompt for interview {interview_id}")
+                    delete_response = self.client.table("interview_enhanced_prompts") \
+                        .delete() \
+                        .eq("id", prompt_record.get("id")) \
+                        .execute()
+                    
+                    if delete_response.data:
+                        logging.info(f"[Supabase] Successfully rolled back orphaned prompt for interview {interview_id}")
+                        return {
+                            "success": False,
+                            "error": f"Status update failed: {status_result.get('error')}",
+                            "rollback": True
+                        }
+                    else:
+                        logging.error(f"[Supabase] Rollback failed - orphaned prompt remains for interview {interview_id}")
+                        return {
+                            "success": False,
+                            "error": f"Status update failed AND rollback failed: {status_result.get('error')}",
+                            "rollback": False,
+                            "orphaned_prompt_id": prompt_record.get("id")
+                        }
+                except Exception as rollback_error:
+                    logging.critical(
+                        f"[Supabase] Rollback exception for interview {interview_id}: {str(rollback_error)}. "
+                        f"MANUAL CLEANUP REQUIRED for prompt ID: {prompt_record.get('id')}"
+                    )
+                    return {
+                        "success": False,
+                        "error": f"Status update failed AND rollback crashed: {str(rollback_error)}",
+                        "rollback": False,
+                        "orphaned_prompt_id": prompt_record.get("id"),
+                        "requires_manual_cleanup": True
+                    }
+            
+            # Both operations succeeded!
+            logging.info(
+                f"[Supabase] Successfully stored prompt and updated status to '{target_status}' "
+                f"for interview {interview_id}"
+            )
+            return {
+                "success": True,
+                "data": {
+                    "prompt_record": prompt_record,
+                    "interview_status": status_result.get("data"),
+                    "final_status": target_status
+                }
+            }
+            
+        except Exception as e:
+            logging.error(
+                f"[Supabase] store_enhanced_prompt_and_update_status: Unexpected exception "
+                f"for interview {interview_id}: {str(e)}"
+            )
+            
+            # If prompt was stored, try to rollback
+            if prompt_stored and prompt_record:
+                try:
+                    logging.warning(f"[Supabase] Exception occurred, attempting rollback for interview {interview_id}")
+                    self.client.table("interview_enhanced_prompts") \
+                        .delete() \
+                        .eq("id", prompt_record.get("id")) \
+                        .execute()
+                    return {"success": False, "error": str(e), "rollback": True}
+                except:
+                    return {
+                        "success": False,
+                        "error": str(e),
+                        "rollback": False,
+                        "orphaned_prompt_id": prompt_record.get("id")
+                    }
+            
+            return {"success": False, "error": str(e), "rollback": False}
 
 # Singleton instance of SupabaseService for use throughout the app
 supabase_service = SupabaseService()

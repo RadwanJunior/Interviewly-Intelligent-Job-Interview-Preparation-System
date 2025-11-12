@@ -31,6 +31,7 @@ const JobDetailsStage = () => {
     updateJobDetailsData,
     completeCurrentStage,
     goToPreviousStage,
+    interviewType,
     // showLoader,
   } = useWorkflow();
   const router = useRouter(); // Initialize the router
@@ -69,13 +70,15 @@ const JobDetailsStage = () => {
         toast.error("Failed to confirm job details. Please try again.");
         return;
       }
-
+      const jobDescriptionId = response.data[0].id;
       toast.success("Job details confirmed!");
-      updateJobDetailsData({ JobDescriptionId: response.data[0].id });
-      console.log("Job Description ID:", response.data[0].id);
+      updateJobDetailsData({ JobDescriptionId: jobDescriptionId });
+      console.log("Job Description ID:", jobDescriptionId);
       console.log("Job Details Data:", jobDetailsData);
       completeCurrentStage();
-      router.push("/prepare");
+      router.push(
+        `/prepare?jobDescriptionId=${jobDescriptionId}&type=${interviewType}`
+      );
     } catch {
       toast.error("Failed to confirm job details. Please try again.");
     }
@@ -151,7 +154,6 @@ const JobDetailsStage = () => {
             <Select
               value={jobDetailsData.jobType}
               onValueChange={handleSelectChange("jobType")}>
-              
               <SelectTrigger
                 id="job-type"
                 className="bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-foreground focus:ring-2 focus:ring-primary focus:border-primary">
