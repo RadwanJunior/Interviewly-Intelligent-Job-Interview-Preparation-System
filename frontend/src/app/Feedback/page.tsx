@@ -84,6 +84,7 @@ const Feedback = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("sessionId");
+  const interviewType = searchParams.get("type"); // Add this line to get the type
   const { toast } = useToast();
 
   const [feedback, setFeedback] = useState<FormattedFeedback>(INITIAL_FEEDBACK);
@@ -488,7 +489,14 @@ ${feedback.overallFeedback}
           <h2 className="mt-4 text-2xl font-bold">Error Loading Feedback</h2>
           <p className="mt-2">{error}</p>
           <Button
-            onClick={() => router.push("/interview?sessionId=" + sessionId)}
+            onClick={() => {
+              // Check interview type and redirect accordingly
+              const returnUrl =
+                interviewType === "live" || interviewType === "call"
+                  ? `/InterviewCall?sessionId=${sessionId}`
+                  : `/interview?sessionId=${sessionId}`;
+              router.push(returnUrl);
+            }}
             className="mt-6">
             Return to Interview
           </Button>
