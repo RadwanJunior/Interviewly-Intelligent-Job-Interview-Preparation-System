@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Head from "next/head";
 import {
@@ -80,7 +80,7 @@ const INITIAL_FEEDBACK: FormattedFeedback = {
   overallFeedback: "",
 };
 
-const Feedback = () => {
+const FeedbackContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("sessionId");
@@ -627,6 +627,7 @@ ${feedback.overallFeedback}
             <AlertTitle>Missed Opportunities</AlertTitle>
             <AlertDescription>
               <p className="mb-2">
+                {/* eslint-disable-next-line react/no-unescaped-entities */}
                 You didn't mention these keywords that might have strengthened
                 your answers:
               </p>
@@ -733,5 +734,11 @@ ${feedback.overallFeedback}
     </div>
   );
 };
+
+const Feedback = () => (
+  <Suspense fallback={<div className="p-6">Loading feedback...</div>}>
+    <FeedbackContent />
+  </Suspense>
+);
 
 export default Feedback;

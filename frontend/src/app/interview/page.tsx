@@ -27,7 +27,7 @@ const AUTO_RECORD_DELAY = 30;
 /**
  * Interview Component - Handles the mock interview session flow
  */
-const Interview = () => {
+const InterviewContent = () => {
   // Get session ID from URL query parameters
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("sessionId");
@@ -198,6 +198,7 @@ const Interview = () => {
         clearInterval(autoRecordTimerRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestion, recordings, isRecording, activeCall]);
 
   // Calculate progress percentage
@@ -531,72 +532,76 @@ const Interview = () => {
     return <ErrorState message={error} />;
   }
 
-  // Main interview interface
-  return (
-    <Suspense fallback={<LoadingState message="Loading interview..." />}>
-      <div className="min-h-screen flex flex-col bg-background">
-        <Head>
-          <title>Interview Session - Interviewly</title>
-          <meta
-            name="description"
-            content="Practice interview questions and record your answers with Interviewly."
-          />
-        </Head>
+// Main interview interface
+return (
+  <div className="min-h-screen flex flex-col bg-background">
+    <Head>
+      <title>Interview Session - Interviewly</title>
+      <meta
+        name="description"
+        content="Practice interview questions and record your answers with Interviewly."
+      />
+    </Head>
 
-        <main className="flex-grow container mx-auto px-4 py-8 mt-6 md:mt-10">
-          <div className="max-w-4xl mx-auto animate-fade-in">
-            <h1 className="font-heading font-bold text-2xl md:text-3xl text-center mb-6 text-foreground text-primary">
-              Interview Session
-            </h1>
+    <main className="flex-grow container mx-auto px-4 py-8 mt-6 md:mt-10">
+      <div className="max-w-4xl mx-auto animate-fade-in">
+        <h1 className="font-heading font-bold text-2xl md:text-3xl text-center mb-6 text-foreground text-primary">
+          Interview Session
+        </h1>
 
-            {/* Interview Interface Card */}
-            <Card className="mb-6 overflow-hidden border-2 border-primary/10 shadow-lg">
-              <InterviewHeader activeCall={activeCall} onEndCall={endCall} />
+        {/* Interview Interface Card */}
+        <Card className="mb-6 overflow-hidden border-2 border-primary/10 shadow-lg">
+          <InterviewHeader activeCall={activeCall} onEndCall={endCall} />
 
-              <div className="p-6 bg-card text-card-foreground">
-                <QuestionDisplay
-                  question={questions[currentQuestion]?.question}
-                  showingCountdown={showingCountdown}
-                  autoRecordCountdown={autoRecordCountdown}
-                />
-
-                <AnswerSection
-                  recording={recordings[currentQuestion]}
-                  isRecording={isRecording}
-                />
-              </div>
-
-              <RecordingControls
-                isRecording={isRecording}
-                activeCall={activeCall}
-                hasRecording={!!recordings[currentQuestion]?.url}
-                recordingTime={recordingTime}
-                timeRemaining={timeRemaining}
-                timeRemainingPercentage={timeRemainingPercentage}
-                onStartRecording={startRecording}
-                onStopRecording={stopRecording}
-              />
-            </Card>
-
-            <ProgressIndicator
-              currentQuestion={currentQuestion}
-              totalQuestions={questions.length}
-              progress={progress}
+          <div className="p-6 bg-card text-card-foreground">
+            <QuestionDisplay
+              question={questions[currentQuestion]?.question}
+              showingCountdown={showingCountdown}
+              autoRecordCountdown={autoRecordCountdown}
             />
 
-            <InterviewNavigation
-              isLastQuestion={currentQuestion === questions.length - 1}
-              activeCall={activeCall}
-              hasCurrentQuestionBeenAnswered={hasCurrentQuestionBeenAnswered}
+            <AnswerSection
+              recording={recordings[currentQuestion]}
               isRecording={isRecording}
-              isUploading={isUploading}
-              onNext={handleNext}
             />
           </div>
-        </main>
+
+          <RecordingControls
+            isRecording={isRecording}
+            activeCall={activeCall}
+            hasRecording={!!recordings[currentQuestion]?.url}
+            recordingTime={recordingTime}
+            timeRemaining={timeRemaining}
+            timeRemainingPercentage={timeRemainingPercentage}
+            onStartRecording={startRecording}
+            onStopRecording={stopRecording}
+          />
+        </Card>
+
+        <ProgressIndicator
+          currentQuestion={currentQuestion}
+          totalQuestions={questions.length}
+          progress={progress}
+        />
+
+        <InterviewNavigation
+          isLastQuestion={currentQuestion === questions.length - 1}
+          activeCall={activeCall}
+          hasCurrentQuestionBeenAnswered={hasCurrentQuestionBeenAnswered}
+          isRecording={isRecording}
+          isUploading={isUploading}
+          onNext={handleNext}
+        />
       </div>
-    </Suspense>
-  );
+    </main>
+  </div>
+);
 };
+
+const Interview = () => (
+  <Suspense fallback={<LoadingState message="Loading interview..." />}>
+    <InterviewContent />
+  </Suspense>
+);
 
 export default Interview;

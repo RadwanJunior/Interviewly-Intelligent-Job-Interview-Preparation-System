@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useEffect, useRef, useState } from "react";
 import { useGLTF, useAnimations } from "@react-three/drei";
@@ -62,7 +63,11 @@ export function Avatar({ animation, ...props }: any) {
         const currentViseme = lipsyncManager.viseme || VISEMES.sil;
         Object.values(VISEMES).forEach((viseme: any) => {
           const index = object.morphTargetDictionary![viseme];
-          if (index !== undefined) {
+          if (
+            index !== undefined &&
+            object.morphTargetInfluences &&
+            object.morphTargetInfluences[index] !== undefined
+          ) {
             const targetValue = viseme === currentViseme ? 1 : 0;
             object.morphTargetInfluences[index] = THREE.MathUtils.lerp(
               object.morphTargetInfluences[index],

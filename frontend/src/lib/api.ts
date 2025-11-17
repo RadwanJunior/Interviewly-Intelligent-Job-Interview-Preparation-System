@@ -7,9 +7,11 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:8000", // Change this for production
-  withCredentials: true, // Ensures cookies (tokens) are sent
-  headers: { "Content-Type": "application/json" },
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
+  withCredentials: true,
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
 // Log API base URL (commented out for tests to avoid axios mock timing issues)
@@ -321,7 +323,7 @@ export async function fetchActivePlan() {
  * @param planData - Preparation plan data object
  * @returns API response data
  */
-export async function createPreparationPlan(planData) {
+export async function createPreparationPlan(planData: Record<string, unknown>) {
   const response = await api.post("/dashboard/preparation-plan", planData);
   return response.data;
 }
@@ -332,7 +334,10 @@ export async function createPreparationPlan(planData) {
  * @param updateData - Data to update
  * @returns API response data
  */
-export async function updatePreparationPlan(planId, updateData) {
+export async function updatePreparationPlan(
+  planId: string,
+  updateData: Record<string, unknown>
+) {
   const response = await api.put(
     `/dashboard/preparation-plan/${planId}`,
     updateData
@@ -374,3 +379,5 @@ export async function clearFeedbackStatus(interview_id: string) {
     throw error;
   }
 }
+
+export default api;
