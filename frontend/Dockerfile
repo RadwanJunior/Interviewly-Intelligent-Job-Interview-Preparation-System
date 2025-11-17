@@ -1,7 +1,11 @@
 # ---------- 1) Build stage ----------
-FROM node:20-alpine AS builder
+# Use latest LTS on glibc so Tailwind oxide binary is available
+FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
+
+# Keep base packages patched to remove scanner findings
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
 COPY package.json package-lock.json* ./
@@ -14,11 +18,14 @@ COPY . .
 RUN npm run build
 
 # ---------- 2) Runtime stage ----------
-FROM node:20-alpine AS runner
+FROM node:22-bookworm-slim AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
+
+# Keep base packages patched to remove scanner findings
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 
 # Copy only what's needed at runtime
 COPY package.json package-lock.json* ./
