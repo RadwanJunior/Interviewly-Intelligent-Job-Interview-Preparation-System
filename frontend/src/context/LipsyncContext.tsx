@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, {
   createContext,
   useContext,
@@ -26,6 +27,7 @@ export const LipsyncProvider = ({
   const lipsyncManagerRef = useRef<Lipsync | null>(null);
 
   // We use state just to let consumers know when the ref is populated.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {

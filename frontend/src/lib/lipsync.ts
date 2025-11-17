@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Lipsync } from "wawa-lipsync";
 
 // declared once for the entire application's lifecycle. It starts as null.

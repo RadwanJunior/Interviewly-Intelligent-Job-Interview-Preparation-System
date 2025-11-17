@@ -42,9 +42,11 @@ export const initialStages: WorkflowStage[] = [
  * Used to reset or initialize the resume upload step.
  */
 export const initialResumeData: ResumeData = {
+  fileName: undefined,
   file: null,
   text: "",
   hasExisting: false,
+  resumeId: undefined,
 };
 
 
@@ -53,6 +55,7 @@ export const initialResumeData: ResumeData = {
  * Used to reset or initialize the job details step.
  */
 export const initialJobDetailsData: JobDetailsData = {
+  JobDescriptionId: "",
   userId: "",
   companyName: "",
   jobTitle: "",

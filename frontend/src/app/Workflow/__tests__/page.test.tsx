@@ -126,6 +126,7 @@ describe("Workflow (ResumeUpload) Page", () => {
     });
 
     it("should have accessible structure", () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { container } = render(<ResumeUpload />);
 
       // Check that layout has proper structure

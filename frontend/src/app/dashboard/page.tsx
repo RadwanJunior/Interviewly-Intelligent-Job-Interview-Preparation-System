@@ -15,9 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
 import {
   fetchDashboardStats,
   fetchInterviewHistory,
@@ -25,6 +23,7 @@ import {
 } from "@/lib/api";
 import Navbar from "@/components/Navbar";
 import { InterviewCard } from "@/components/dashboard/InterviewCard";
+import { Progress } from "@/components/ui/progress";
 
 interface InterviewHistoryItem {
   id: string;
@@ -53,6 +52,7 @@ interface PreparationPlan {
   company: string;
   interviewDate: string;
   readinessLevel: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   steps: any[];
   completedSteps: number;
 }
