@@ -3,13 +3,14 @@
 FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
+ENV NPM_CONFIG_OPTIONAL=true
 
 # Keep base packages patched to remove scanner findings
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm ci --include=optional
 
 # Copy the rest of the app
 COPY . .
@@ -22,6 +23,7 @@ FROM node:22-bookworm-slim AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production
+ENV NPM_CONFIG_OPTIONAL=true
 ENV PORT=3000
 
 # Keep base packages patched to remove scanner findings
@@ -31,7 +33,7 @@ RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json* ./
 
 # Install prod deps only
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --include=optional
 
 # Copy built app from builder
 COPY --from=builder /app/.next .next
