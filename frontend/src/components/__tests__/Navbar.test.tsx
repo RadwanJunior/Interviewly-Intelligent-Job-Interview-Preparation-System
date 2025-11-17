@@ -130,6 +130,7 @@ describe("Navbar Component", () => {
       render(<Navbar />);
 
       // Mobile menu should not be visible initially
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const mobileFeatures = screen.queryByRole("button", {
         name: /features/i,
         hidden: true,

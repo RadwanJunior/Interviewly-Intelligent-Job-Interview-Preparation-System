@@ -78,9 +78,14 @@ const InterviewCallContent = () => {
   // Initialize speech recognition if available
   useEffect(() => {
     if ("SpeechRecognition" in window || "webkitSpeechRecognition" in window) {
-      const SpeechRecognition =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
+      const SpeechRecognitionCtor =
+        (window.SpeechRecognition || window.webkitSpeechRecognition) as
+          | typeof window.SpeechRecognition
+          | undefined;
+      if (!SpeechRecognitionCtor) {
+        return;
+      }
+      recognitionRef.current = new SpeechRecognitionCtor();
       recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = true;
 
@@ -143,6 +148,7 @@ const InterviewCallContent = () => {
       if (recognitionRef.current) {
         try {
           recognitionRef.current.start();
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (e) {
           // Speech recognition might already be started
         }
@@ -207,6 +213,7 @@ const InterviewCallContent = () => {
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (e) {
           // Speech recognition might already be stopped
         }
@@ -629,5 +636,10 @@ declare global {
   }
 }
 
-const InterviewCallPage = () => <InterviewCallContent />;
+const InterviewCallPage = () => (
+  <Suspense fallback={<Loader />}>
+    <InterviewCallContent />
+  </Suspense>
+);
+
 export default InterviewCallPage;
