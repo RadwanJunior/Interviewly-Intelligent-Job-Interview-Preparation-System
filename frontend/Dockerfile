@@ -14,6 +14,8 @@ RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 # Install dependencies
 COPY package.json package-lock.json* ./
 RUN npm ci --include=optional
+# Ensure Tailwind native binary for linux/x64 is present
+RUN npm install @tailwindcss/oxide-linux-x64-gnu@4.0.9 --no-save
 
 # Copy the rest of the app
 COPY . .
@@ -39,6 +41,8 @@ COPY package.json package-lock.json* ./
 
 # Install prod deps only
 RUN npm ci --omit=dev --include=optional
+# Ensure Tailwind native binary for linux/x64 is present
+RUN npm install @tailwindcss/oxide-linux-x64-gnu@4.0.9 --no-save
 
 # Copy built app from builder
 COPY --from=builder /app/.next .next
