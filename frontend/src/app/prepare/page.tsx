@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, Suspense } from "react";
 import Head from "next/head";
 import {
   CheckCircle,
@@ -17,7 +17,7 @@ import { useWorkflow } from "@/context/WorkflowContext";
 import { createInterviewSession, getInterviewStatus } from "@/lib/api";
 import { useRouter, useSearchParams } from "next/navigation";
 
-const PrepareInterview = () => {
+const PrepareInterviewContent = () => {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(true);
   const [progress, setProgress] = useState(0);
@@ -108,7 +108,7 @@ const PrepareInterview = () => {
           };
 
           if (statusResp.status) {
-            const progress = statusProgressMap[statusResp.status] || 0;
+            const progress = statusProgressMap[statusResp.status as keyof typeof statusProgressMap] || 0;
             setProgress(progress);
 
             if (statusResp.status === "ready") {
@@ -321,5 +321,12 @@ const PrepareInterview = () => {
     </div>
   );
 };
+
+// Suspense wrapper for useSearchParams usage
+const PrepareInterview = () => (
+  <Suspense fallback={<div className="p-6">Preparing interview...</div>}>
+    <PrepareInterviewContent />
+  </Suspense>
+);
 
 export default PrepareInterview;

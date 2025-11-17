@@ -5,6 +5,7 @@ import { CameraOff } from "lucide-react";
 
 export const UserVideo = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
 
