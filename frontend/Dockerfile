@@ -3,8 +3,8 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install dependencies
-COPY package.json package-lock.json* ./
+# Don't copy package-lock.json here – let Linux resolve its own deps
+COPY package.json ./
 RUN npm install
 
 # Copy the rest of the app
@@ -20,17 +20,13 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Copy only what's needed at runtime
+# Here you *can* use the lockfile for prod deps if you want
 COPY package.json package-lock.json* ./
-
-# Install prod deps only
 RUN npm ci --omit=dev
 
-# Copy built app from builder
 COPY --from=builder /app/.next .next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.* ./ 2>/dev/null || true
 
 EXPOSE 3000
-
 CMD ["npm", "run", "start"]
