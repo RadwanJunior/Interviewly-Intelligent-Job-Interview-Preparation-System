@@ -4,6 +4,9 @@ FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 ENV NPM_CONFIG_OPTIONAL=true
+# Force npm to resolve for linux/x64 so Tailwind oxide optional deps install
+ENV npm_config_platform=linux
+ENV npm_config_arch=x64
 
 # Keep base packages patched to remove scanner findings
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
@@ -24,6 +27,8 @@ FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NPM_CONFIG_OPTIONAL=true
+ENV npm_config_platform=linux
+ENV npm_config_arch=x64
 ENV PORT=3000
 
 # Keep base packages patched to remove scanner findings
