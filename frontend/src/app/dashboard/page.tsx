@@ -25,6 +25,7 @@ import {
 } from "@/lib/api";
 import Navbar from "@/components/Navbar";
 import { InterviewCard } from "@/components/dashboard/InterviewCard";
+import { useAuth } from "@/context/AuthContext"; // ✅ Fixed import
 
 interface InterviewHistoryItem {
   id: string;
@@ -59,6 +60,7 @@ interface PreparationPlan {
 
 const Dashboard = () => {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [activePlan, setActivePlan] = useState<PreparationPlan | null>(null);
   const [interviewHistory, setInterviewHistory] = useState<
     InterviewHistoryItem[]
@@ -68,28 +70,38 @@ const Dashboard = () => {
     averageScore: 0,
     completedThisMonth: 0,
   });
-  const [loading, setLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [redirecting, setRedirecting] = useState(false); // ✅ New state
 
+  // ✅ Check auth on mount - fixed logic
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user) {
+        console.log("No user found, redirecting to login...");
+        setRedirecting(true);
+        window.location.href = "/auth/login?session_expired=true";
+      }
+    }
+  }, [user, authLoading]);
+
+  // Fetch dashboard data - only if authenticated
   const fetchDashboardData = async () => {
-    setLoading(true);
+    if (!user) return; // ✅ Don't fetch if no user
+
+    setDataLoading(true);
     setError(null);
 
     try {
-      // Use Promise.all to fetch all data in parallel
       const [statsResponse, historyResponse, planResponse] = await Promise.all([
         fetchDashboardStats(),
         fetchInterviewHistory(),
         fetchActivePlan(),
       ]);
 
-      // Set stats from API response
       setStats(statsResponse);
-
-      // Set interview history from API response
       setInterviewHistory(historyResponse || []);
 
-      // Set active plan from API or localStorage for backward compatibility
       if (planResponse) {
         setActivePlan(planResponse);
       } else {
@@ -102,13 +114,16 @@ const Dashboard = () => {
       console.error("Error fetching dashboard data:", err);
       setError("Failed to load dashboard data. Please try again.");
     } finally {
-      setLoading(false);
+      setDataLoading(false);
     }
   };
 
+  // ✅ Only fetch data when user is authenticated
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (user && !authLoading) {
+      fetchDashboardData();
+    }
+  }, [user, authLoading]);
 
   const getScoreColor = (score: number) => {
     if (score >= 90) return "text-green-600 bg-green-50";
@@ -125,7 +140,29 @@ const Dashboard = () => {
     router.push(`/Feedback?sessionId=${interviewId}`);
   };
 
-  if (loading) {
+  // ✅ Show loading while checking auth OR redirecting
+  if (authLoading || redirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-gray-600">
+            {redirecting
+              ? "Redirecting to login..."
+              : "Checking authentication..."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ Don't render anything if not authenticated
+  if (!user) {
+    return null;
+  }
+
+  // Show data loading state
+  if (dataLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-gray-50 to-white">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>

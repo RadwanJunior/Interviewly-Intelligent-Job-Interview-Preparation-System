@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { getFeedback, getFeedbackStatus } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext"; // ✅ Correct import
 
 // Update the ApiFeedback interface to handle both structures
 interface ApiFeedback {
@@ -84,8 +85,9 @@ const Feedback = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("sessionId");
-  const interviewType = searchParams.get("type"); // Add this line to get the type
+  const interviewType = searchParams.get("type");
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
 
   const [feedback, setFeedback] = useState<FormattedFeedback>(INITIAL_FEEDBACK);
   const [loading, setLoading] = useState(true);
@@ -457,6 +459,37 @@ ${feedback.overallFeedback}
   const handleRetry = () => {
     router.push("/Workflow");
   };
+
+  // ✅ Check auth AFTER loading is complete
+  useEffect(() => {
+    console.log("🔍 Auth check - authLoading:", authLoading, "user:", user);
+
+    if (!authLoading && !user) {
+      console.log("🚪 No user found, redirecting to login...");
+      window.location.href = "/auth/login?session_expired=true";
+    }
+  }, [user, authLoading]);
+
+  // ✅ Show loading while checking auth
+  if (authLoading) {
+    console.log("⏳ Still checking auth...");
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-gray-50 to-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-lg">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ If auth is done and no user, don't render (will redirect)
+  if (!user) {
+    console.log("🚫 No user, should redirect soon...");
+    return null;
+  }
+
+  console.log("✅ User authenticated, rendering feedback page");
 
   // Loading state - show different message when actively polling
   if (loading) {
