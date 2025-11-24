@@ -804,7 +804,7 @@ class SupabaseService:
                     await asyncio.sleep(wait_time)
                 else:
                     logging.error(f"All {max_retries} upload attempts failed for {storage_path}.")
-                    return None # Return None after all retries fail```
+                    return None # Return None after all retries fail
     async def save_conversation_turn(self, turn_data: dict):
         """
         Saves a conversation turn to the database. Normalizes audio_url and includes user_id if present.
@@ -1100,6 +1100,55 @@ class SupabaseService:
                     }
             
             return {"success": False, "error": str(e), "rollback": False}
+
+    def get_interview_history_with_job_details(self, user_id: str):
+        """
+        Get interview history with job descriptions in ONE query using JOIN.
+        This replaces the N+1 query problem where we fetched job descriptions individually.
+        
+        Returns a list of interviews with embedded job_description data.
+        """
+        try:
+            # ✅ Use Supabase's JOIN syntax to fetch everything at once
+            response = self.client.table("interviews").select(
+                """
+                id,
+                created_at,
+                completed_at,
+                status,
+                score,
+                duration,
+                type,
+                job_description_id,
+                resume_id,
+                job_descriptions!inner(
+                    title,
+                    company,
+                    location
+                )
+                """
+            ).eq("user_id", user_id).order("created_at", desc=True).execute()
+            
+            # Transform the nested structure to flat structure for easier consumption
+            interviews = []
+            if hasattr(response, "data") and response.data:
+                for interview in response.data:
+                    # Extract job_descriptions from nested object
+                    job_desc = interview.pop("job_descriptions", {})
+                    
+                    # Flatten the structure
+                    interview["job_title"] = job_desc.get("title", "")
+                    interview["company"] = job_desc.get("company", "")
+                    interview["location"] = job_desc.get("location", "")
+                    
+                    interviews.append(interview)
+            
+            logging.info(f"✅ Fetched {len(interviews)} interviews with job details in ONE query for user {user_id}")
+            return interviews
+            
+        except Exception as e:
+            logging.error(f"❌ Error getting interview history with job details: {str(e)}", exc_info=True)
+            return {"error": str(e)}
 
 # Singleton instance of SupabaseService for use throughout the app
 supabase_service = SupabaseService()
