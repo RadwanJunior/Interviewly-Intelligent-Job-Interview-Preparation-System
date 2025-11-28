@@ -164,7 +164,7 @@ const PrepareInterview = () => {
     if (interviewType === "call") {
       router.push(`/InterviewCall?sessionId=${sessionId}`);
     } else {
-      router.push(`/Interview?sessionId=${sessionId}`);
+      router.push(`/interview?sessionId=${sessionId}`);
     }
   };
 
