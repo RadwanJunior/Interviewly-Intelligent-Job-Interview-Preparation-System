@@ -40,7 +40,6 @@ async def get_dashboard_stats(current_user: dict = Depends(supabase_service.get_
     if not current_user or not getattr(current_user, "id", None):
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    print("current_user: ", current_user.id)
     stats = dashboard_service.get_dashboard_stats(current_user.id)
     
     if isinstance(stats, dict) and "error" in stats:

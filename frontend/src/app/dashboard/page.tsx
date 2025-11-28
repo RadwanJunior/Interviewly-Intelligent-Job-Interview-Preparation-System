@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Calendar,
@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -25,7 +24,7 @@ import {
 } from "@/lib/api";
 import Navbar from "@/components/Navbar";
 import { InterviewCard } from "@/components/dashboard/InterviewCard";
-import { useAuth } from "@/context/AuthContext"; // ✅ Fixed import
+import { useAuth } from "@/context/AuthContext";
 
 interface InterviewHistoryItem {
   id: string;
@@ -70,25 +69,28 @@ const Dashboard = () => {
     averageScore: 0,
     completedThisMonth: 0,
   });
-  const [dataLoading, setDataLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [redirecting, setRedirecting] = useState(false); // ✅ New state
 
-  // ✅ Check auth on mount - fixed logic
-  useEffect(() => {
-    if (!authLoading) {
-      if (!user) {
-        console.log("No user found, redirecting to login...");
-        setRedirecting(true);
-        window.location.href = "/auth/login?session_expired=true";
-      }
+  // ✅ Track if data has been fetched to prevent duplicate requests
+  const hasFetchedData = useRef(false);
+  const isFetchingData = useRef(false);
+
+  // ✅ Memoize fetchDashboardData to prevent recreation
+  const fetchDashboardData = useCallback(async () => {
+    // Prevent duplicate fetches
+    if (isFetchingData.current) {
+      console.log("🚫 Fetch already in progress, skipping...");
+      return;
     }
-  }, [user, authLoading]);
 
-  // Fetch dashboard data - only if authenticated
-  const fetchDashboardData = async () => {
-    if (!user) return; // ✅ Don't fetch if no user
+    if (!user) {
+      console.log("🚫 No user, skipping fetch");
+      return;
+    }
 
+    console.log("📊 Starting dashboard data fetch...");
+    isFetchingData.current = true;
     setDataLoading(true);
     setError(null);
 
@@ -99,6 +101,7 @@ const Dashboard = () => {
         fetchActivePlan(),
       ]);
 
+      console.log("✅ Dashboard data fetched successfully");
       setStats(statsResponse);
       setInterviewHistory(historyResponse || []);
 
@@ -110,20 +113,38 @@ const Dashboard = () => {
           setActivePlan(JSON.parse(savedPlan));
         }
       }
+
+      hasFetchedData.current = true;
     } catch (err) {
-      console.error("Error fetching dashboard data:", err);
+      console.error("❌ Error fetching dashboard data:", err);
       setError("Failed to load dashboard data. Please try again.");
     } finally {
       setDataLoading(false);
+      isFetchingData.current = false;
     }
-  };
+  }, [user]); // Only recreate if user changes
 
-  // ✅ Only fetch data when user is authenticated
+  // ✅ Single effect for auth check and redirect
   useEffect(() => {
-    if (user && !authLoading) {
+    console.log("🔍 Auth state:", { authLoading, user: !!user });
+
+    if (authLoading) {
+      console.log("⏳ Still loading auth...");
+      return;
+    }
+
+    if (!user) {
+      console.log("🚪 No user, redirecting to login...");
+      window.location.href = "/auth/login?session_expired=true";
+      return;
+    }
+
+    // ✅ Only fetch once when auth completes and user exists
+    if (!hasFetchedData.current && !isFetchingData.current) {
+      console.log("✅ User authenticated, fetching dashboard data...");
       fetchDashboardData();
     }
-  }, [user, authLoading]);
+  }, [authLoading, user, fetchDashboardData]);
 
   const getScoreColor = (score: number) => {
     if (score >= 90) return "text-green-600 bg-green-50";
@@ -140,52 +161,66 @@ const Dashboard = () => {
     router.push(`/Feedback?sessionId=${interviewId}`);
   };
 
-  // ✅ Show loading while checking auth OR redirecting
-  if (authLoading || redirecting) {
+  // ✅ Manual refresh handler
+  const handleRefresh = () => {
+    hasFetchedData.current = false;
+    fetchDashboardData();
+  };
+
+  // ✅ Show loading while checking auth
+  if (authLoading) {
+    console.log("⏳ Rendering auth loading state...");
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-gray-600">
-            {redirecting
-              ? "Redirecting to login..."
-              : "Checking authentication..."}
-          </p>
+          <p className="mt-4 text-gray-600">Checking authentication...</p>
         </div>
       </div>
     );
   }
 
-  // ✅ Don't render anything if not authenticated
+  // ✅ Don't render anything if not authenticated (will redirect)
   if (!user) {
+    console.log("🚫 No user, rendering null (should redirect)");
     return null;
   }
 
   // Show data loading state
   if (dataLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-gray-50 to-white">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        <p className="mt-4 text-lg">Loading your dashboard...</p>
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
+        <Navbar />
+        <div className="flex-grow flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-lg">Loading your dashboard...</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-gray-50 to-white">
-        <div className="text-center max-w-md p-6 bg-white rounded-lg shadow-sm">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Something went wrong</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <Button onClick={fetchDashboardData} className="flex items-center">
-            <RefreshCcw className="mr-2 h-4 w-4" />
-            Try Again
-          </Button>
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
+        <Navbar />
+        <div className="flex-grow flex items-center justify-center">
+          <div className="text-center max-w-md p-6 bg-white rounded-lg shadow-sm">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Something went wrong</h2>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <Button onClick={handleRefresh} className="flex items-center">
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              Try Again
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
+
+  console.log("✅ Rendering dashboard content");
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
@@ -203,7 +238,7 @@ const Dashboard = () => {
             </p>
           </div>
 
-          {/* Active Plan Card (if exists) */}
+          {/* Active Plan Card */}
           {activePlan && (
             <Card className="mb-8 border-primary/20">
               <CardHeader>
@@ -351,9 +386,14 @@ const Dashboard = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={fetchDashboardData}
+                onClick={handleRefresh}
+                disabled={dataLoading}
                 className="flex items-center">
-                <RefreshCcw className="mr-2 h-3 w-3" />
+                <RefreshCcw
+                  className={`mr-2 h-3 w-3 ${
+                    dataLoading ? "animate-spin" : ""
+                  }`}
+                />
                 Refresh
               </Button>
             </CardHeader>
@@ -386,7 +426,7 @@ const Dashboard = () => {
                         interview={interview}
                         onViewFeedback={handleViewFeedback}
                         getScoreColor={getScoreColor}
-                        showTypeBadge={true} // Show type badge in "All" tab
+                        showTypeBadge={true}
                       />
                     ))
                   )}
