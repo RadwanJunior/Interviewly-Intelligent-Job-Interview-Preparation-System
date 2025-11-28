@@ -1,11 +1,5 @@
 "use client";
 
-/**
- * AuthContext.tsx - React context and provider for authentication state
- * Provides authentication state, login, and logout methods to the app via context.
- * Includes a custom hook for easy access to auth state in components.
- */
-
 import React, {
   createContext,
   useContext,
@@ -16,24 +10,15 @@ import React, {
 } from "react";
 import { login, logout, refreshToken } from "@/lib/api";
 
-/**
- * AuthContextType defines the shape of the authentication context value.
- */
 interface AuthContextType {
   user: { id: string; email: string } | null;
   loading: boolean;
-  loginUser: (email: string, password: string) => Promise<void>;
+  loginUser: (email: string, password: string) => Promise<any>;
   logoutUser: () => Promise<void>;
 }
 
-/**
- * The authentication context instance (do not use directly, use useAuth).
- */
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-/**
- * AuthProvider wraps the app and provides authentication state and actions.
- */
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<{ id: string; email: string } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,15 +26,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
+        console.log("🔐 Initializing auth...");
         setLoading(true);
-        const response = await refreshToken(); // Attempt to refresh session
+        const response = await refreshToken();
+        console.log("✅ Auth refresh successful:", response);
+
         if (response.user) {
           setUser(response.user);
+        } else {
+          console.log("⚠️ No user in response");
+          setUser(null);
         }
-      } catch (error) {
-        console.error("Error refreshing token:", error);
+      } catch (error: any) {
+        console.error("❌ Error refreshing token:", error);
         setUser(null);
+
+        // Only redirect if we get a 401 and we're on a protected page
+        if (error?.response?.status === 401) {
+          const publicPaths = ["/", "/auth/login", "/auth/signup"];
+          const currentPath = window.location.pathname;
+
+          if (!publicPaths.includes(currentPath)) {
+            console.log("🚪 Redirecting to login from:", currentPath);
+            // Don't redirect immediately - let the component handle it
+          }
+        }
       } finally {
+        console.log("✅ Auth initialization complete");
         setLoading(false);
       }
     };
@@ -63,9 +66,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const response = await login(email, password);
       if (response.user) {
         setUser(response.user);
+        return response.user;
       }
     } catch (error) {
       console.error("Login error:", error);
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -75,8 +80,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       await logout();
       setUser(null);
+      window.location.href = "/auth/login";
     } catch (error) {
       console.error("Logout error:", error);
+      setUser(null);
+      window.location.href = "/auth/login";
     }
   };
 
@@ -90,10 +98,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-/**
- * useAuth is a custom hook to access authentication state and actions.
- * Throws an error if used outside of AuthProvider.
- */
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

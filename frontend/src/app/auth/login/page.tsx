@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Head from "next/head";
 import Link from "next/link";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext"; // Using Auth Context
+import { useSearchParams } from "next/navigation";
 
 const LogIn = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -15,6 +16,18 @@ const LogIn = () => {
   const { loginUser } = useAuth(); // Use auth context
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const sessionExpired = searchParams?.get("session_expired");
+
+  useEffect(() => {
+    if (sessionExpired) {
+      toast({
+        title: "Session Expired",
+        description: "Please log in again to continue.",
+        variant: "destructive",
+      });
+    }
+  }, [sessionExpired, toast]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
