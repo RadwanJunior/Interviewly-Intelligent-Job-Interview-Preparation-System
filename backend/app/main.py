@@ -116,12 +116,30 @@ async def serve_frontend(full_path: str):
     if not frontend_dir.exists() or not index_file.exists():
         raise HTTPException(status_code=404, detail="Frontend assets not found")
 
-    target_file = frontend_dir / full_path
+    # Reject absolute, traversal, empty, or hidden file paths
+    req_path = Path(full_path)
+    # Disallow absolute paths, parent traversal, or hidden files
+    if req_path.is_absolute() or any(part in ("..", "") for part in req_path.parts) or any(part.startswith('.') for part in req_path.parts):
+        raise HTTPException(status_code=404, detail="Invalid file path")
+
+    target_file = (frontend_dir / req_path).resolve()
+    frontend_root = frontend_dir.resolve()
+    # Ensure the requested path is within the frontend static directory
+    try:
+        target_file.relative_to(frontend_root)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="File not found")
 
     if target_file.is_file():
         return FileResponse(target_file)
 
-    nested_index = target_file / "index.html"
+    # When serving a nested index, reconstruct the path starting from the safe root
+    nested_index = (frontend_dir / req_path / "index.html").resolve()
+    # Ensure the nested index path is also within frontend static directory
+    try:
+        nested_index.relative_to(frontend_root)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="File not found")
     if nested_index.is_file():
         return FileResponse(nested_index)
 
