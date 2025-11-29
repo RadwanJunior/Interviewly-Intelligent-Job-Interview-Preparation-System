@@ -5,7 +5,6 @@ import { CameraOff } from "lucide-react";
 
 export const UserVideo = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -18,7 +17,6 @@ export const UserVideo = () => {
           video: true,
           audio: false, // We only need video for this component
         });
-        setStream(currentStream);
         if (videoRef.current) {
           // Attach the stream to the video element
           videoRef.current.srcObject = currentStream;

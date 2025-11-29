@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useRef } from "react";
+import React, { Suspense, useEffect, useState, useRef } from "react";
 import Head from "next/head";
 import {
   CheckCircle,
@@ -17,7 +17,7 @@ import { useWorkflow } from "@/context/WorkflowContext";
 import { createInterviewSession, getInterviewStatus } from "@/lib/api";
 import { useRouter, useSearchParams } from "next/navigation";
 
-const PrepareInterview = () => {
+const PrepareInterviewContent = () => {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(true);
   const [progress, setProgress] = useState(0);
@@ -97,7 +97,16 @@ const PrepareInterview = () => {
         try {
           const statusResp = await getInterviewStatus(sessionId);
 
-          const statusProgressMap = {
+          const statusProgressMap: Record<
+            | "pending"
+            | "enhancing"
+            | "processing"
+            | "ready"
+            | "failed"
+            | "timeout"
+            | "quota_exceeded",
+            number
+          > = {
             pending: 0,
             enhancing: 25,
             processing: 75,
@@ -108,7 +117,8 @@ const PrepareInterview = () => {
           };
 
           if (statusResp.status) {
-            const progress = statusProgressMap[statusResp.status] || 0;
+            const statusKey = statusResp.status as keyof typeof statusProgressMap;
+            const progress = statusProgressMap[statusKey] ?? 0;
             setProgress(progress);
 
             if (statusResp.status === "ready") {
@@ -321,5 +331,11 @@ const PrepareInterview = () => {
     </div>
   );
 };
+
+const PrepareInterview = () => (
+  <Suspense fallback={<div className="p-6">Preparing interview...</div>}>
+    <PrepareInterviewContent />
+  </Suspense>
+);
 
 export default PrepareInterview;

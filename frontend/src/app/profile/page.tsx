@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Image from "next/image";
 import Head from "next/head";
 import Navigate from "next/link";
 import { Button } from "@/components/ui/button";
@@ -97,10 +98,13 @@ const Profile = () => {
           <div className="flex flex-col md:flex-row gap-8">
             <div className="md:w-1/3">
               <div className="aspect-square rounded-lg bg-secondary/50 flex items-center justify-center overflow-hidden">
-                <img
+                <Image
                   src="https://www.v0.app/api/image/ion-person-icon.png?id=eyJmbiI6ImdldEljb25IZXJvSW1hZ2UiLCJhcmdzIjp7Imljb25TZXRTbHVnIjoiaW9uIiwiaWNvblNsdWciOiJwZXJzb24ifX0"
                   alt="Profile"
-                  className="object-cover w-full h-full"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  priority
                 />
               </div>
               {isEditing && (

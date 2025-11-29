@@ -14,7 +14,7 @@ export const getLipsyncManager = (): Lipsync => {
       processAudio: () => {},
       connectAudio: () => {},
       viseme: "viseme_sil",
-    } as any;
+    } as unknown as Lipsync;
   }
 
   // This is the core of the singleton logic for the client.
@@ -43,8 +43,9 @@ export const resumeLipsyncAudio = async () => {
   if (lipsyncManagerInstance) {
     // We use a type assertion to access the private 'audioContext'.
     // This is a controlled way to bypass the private modifier for this specific, necessary action.
-    const audioContext = (lipsyncManagerInstance as any)
-      .audioContext as AudioContext;
+    const audioContext = (lipsyncManagerInstance as unknown as {
+      audioContext?: AudioContext;
+    }).audioContext;
     if (audioContext && audioContext.state === "suspended") {
       console.log("AudioContext is suspended. Resuming...");
       await audioContext.resume();
