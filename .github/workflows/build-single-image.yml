@@ -1,4 +1,6 @@
 name: Build and Push Single Image
+permissions:
+  contents: read
 
 on:
   push:
