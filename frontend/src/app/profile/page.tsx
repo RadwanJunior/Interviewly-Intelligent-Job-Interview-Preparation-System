@@ -99,7 +99,7 @@ const Profile = () => {
             <div className="md:w-1/3">
               <div className="aspect-square rounded-lg bg-secondary/50 flex items-center justify-center overflow-hidden">
                 <Image
-                  src="https://www.v0.app/api/image/ion-person-icon.png?id=eyJmbiI6ImdldEljb25IZXJvSW1hZ2UiLCJhcmdzIjp7Imljb25TZXRTbHVnIjoiaW9uIiwiaWNvblNsdWciOiJwZXJzb24ifX0"
+                  src="/profile-placeholder.svg"
                   alt="Profile"
                   fill
                   className="object-cover"
