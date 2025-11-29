@@ -113,29 +113,31 @@ index_file = frontend_dir / "index.html"
 
 @app.get("/{full_path:path}")
 async def serve_frontend(full_path: str):
+    # Do not intercept API or health endpoints
+    if full_path.startswith(("api", "api/", "health", "health/")):
+        raise HTTPException(status_code=404, detail="Not found")
+
     if not frontend_dir.exists() or not index_file.exists():
         raise HTTPException(status_code=404, detail="Frontend assets not found")
 
     frontend_root = frontend_dir.resolve()
+    raw_path = Path(full_path)
 
-    try:
-        # Construct the requested path safely and normalize it
-        raw_path = Path(full_path)
-        combined_path = (frontend_root / raw_path).resolve(strict=False)
-        # Ensure the path is contained within the frontend static directory
-        combined_path.relative_to(frontend_root)
-    except (ValueError, RuntimeError):
-        raise HTTPException(status_code=404, detail="Invalid file path")
-
-    # Reject paths with parent traversal, empty parts, or any hidden files in any segment
-    if (
-        any(part in ("..", "") for part in raw_path.parts)
-        or any(part.startswith(".") for part in raw_path.parts)
+    # Reject absolute paths, parent traversal, empty parts, or hidden segments
+    if raw_path.is_absolute() or any(
+        part in ("..", "") or part.startswith(".") for part in raw_path.parts
     ):
         raise HTTPException(status_code=404, detail="Invalid file path")
 
-    if combined_path.is_file():
-        return FileResponse(combined_path)
+    # Resolve candidate path (allow non-existent for SPA fallback) and enforce containment
+    candidate_path = (frontend_root / raw_path).resolve(strict=False)
+    try:
+        candidate_path.relative_to(frontend_root)
+    except (ValueError, RuntimeError):
+        raise HTTPException(status_code=404, detail="Invalid file path")
+
+    if candidate_path.is_file():
+        return FileResponse(candidate_path)
 
     # When serving a nested index, reconstruct and validate the path starting from the safe root
     nested_index = (frontend_root / raw_path / "index.html").resolve(strict=False)
