@@ -52,6 +52,5 @@ jobs:
           export PATH="$HOME/.koyeb/bin:$PATH"
 
           # Log in and redeploy the service
-          koyeb auth login --token "$KOYEB_API_TOKEN"
-          koyeb service redeploy suspicious-delcine/interviewly
+          koyeb --token "$KOYEB_API_TOKEN" service redeploy suspicious-delcine/interviewly
 
