@@ -41,7 +41,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       - name: Automatic redeploy on Koyeb
-        if: github.event_name == 'push' && env.KOYEB_API_TOKEN != ''
+        if: github.event_name == 'pull_request' && env.KOYEB_API_TOKEN != ''
         env:
           KOYEB_API_TOKEN: ${{ secrets.KOYEB_API_TOKEN }}
         run: |
