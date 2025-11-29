@@ -116,12 +116,23 @@ async def serve_frontend(full_path: str):
     if not frontend_dir.exists() or not index_file.exists():
         raise HTTPException(status_code=404, detail="Frontend assets not found")
 
-    target_file = frontend_dir / full_path
+    # Use Path normalization and check containment within frontend_dir
+    target_file = (frontend_dir / full_path).resolve()
+    frontend_root = frontend_dir.resolve()
+    try:
+        target_file.relative_to(frontend_root)
+    except ValueError:
+        # Attempted access outside frontend_static directory
+        raise HTTPException(status_code=404, detail="File not found")
 
     if target_file.is_file():
         return FileResponse(target_file)
 
-    nested_index = target_file / "index.html"
+    nested_index = (target_file / "index.html").resolve()
+    try:
+        nested_index.relative_to(frontend_root)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="File not found")
     if nested_index.is_file():
         return FileResponse(nested_index)
 
