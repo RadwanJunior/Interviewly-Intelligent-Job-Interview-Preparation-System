@@ -4,7 +4,7 @@ import os
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI, WebSocket
+from fastapi import APIRouter, FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -67,15 +67,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(resume.resume_router, prefix="/resumes", tags=["resumes"])
-app.include_router(job_description.router, prefix="/job_description", tags=["job_description"])
-app.include_router(interview.router, prefix="/interview", tags=["interview"])
-app.include_router(audio.router, prefix="/audio", tags=["audio"])
-app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
-app.include_router(interview_call.router, prefix="/interview_call", tags=["interview_call"])
-app.include_router(conversation.router, prefix="/conversation", tags=["conversation"])
-app.include_router(live_feedback.router, prefix="/live_feedback", tags=["live_feedback"])
+api_router = APIRouter(prefix="/api")
+api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
+api_router.include_router(resume.resume_router, prefix="/resumes", tags=["resumes"])
+api_router.include_router(job_description.router, prefix="/job_description", tags=["job_description"])
+api_router.include_router(interview.router, prefix="/interview", tags=["interview"])
+api_router.include_router(audio.router, prefix="/audio", tags=["audio"])
+api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+api_router.include_router(interview_call.router, prefix="/interview_call", tags=["interview_call"])
+api_router.include_router(conversation.router, prefix="/conversation", tags=["conversation"])
+api_router.include_router(live_feedback.router, prefix="/live_feedback", tags=["live_feedback"])
+
+app.include_router(api_router)
 
 
 @app.get("/health")
