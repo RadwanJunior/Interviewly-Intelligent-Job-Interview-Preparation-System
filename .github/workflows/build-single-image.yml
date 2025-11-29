@@ -45,7 +45,13 @@ jobs:
         env:
           KOYEB_API_TOKEN: ${{ secrets.KOYEB_API_TOKEN }}
         run: |
-          curl -fsSL -o koyeb https://github.com/koyeb/koyeb-cli/releases/latest/download/koyeb-linux-amd64
-          sudo install -m 755 koyeb /usr/local/bin/koyeb
+          # Install Koyeb CLI using the official install script
+          curl -fsSL https://raw.githubusercontent.com/koyeb/koyeb-cli/master/install.sh | sh
+
+          # Add Koyeb CLI to PATH for this step
+          export PATH="$HOME/.koyeb/bin:$PATH"
+
+          # Log in and redeploy the service
           koyeb auth login --token "$KOYEB_API_TOKEN"
           koyeb service redeploy suspicious-delcine/interviewly
+
