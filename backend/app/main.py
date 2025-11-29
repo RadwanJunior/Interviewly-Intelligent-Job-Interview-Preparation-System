@@ -1,13 +1,29 @@
-# FastAPI main application entry point
-# Imports core FastAPI modules, middleware, and route modules
+from pathlib import Path
+import logging
+import os
+from contextlib import asynccontextmanager
+
+import uvicorn
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import auth, resume, interview, audio, dashboard, job_description, interview_call, conversation, live_feedback
-import os
-import uvicorn
-from app.services.redis_service import initialize_redis, setup_rag_listeners, redis_client
-from contextlib import asynccontextmanager
-import logging
+from fastapi.staticfiles import StaticFiles
+
+from app.routes import (
+    auth,
+    resume,
+    interview,
+    audio,
+    dashboard,
+    job_description,
+    interview_call,
+    conversation,
+    live_feedback,
+)
+from app.services.redis_service import (
+    initialize_redis,
+    setup_rag_listeners,
+    redis_client,
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -36,11 +52,7 @@ async def lifespan(app: FastAPI):
     logging.info("Application shutdown complete")
 
 # Initialize FastAPI app
-app = FastAPI(
-    title="Interviewly API",
-    version="1.0.0",
-    lifespan=lifespan  # Now lifespan is defined above
-)
+app = FastAPI(title="Interviewly API", version="1.0.0", lifespan=lifespan)
 
 # Get frontend URL from environment or use default for local development
 FRONTEND_URL = os.getenv("FRONTEND_URL") or "http://localhost:3000"
@@ -55,9 +67,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register API route modules
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(resume.resume_router, prefix="/resumes" ,tags=["resumes"])
+app.include_router(resume.resume_router, prefix="/resumes", tags=["resumes"])
 app.include_router(job_description.router, prefix="/job_description", tags=["job_description"])
 app.include_router(interview.router, prefix="/interview", tags=["interview"])
 app.include_router(audio.router, prefix="/audio", tags=["audio"])
@@ -66,10 +77,10 @@ app.include_router(interview_call.router, prefix="/interview_call", tags=["inter
 app.include_router(conversation.router, prefix="/conversation", tags=["conversation"])
 app.include_router(live_feedback.router, prefix="/live_feedback", tags=["live_feedback"])
 
-# Health check endpoint. When running lets user know that backend is operational
-@app.get("/")
-def read_root():
-    return {"message": "AI Mock Interview Backend is running!"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 @app.get("/health/redis")
 async def redis_health_check():
@@ -91,6 +102,11 @@ async def reset_redis_circuit_breaker():
         return {"message": "Circuit breaker reset successfully", "success": True}
     else:
         return {"message": "Failed to reset circuit breaker", "success": False}
+
+# Serve static frontend if bundled (Next.js export)
+frontend_dir = Path(__file__).resolve().parent.parent / "frontend-static"
+if frontend_dir.exists():
+    app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
 
 # Run the app with Uvicorn if executed directly
 if __name__ == "__main__":

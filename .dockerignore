@@ -1,0 +1,10 @@
+.git
+node_modules
+.next
+dist
+venv
+npm-debug.log
+*.log
+.DS_Store
+__pycache__
+uploads
