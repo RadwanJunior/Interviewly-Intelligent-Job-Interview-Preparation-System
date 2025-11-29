@@ -126,7 +126,8 @@ async def serve_frontend(full_path: str):
     if target_file.is_file():
         return FileResponse(target_file)
 
-    nested_index = (target_file / "index.html").resolve()
+    # When serving a nested index, reconstruct the path starting from the safe root
+    nested_index = (frontend_dir / full_path / "index.html").resolve()
     # Ensure the nested index path is also within frontend static directory
     if not str(nested_index).startswith(str(frontend_root)):
         raise HTTPException(status_code=404, detail="File not found")
