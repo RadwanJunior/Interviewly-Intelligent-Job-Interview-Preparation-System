@@ -5,6 +5,8 @@ permissions:
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 env:
@@ -37,3 +39,13 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Automatic redeploy on Koyeb
+        if: github.event_name == 'pull_request' && env.KOYEB_API_TOKEN != ''
+        env:
+          KOYEB_API_TOKEN: ${{ secrets.KOYEB_API_TOKEN }}
+        run: |
+          curl -sL https://github.com/koyeb/koyeb-cli/releases/latest/download/koyeb-linux-amd64.tar.gz | tar -xz
+          sudo install -m 755 koyeb /usr/local/bin/koyeb
+          koyeb auth login --token "$KOYEB_API_TOKEN"
+          koyeb service redeploy suspicious-delcine/fastapi-backend
