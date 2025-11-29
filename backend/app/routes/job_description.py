@@ -49,3 +49,11 @@ async def create_job_description(
     if "error" in response:
         raise HTTPException(status_code=500, detail=response["error"]["message"])
     return response
+
+# Alias without trailing slash to accept /job_description as well
+@router.post("")
+async def create_job_description_no_slash(
+    request: JobDescriptionRequest,
+    current_user: dict = Depends(supabase_service.get_current_user),
+):
+    return await create_job_description(request, current_user)

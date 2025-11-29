@@ -13,9 +13,23 @@ ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 RUN npm run build
 
-# Stage 2: Build backend + bundle frontend assets
+# Stage 2: Build backend + bundle frontend assets + n8n
 FROM python:3.12-slim AS backend
 WORKDIR /app
+
+ARG N8N_VERSION=1.74.1
+
+# Install system deps and Node for n8n
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && npm install -g n8n@${N8N_VERSION} \
+    && apt-get purge -y gnupg curl \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Python deps
 COPY backend/requirements.txt .
@@ -27,7 +41,12 @@ COPY backend/ .
 # Copy exported frontend into the image
 COPY --from=frontend /app/frontend/out ./frontend-static
 
-ENV PORT=8000
-EXPOSE 8000
+# Entrypoint script to run uvicorn + n8n
+COPY infra/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENV PORT=8000
+ENV N8N_PORT=5678
+EXPOSE 8000 5678
+
+ENTRYPOINT ["/entrypoint.sh"]
