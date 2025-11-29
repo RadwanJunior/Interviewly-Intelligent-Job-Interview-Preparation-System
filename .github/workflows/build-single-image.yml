@@ -48,4 +48,4 @@ jobs:
           curl -sL https://github.com/koyeb/koyeb-cli/releases/latest/download/koyeb-linux-amd64.tar.gz | tar -xz
           sudo install -m 755 koyeb /usr/local/bin/koyeb
           koyeb auth login --token "$KOYEB_API_TOKEN"
-          koyeb service redeploy suspicious-delcine/fastapi-backend
+          koyeb service redeploy suspicious-delcine/interviewly
