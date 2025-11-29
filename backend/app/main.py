@@ -116,33 +116,33 @@ async def serve_frontend(full_path: str):
     if not frontend_dir.exists() or not index_file.exists():
         raise HTTPException(status_code=404, detail="Frontend assets not found")
 
-    # Reject absolute, traversal, empty, or hidden file paths
-    req_path = Path(full_path)
-    
-    # Disallow absolute paths, parent traversal, empty, or hidden file paths
-    if req_path.is_absolute() or any(part in ("..", "") for part in req_path.parts) or any(part.startswith('.') for part in req_path.parts):
+    frontend_root = frontend_dir.resolve()
+
+    try:
+        # Construct the requested path safely and normalize it
+        raw_path = Path(full_path)
+        combined_path = (frontend_root / raw_path).resolve(strict=False)
+        # Ensure the path is contained within the frontend static directory
+        combined_path.relative_to(frontend_root)
+    except (ValueError, RuntimeError):
         raise HTTPException(status_code=404, detail="Invalid file path")
 
-    # Always resolve root directory once for all containment checks
-    frontend_root = frontend_dir.resolve()
-    # Safely resolve target file
-    target_file = (frontend_root / req_path).resolve()
-    # Ensure the requested path is within the frontend static directory
-    try:
-        target_file.relative_to(frontend_root)
-    except ValueError:
-        raise HTTPException(status_code=404, detail="File not found")
+    # Reject paths with parent traversal, empty parts, or any hidden files in any segment
+    if (
+        any(part in ("..", "") for part in raw_path.parts)
+        or any(part.startswith(".") for part in raw_path.parts)
+    ):
+        raise HTTPException(status_code=404, detail="Invalid file path")
 
-    if target_file.is_file():
-        return FileResponse(target_file)
+    if combined_path.is_file():
+        return FileResponse(combined_path)
 
     # When serving a nested index, reconstruct and validate the path starting from the safe root
-    nested_index = (frontend_root / req_path / "index.html").resolve()
-    # Ensure the nested index path is strictly within frontend static directory
+    nested_index = (frontend_root / raw_path / "index.html").resolve(strict=False)
     try:
         nested_index.relative_to(frontend_root)
-    except ValueError:
-        raise HTTPException(status_code=404, detail="File not found")
+    except (ValueError, RuntimeError):
+        raise HTTPException(status_code=404, detail="Invalid file path")
     # Only serve nested index if containment is valid and file exists
     if nested_index.is_file():
         return FileResponse(nested_index)
