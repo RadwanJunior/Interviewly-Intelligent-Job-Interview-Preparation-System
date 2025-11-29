@@ -11,7 +11,7 @@ COPY frontend/ .
 # Allow overriding API URL at build-time if needed
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-RUN npm run build
+RUN npm run build && npm run export
 
 # Stage 2: Build backend + bundle frontend assets
 FROM python:3.12-slim AS backend
@@ -24,10 +24,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend source
 COPY backend/ .
 
-# Copy Next.js standalone output + static assets into backend image
-COPY --from=frontend /app/frontend/.next/standalone ./frontend
-COPY --from=frontend /app/frontend/public ./frontend/public
-COPY --from=frontend /app/frontend/.next/static ./frontend/.next/static
+# Copy exported frontend into the image
+COPY --from=frontend /app/frontend/out ./frontend-static
 
 ENV PORT=8000
 EXPOSE 8000
