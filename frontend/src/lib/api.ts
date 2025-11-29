@@ -6,8 +6,11 @@
 
 import axios, { AxiosError, AxiosRequestConfig } from "axios";
 
-const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_URL = `${rawApiUrl.replace(/\/$/, "")}/api`;
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL;
+// Prefer relative `/api` when NEXT_PUBLIC_API_URL is not set to avoid localhost cross-origin issues
+const API_URL =
+  `${(rawApiUrl || "").replace(/\/$/, "")}/api`.replace(/^\/api\/?$/, "/api") ||
+  "/api";
 
 // Create axios instance with default config
 export const api = axios.create({

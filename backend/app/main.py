@@ -4,9 +4,9 @@ import os
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import APIRouter, FastAPI, WebSocket
+from fastapi import APIRouter, FastAPI, WebSocket, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from app.routes import (
     auth,
@@ -106,10 +106,26 @@ async def reset_redis_circuit_breaker():
     else:
         return {"message": "Failed to reset circuit breaker", "success": False}
 
-# Serve static frontend if bundled (Next.js export)
+# Serve static frontend if bundled (Next.js export) with SPA-style fallback
 frontend_dir = Path(__file__).resolve().parent.parent / "frontend-static"
-if frontend_dir.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
+index_file = frontend_dir / "index.html"
+
+
+@app.get("/{full_path:path}")
+async def serve_frontend(full_path: str):
+    if not frontend_dir.exists() or not index_file.exists():
+        raise HTTPException(status_code=404, detail="Frontend assets not found")
+
+    target_file = frontend_dir / full_path
+
+    if target_file.is_file():
+        return FileResponse(target_file)
+
+    nested_index = target_file / "index.html"
+    if nested_index.is_file():
+        return FileResponse(nested_index)
+
+    return FileResponse(index_file)
 
 # Run the app with Uvicorn if executed directly
 if __name__ == "__main__":
