@@ -11,7 +11,7 @@ COPY frontend/ .
 # Allow overriding API URL at build-time if needed
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-RUN npm run build && npm run export
+RUN npm run build
 
 # Stage 2: Build backend + bundle frontend assets
 FROM python:3.12-slim AS backend
