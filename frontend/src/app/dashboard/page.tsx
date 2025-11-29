@@ -47,13 +47,15 @@ interface DashboardStats {
   completedThisMonth: number;
 }
 
+type PreparationStep = Record<string, unknown>;
+
 interface PreparationPlan {
   id: string;
   jobTitle: string;
   company: string;
   interviewDate: string;
   readinessLevel: number;
-  steps: any[];
+  steps: PreparationStep[];
   completedSteps: number;
 }
 

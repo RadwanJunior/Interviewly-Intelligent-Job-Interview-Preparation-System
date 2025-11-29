@@ -13,7 +13,7 @@ import { login, logout, refreshToken } from "@/lib/api";
 interface AuthContextType {
   user: { id: string; email: string } | null;
   loading: boolean;
-  loginUser: (email: string, password: string) => Promise<any>;
+  loginUser: (email: string, password: string) => Promise<{ id: string; email: string } | null>;
   logoutUser: () => Promise<void>;
 }
 
@@ -31,18 +31,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const response = await refreshToken();
         console.log("✅ Auth refresh successful:", response);
 
-        if (response.user) {
-          setUser(response.user);
+        if ((response as { user?: { id: string; email: string } }).user) {
+          setUser((response as { user: { id: string; email: string } }).user);
         } else {
           console.log("⚠️ No user in response");
           setUser(null);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("❌ Error refreshing token:", error);
         setUser(null);
 
         // Only redirect if we get a 401 and we're on a protected page
-        if (error?.response?.status === 401) {
+        if (
+          typeof error === "object" &&
+          error !== null &&
+          "response" in error &&
+          (error as { response?: { status?: number } }).response?.status === 401
+        ) {
           const publicPaths = ["/", "/auth/login", "/auth/signup"];
           const currentPath = window.location.pathname;
 
@@ -64,10 +69,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       const response = await login(email, password);
-      if (response.user) {
-        setUser(response.user);
-        return response.user;
+      const typedResponse = response as { user?: { id: string; email: string } };
+      if (typedResponse.user) {
+        setUser(typedResponse.user);
+        return typedResponse.user;
       }
+      return null;
     } catch (error) {
       console.error("Login error:", error);
       throw error;

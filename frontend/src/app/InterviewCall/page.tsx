@@ -80,6 +80,9 @@ const InterviewCallContent = () => {
     if ("SpeechRecognition" in window || "webkitSpeechRecognition" in window) {
       const SpeechRecognition =
         window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        return;
+      }
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = true;
@@ -143,7 +146,7 @@ const InterviewCallContent = () => {
       if (recognitionRef.current) {
         try {
           recognitionRef.current.start();
-        } catch (e) {
+        } catch {
           // Speech recognition might already be started
         }
       }
@@ -207,7 +210,7 @@ const InterviewCallContent = () => {
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
-        } catch (e) {
+        } catch {
           // Speech recognition might already be stopped
         }
       }
@@ -629,5 +632,9 @@ declare global {
   }
 }
 
-const InterviewCallPage = () => <InterviewCallContent />;
+const InterviewCallPage = () => (
+  <Suspense fallback={<div className="p-6">Loading interview call...</div>}>
+    <InterviewCallContent />
+  </Suspense>
+);
 export default InterviewCallPage;

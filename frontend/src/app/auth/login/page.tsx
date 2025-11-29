@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Head from "next/head";
 import Link from "next/link";
@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext"; // Using Auth Context
 import { useSearchParams } from "next/navigation";
 
-const LogIn = () => {
+const LogInContent = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [isLoading, setIsLoading] = useState(false);
   const { loginUser } = useAuth(); // Use auth context
@@ -136,5 +136,11 @@ const LogIn = () => {
     </div>
   );
 };
+
+const LogIn = () => (
+  <Suspense fallback={<div className="p-6">Loading login...</div>}>
+    <LogInContent />
+  </Suspense>
+);
 
 export default LogIn;

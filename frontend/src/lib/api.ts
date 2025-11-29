@@ -4,7 +4,7 @@
  * Uses Axios for HTTP requests and handles cookies/tokens as needed.
  */
 
-import axios, { AxiosError } from "axios";
+import axios, { AxiosError, AxiosRequestConfig } from "axios";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -19,12 +19,13 @@ export const api = axios.create({
 
 // refresh token handling state
 let isRefreshing = false;
-let failedQueue: Array<{
-  resolve: (value?: unknown) => void;
-  reject: (reason?: any) => void;
-}> = [];
+type FailedRequest = {
+  resolve: (value?: string | null) => void;
+  reject: (reason?: unknown) => void;
+};
+let failedQueue: FailedRequest[] = [];
 
-const processQueue = (error: any, token: string | null = null) => {
+const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error);
@@ -35,11 +36,13 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+type RetryableRequest = AxiosRequestConfig & { _retry?: boolean };
+
 // Add response interceptor to handle 401 errors
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as any;
+    const originalRequest = error.config as RetryableRequest;
 
     // Don't retry refresh token requests
     if (originalRequest?.url?.includes("/auth/refresh")) {
@@ -114,9 +117,19 @@ export const refreshToken = async () => {
   }
 };
 
-export const signup = async (email: string, password: string) => {
+export const signup = async (
+  firstName: string,
+  lastName: string,
+  email: string,
+  password: string
+) => {
   try {
-    const response = await api.post("/auth/signup", { email, password });
+    const response = await api.post("/auth/signup", {
+      firstName,
+      lastName,
+      email,
+      password,
+    });
     return response.data;
   } catch (error) {
     console.error("Signup error:", error);
@@ -367,7 +380,7 @@ export async function fetchActivePlan() {
  * @param planData - Preparation plan data object
  * @returns API response data
  */
-export async function createPreparationPlan(planData) {
+export async function createPreparationPlan(planData: Record<string, unknown>) {
   const response = await api.post("/dashboard/preparation-plan", planData);
   return response.data;
 }
@@ -378,7 +391,10 @@ export async function createPreparationPlan(planData) {
  * @param updateData - Data to update
  * @returns API response data
  */
-export async function updatePreparationPlan(planId, updateData) {
+export async function updatePreparationPlan(
+  planId: string,
+  updateData: Record<string, unknown>
+) {
   const response = await api.put(
     `/dashboard/preparation-plan/${planId}`,
     updateData

@@ -126,7 +126,7 @@ describe("Workflow (ResumeUpload) Page", () => {
     });
 
     it("should have accessible structure", () => {
-      const { container } = render(<ResumeUpload />);
+      render(<ResumeUpload />);
 
       // Check that layout has proper structure
       const layout = screen.getByTestId("workflow-layout");

@@ -2,13 +2,17 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useGLTF, useAnimations } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, ThreeElements } from "@react-three/fiber";
 import * as THREE from "three";
 import { VISEMES } from "wawa-lipsync";
 // Import the singleton manager directly
 import { lipsyncManager } from "@/lib/lipsync";
 
-export function Avatar({ animation, ...props }: any) {
+type AvatarProps = ThreeElements["group"] & {
+  animation?: string;
+};
+
+export function Avatar({ animation = "Idle", ...props }: AvatarProps) {
   const group = useRef<THREE.Group>(null!);
   const { scene } = useGLTF("/models/lisa.glb");
   const { animations } = useGLTF("/models/animations.glb");
@@ -36,36 +40,37 @@ export function Avatar({ animation, ...props }: any) {
         object.morphTargetDictionary &&
         object.morphTargetInfluences
       ) {
+        const influences = object.morphTargetInfluences;
+
         // Blink logic
         const eyeBlinkLeftIndex = object.morphTargetDictionary["eyeBlinkLeft"];
         if (eyeBlinkLeftIndex !== undefined) {
-          object.morphTargetInfluences[eyeBlinkLeftIndex] =
-            THREE.MathUtils.lerp(
-              object.morphTargetInfluences[eyeBlinkLeftIndex],
-              blink ? 1 : 0,
-              0.5
-            );
+          influences[eyeBlinkLeftIndex] = THREE.MathUtils.lerp(
+            influences[eyeBlinkLeftIndex],
+            blink ? 1 : 0,
+            0.5
+          );
         }
         // ... (rest of blink logic)
         const eyeBlinkRightIndex =
           object.morphTargetDictionary["eyeBlinkRight"];
         if (eyeBlinkRightIndex !== undefined) {
-          object.morphTargetInfluences[eyeBlinkRightIndex] =
-            THREE.MathUtils.lerp(
-              object.morphTargetInfluences[eyeBlinkRightIndex],
-              blink ? 1 : 0,
-              0.5
-            );
+          influences[eyeBlinkRightIndex] = THREE.MathUtils.lerp(
+            influences[eyeBlinkRightIndex],
+            blink ? 1 : 0,
+            0.5
+          );
         }
 
         // Lipsync logic using the singleton
         const currentViseme = lipsyncManager.viseme || VISEMES.sil;
-        Object.values(VISEMES).forEach((viseme: any) => {
-          const index = object.morphTargetDictionary![viseme];
+        Object.values(VISEMES).forEach((viseme) => {
+          const visemeKey = viseme as string;
+          const index = object.morphTargetDictionary![visemeKey];
           if (index !== undefined) {
             const targetValue = viseme === currentViseme ? 1 : 0;
-            object.morphTargetInfluences[index] = THREE.MathUtils.lerp(
-              object.morphTargetInfluences[index],
+            influences[index] = THREE.MathUtils.lerp(
+              influences[index],
               targetValue,
               0.2
             );
