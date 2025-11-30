@@ -19,7 +19,7 @@ const inferLocalApiBase = () => {
 };
 
 const apiBase = rawApiUrl || inferLocalApiBase();
-const API_URL = apiBase ? `${apiBase}/api` : "/api";
+const API_URL = apiBase ? ⁠ ${apiBase}/api ⁠ : "/api";
 
 // Create axios instance with default config
 export const api = axios.create({
@@ -193,7 +193,7 @@ export async function updateResume(updatedText: string) {
  * @returns API response data
  */
 export async function getResumeFromUser(userId: string) {
-  const response = await api.get(`/resumes/${userId}`);
+  const response = await api.get(⁠ /resumes/${userId} ⁠);
   return response.data;
 }
 
@@ -242,7 +242,7 @@ export async function createInterviewSession(data: {
  * @returns API response data
  */
 export async function getInterviewStatus(sessionId: string) {
-  const response = await api.get(`/interview/status/${sessionId}`);
+  const response = await api.get(⁠ /interview/status/${sessionId} ⁠);
   return response.data;
 }
 
@@ -252,7 +252,7 @@ export async function getInterviewStatus(sessionId: string) {
  * @returns API response data
  */
 export async function getInterviewQuestions(sessionId: string) {
-  const response = await api.get(`/interview/questions/${sessionId}`);
+  const response = await api.get(⁠ /interview/questions/${sessionId} ⁠);
   return response.data;
 }
 
@@ -305,7 +305,7 @@ export async function uploadAudio({
  * @returns API response data
  */
 export async function triggerFeedbackGeneration(interview_id: string) {
-  const response = await api.post(`/audio/generate/${interview_id}`);
+  const response = await api.post(⁠ /audio/generate/${interview_id} ⁠);
   return response.data;
 }
 
@@ -316,14 +316,14 @@ export async function triggerFeedbackGeneration(interview_id: string) {
  */
 export async function getFeedbackStatus(interview_id: string) {
   console.log(
-    `DEBUG API: getFeedbackStatus called for interview_id: ${interview_id}`
+    ⁠ DEBUG API: getFeedbackStatus called for interview_id: ${interview_id} ⁠
   );
   try {
-    const response = await api.get(`/audio/status/${interview_id}`);
-    console.log(`DEBUG API: getFeedbackStatus response:`, response.data);
+    const response = await api.get(⁠ /audio/status/${interview_id} ⁠);
+    console.log(⁠ DEBUG API: getFeedbackStatus response: ⁠, response.data);
     return response.data;
   } catch (error) {
-    console.error(`DEBUG API: getFeedbackStatus error:`, error);
+    console.error(⁠ DEBUG API: getFeedbackStatus error: ⁠, error);
     throw error;
   }
 }
@@ -335,14 +335,14 @@ export async function getFeedbackStatus(interview_id: string) {
  */
 export async function getFeedback(interview_id: string) {
   console.log(
-    `DEBUG API: getFeedback called for interview_id: ${interview_id}`
+    ⁠ DEBUG API: getFeedback called for interview_id: ${interview_id} ⁠
   );
   try {
-    const response = await api.get(`/audio/feedback/${interview_id}`);
-    console.log(`DEBUG API: getFeedback response:`, response.data);
+    const response = await api.get(⁠ /audio/feedback/${interview_id} ⁠);
+    console.log(⁠ DEBUG API: getFeedback response: ⁠, response.data);
     return response.data;
   } catch (error) {
-    console.error(`DEBUG API: getFeedback error:`, error);
+    console.error(⁠ DEBUG API: getFeedback error: ⁠, error);
     throw error;
   }
 }
@@ -389,6 +389,15 @@ export async function fetchActivePlan() {
 }
 
 /**
+ * Fetch all preparation plans for the current user.
+ * @returns API response data (array of plans)
+ */
+export async function fetchAllPlans() {
+  const response = await api.get("/dashboard/plans");
+  return response.data;
+}
+
+/**
  * Create a new preparation plan for the dashboard.
  * @param planData - Preparation plan data object
  * @returns API response data
@@ -409,8 +418,73 @@ export async function updatePreparationPlan(
   updateData: Record<string, unknown>
 ) {
   const response = await api.put(
-    `/dashboard/preparation-plan/${planId}`,
+    ⁠ /dashboard/preparation-plan/${planId} ⁠,
     updateData
+  );
+  return response.data;
+}
+
+/**
+ * Trigger AI generation of preparation plan steps.
+ * @param planId - Preparation plan ID
+ * @returns API response data
+ */
+export async function triggerPlanGeneration(planId: string) {
+  const response = await api.post(⁠ /dashboard/preparation-plan/${planId}/generate ⁠);
+  return response.data;
+}
+
+/**
+ * Get the status of a preparation plan generation.
+ * @param planId - Preparation plan ID
+ * @returns API response data with status
+ */
+export async function getPlanStatus(planId: string) {
+  const response = await api.get(⁠ /dashboard/preparation-plan/${planId}/status ⁠);
+  return response.data;
+}
+
+/**
+ * Get a preparation plan by ID with all details including generated steps.
+ * @param planId - Preparation plan ID
+ * @returns API response data
+ */
+export async function getPreparationPlan(planId: string) {
+  const response = await api.get(⁠ /dashboard/preparation-plan/${planId} ⁠);
+  return response.data;
+}
+
+/**
+ * Delete a preparation plan by ID.
+ * @param planId - Preparation plan ID
+ * @returns API response data
+ */
+export async function deletePreparationPlan(planId: string) {
+  const response = await api.delete(⁠ /dashboard/preparation-plan/${planId} ⁠);
+  return response.data;
+}
+
+/**
+ * Update the completion status of a specific task in a preparation plan.
+ * @param planId - Preparation plan ID
+ * @param stepIndex - Index of the step containing the task
+ * @param taskIndex - Index of the task within the step
+ * @param completed - Whether the task is completed
+ * @returns API response data
+ */
+export async function updateTaskCompletion(
+  planId: string,
+  stepIndex: number,
+  taskIndex: number,
+  completed: boolean
+) {
+  const response = await api.patch(
+    ⁠ /dashboard/preparation-plan/${planId}/task-completion ⁠,
+    {
+      stepIndex,
+      taskIndex,
+      completed,
+    }
   );
   return response.data;
 }
@@ -420,34 +494,34 @@ export async function updatePreparationPlan(
 // Trigger live feedback generation
 export async function triggerLiveFeedbackGeneration(interview_id: string) {
   const response = await api.post(
-    `/live_feedback/generate_live_feedback/${interview_id}`
+    ⁠ /live_feedback/generate_live_feedback/${interview_id} ⁠
   );
   return response.data;
 }
 
 // Get live feedback generation status
 export async function checkLiveFeedbackStatus(sessionId: string) {
-  const response = await api.get(`/live_feedback/status/${sessionId}`);
+  const response = await api.get(⁠ /live_feedback/status/${sessionId} ⁠);
   return response.data;
 }
 
 // Get generated live feedback
 export async function getLiveFeedback(interview_id: string) {
-  const response = await api.get(`/live_feedback/feedback/${interview_id}`);
+  const response = await api.get(⁠ /live_feedback/feedback/${interview_id} ⁠);
   return response.data;
 }
 
 // Clear feedback status (for debugging)
 export async function clearFeedbackStatus(interview_id: string) {
   console.log(
-    `DEBUG API: clearFeedbackStatus called for interview_id: ${interview_id}`
+    ⁠ DEBUG API: clearFeedbackStatus called for interview_id: ${interview_id} ⁠
   );
   try {
-    const response = await api.delete(`/audio/status/${interview_id}`);
-    console.log(`DEBUG API: clearFeedbackStatus response:`, response.data);
+    const response = await api.delete(⁠ /audio/status/${interview_id} ⁠);
+    console.log(⁠ DEBUG API: clearFeedbackStatus response: ⁠, response.data);
     return response.data;
   } catch (error) {
-    console.error(`DEBUG API: clearFeedbackStatus error:`, error);
+    console.error(⁠ DEBUG API: clearFeedbackStatus error: ⁠, error);
     throw error;
   }
 }
