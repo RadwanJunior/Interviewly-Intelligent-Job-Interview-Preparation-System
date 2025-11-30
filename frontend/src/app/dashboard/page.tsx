@@ -21,7 +21,6 @@ import { Progress } from "@/components/ui/progress";
 import {
   fetchDashboardStats,
   fetchInterviewHistory,
-  fetchActivePlan,
   fetchAllPlans,
   deletePreparationPlan,
 } from "@/lib/api";
@@ -115,17 +114,15 @@ const Dashboard = () => {
     setError(null);
 
     try {
-      const [statsResponse, historyResponse, planResponse, allPlansResponse] = await Promise.all([
+      const [statsResponse, historyResponse, planResponse] = await Promise.all([
         fetchDashboardStats(),
         fetchInterviewHistory(),
-        fetchActivePlan(),
         fetchAllPlans(),
       ]);
 
       console.log("✅ Dashboard data fetched successfully");
       setStats(statsResponse);
       setInterviewHistory(historyResponse || []);
-      setAllPlans(allPlansResponse || []);
 
       if (planResponse) {
         setActivePlan(planResponse);

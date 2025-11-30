@@ -11,7 +11,6 @@ import Dashboard from "../page";
 import {
   fetchDashboardStats,
   fetchInterviewHistory,
-  fetchActivePlan,
 } from "@/lib/api";
 
 // Mock Next.js navigation
@@ -28,7 +27,6 @@ jest.mock("next/navigation", () => ({
 jest.mock("@/lib/api", () => ({
   fetchDashboardStats: jest.fn(),
   fetchInterviewHistory: jest.fn(),
-  fetchActivePlan: jest.fn(),
 }));
 
 // Mock Navbar component
@@ -113,15 +111,6 @@ describe("Dashboard Page Integration Tests", () => {
     },
   ];
 
-  const mockActivePlan = {
-    id: "plan-1",
-    jobTitle: "Senior Developer",
-    company: "BigTech Inc",
-    targetDate: "2025-11-01",
-    readinessLevel: 75,
-    progress: 60,
-  };
-
   beforeEach(() => {
     jest.clearAllMocks();
     mockPush.mockClear();
@@ -130,7 +119,6 @@ describe("Dashboard Page Integration Tests", () => {
     (fetchInterviewHistory as jest.Mock).mockResolvedValue(
       mockInterviewHistory
     );
-    (fetchActivePlan as jest.Mock).mockResolvedValue(null);
   });
 
   describe("Complete Dashboard Loading Flow", () => {
@@ -163,11 +151,9 @@ describe("Dashboard Page Integration Tests", () => {
       // Verify API calls were made
       expect(fetchDashboardStats).toHaveBeenCalledTimes(1);
       expect(fetchInterviewHistory).toHaveBeenCalledTimes(1);
-      expect(fetchActivePlan).toHaveBeenCalledTimes(1);
     });
 
     it("should display active plan when available", async () => {
-      (fetchActivePlan as jest.Mock).mockResolvedValue(mockActivePlan);
 
       render(<Dashboard />);
 
@@ -241,7 +227,6 @@ describe("Dashboard Page Integration Tests", () => {
 
     it("should navigate to plan dashboard when clicking continue on active plan", async () => {
       const user = userEvent.setup();
-      (fetchActivePlan as jest.Mock).mockResolvedValue(mockActivePlan);
 
       render(<Dashboard />);
 
@@ -277,7 +262,6 @@ describe("Dashboard Page Integration Tests", () => {
       await waitFor(() => {
         expect(fetchDashboardStats).toHaveBeenCalledTimes(2);
         expect(fetchInterviewHistory).toHaveBeenCalledTimes(2);
-        expect(fetchActivePlan).toHaveBeenCalledTimes(2);
       });
     });
   });
@@ -369,7 +353,6 @@ describe("Dashboard Page Integration Tests", () => {
       };
 
       localStorageMock.setItem("interviewPlan", JSON.stringify(localPlan));
-      (fetchActivePlan as jest.Mock).mockResolvedValue(null);
 
       render(<Dashboard />);
 
@@ -390,7 +373,6 @@ describe("Dashboard Page Integration Tests", () => {
       };
 
       localStorageMock.setItem("interviewPlan", JSON.stringify(localPlan));
-      (fetchActivePlan as jest.Mock).mockResolvedValue(mockActivePlan);
 
       render(<Dashboard />);
 
