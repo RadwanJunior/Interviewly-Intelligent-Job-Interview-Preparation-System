@@ -70,23 +70,6 @@ async def get_interview_history(current_user: dict = Depends(supabase_service.ge
         
     return history
 
-@router.get("/active-plan")
-async def get_active_plan(response: Response, current_user: dict = Depends(supabase_service.get_current_user)):
-    """Get active preparation plan"""
-    if not current_user or not getattr(current_user, "id", None):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
-    plan = dashboard_service.get_active_plan(current_user.id)
-
-    if plan is None:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {"message": "No active plan found"}
-
-    if isinstance(plan, dict) and "error" in plan:
-        raise HTTPException(status_code=500, detail=plan["error"])
-
-    return plan
-
 @router.get("/plans")
 async def get_all_plans(current_user: dict = Depends(supabase_service.get_current_user)):
     """Get all preparation plans for the current user"""

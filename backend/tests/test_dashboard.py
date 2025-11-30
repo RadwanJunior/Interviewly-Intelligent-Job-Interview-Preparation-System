@@ -119,45 +119,6 @@ def test_get_interview_history_unauthorized(client, dashboard_service_mock, set_
     dashboard_service_mock.get_interview_history.assert_not_called()
 
 
-def test_get_active_plan_success(client, dashboard_service_mock, set_current_user, sample_plan):
-    set_current_user(_user())
-    dashboard_service_mock.get_active_plan.return_value = sample_plan
-
-    resp = client.get("/dashboard/active-plan")
-
-    assert resp.status_code == 200
-    assert resp.json() == sample_plan
-
-
-def test_get_active_plan_not_found(client, dashboard_service_mock, set_current_user):
-    set_current_user(_user())
-    dashboard_service_mock.get_active_plan.return_value = None
-
-    resp = client.get("/dashboard/active-plan")
-
-    assert resp.status_code == 404
-    assert resp.json() == {"message": "No active plan found"}
-
-
-def test_get_active_plan_error(client, dashboard_service_mock, set_current_user):
-    set_current_user(_user())
-    dashboard_service_mock.get_active_plan.return_value = {"error": "db down"}
-
-    resp = client.get("/dashboard/active-plan")
-
-    assert resp.status_code == 500
-    assert resp.json()["detail"] == "db down"
-
-
-def test_get_active_plan_unauthorized(client, dashboard_service_mock, set_current_user):
-    set_current_user(_user(user_id=None))
-
-    resp = client.get("/dashboard/active-plan")
-
-    assert resp.status_code == 401
-    dashboard_service_mock.get_active_plan.assert_not_called()
-
-
 def test_create_preparation_plan_success(client, dashboard_service_mock, set_current_user):
     set_current_user(_user())
     dashboard_service_mock.create_preparation_plan.return_value = {"id": "plan-2"}
