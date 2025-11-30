@@ -50,23 +50,37 @@ interface DashboardStats {
   completedThisMonth: number;
 }
 
-type PreparationStep = Record<string, unknown>;
+interface Task {
+  task: string;
+  completed?: boolean;
+  priority?: "High" | "Medium" | "Low" | string;
+  estimatedTime?: string;
+  resources?: string;
+}
+
+interface Step {
+  title: string;
+  description?: string;
+  timeframe?: string;
+  tasks?: Task[];
+}
 
 interface PreparationPlan {
   id: string;
   jobTitle: string;
-  company: string;
-  interviewDate: string;
-  readinessLevel: number;
-  steps: PreparationStep[];
-  completedSteps: number;
+  company?: string;
+  interviewDate?: string;
+  readinessLevel?: number;
+  steps?: Step[];
+  completedSteps?: number;
+  status?: string;
 }
 
 const Dashboard = () => {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [activePlan, setActivePlan] = useState<PreparationPlan | null>(null);
-  const [allPlans, setAllPlans] = useState<any[]>([]);
+  const [allPlans, setAllPlans] = useState<PreparationPlan[]>([]);
   const [interviewHistory, setInterviewHistory] = useState<
     InterviewHistoryItem[]
   >([]);
@@ -285,7 +299,7 @@ const Dashboard = () => {
                     </p>
                     <p className="text-sm text-gray-500">
                       Interview:{" "}
-                      {new Date(activePlan.interviewDate).toLocaleDateString()}
+                      {activePlan.interviewDate ? new Date(activePlan.interviewDate).toLocaleDateString() : "TBD"}
                     </p>
                   </div>
                   <div className="text-right">

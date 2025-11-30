@@ -8,6 +8,32 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { getPreparationPlan, getPlanStatus, triggerPlanGeneration, updateTaskCompletion } from "@/lib/api";
 
+interface Task {
+  task: string;
+  completed?: boolean;
+  priority?: "High" | "Medium" | "Low" | string;
+  estimatedTime?: string;
+  resources?: string;
+}
+
+interface Step {
+  title: string;
+  description?: string;
+  timeframe?: string;
+  tasks?: Task[];
+}
+
+interface PreparationPlan {
+  id: string;
+  jobTitle: string;
+  company?: string;
+  interviewDate?: string;
+  readinessLevel?: number;
+  steps?: Step[];
+  completedSteps?: number;
+  status?: string;
+}
+
 // Wrapper component to use Suspense
 function ResultPageContent() {
   const searchParams = useSearchParams();
@@ -15,7 +41,7 @@ function ResultPageContent() {
   const planId = searchParams.get("planId");
 
   const [status, setStatus] = useState<string>("pending");
-  const [planData, setPlanData] = useState<any>(null);
+  const [planData, setPlanData] = useState<PreparationPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pollTrigger, setPollTrigger] = useState(0); // Trigger to restart polling
@@ -28,8 +54,6 @@ function ResultPageContent() {
       return;
     }
 
-    let intervalId: NodeJS.Timeout;
-
     const checkStatus = async () => {
       try {
         const statusResponse = await getPlanStatus(planId);
@@ -40,8 +64,8 @@ function ResultPageContent() {
 
         if (currentStatus === "ready") {
           // Plan is ready, fetch the full plan with steps
-          const fullPlan = await getPreparationPlan(planId);
-          setPlanData(fullPlan);
+              const fullPlan = await getPreparationPlan(planId);
+              setPlanData(fullPlan as PreparationPlan);
           setLoading(false);
           clearInterval(intervalId);
         } else if (currentStatus === "error") {
@@ -58,14 +82,12 @@ function ResultPageContent() {
       }
     };
 
-    // Initial check
+    // Start polling every 2 seconds and run an initial check
+    const intervalId = setInterval(checkStatus, 2000);
     checkStatus();
 
-    // Poll every 2 seconds
-    intervalId = setInterval(checkStatus, 2000);
-
     // Cleanup on unmount
-    return () => clearInterval(intervalId);
+    return () => clearInterval(intervalId as unknown as number);
   }, [planId, pollTrigger]); // Added pollTrigger to restart polling
 
   const handleRegenerate = async () => {
@@ -99,12 +121,12 @@ function ResultPageContent() {
       const newCompleted = !currentCompleted;
 
       // Optimistically update local state
-      setPlanData((prevData: any) => {
+      setPlanData((prevData: PreparationPlan | null) => {
         if (!prevData) return prevData;
 
-        const updatedSteps = [...prevData.steps];
-        if (updatedSteps[stepIndex] && updatedSteps[stepIndex].tasks[taskIndex]) {
-          updatedSteps[stepIndex].tasks[taskIndex].completed = newCompleted;
+        const updatedSteps = [...(prevData.steps || [])];
+        if (updatedSteps[stepIndex] && updatedSteps[stepIndex].tasks && updatedSteps[stepIndex].tasks![taskIndex]) {
+          updatedSteps[stepIndex].tasks![taskIndex].completed = newCompleted;
         }
 
         return { ...prevData, steps: updatedSteps };
@@ -116,12 +138,12 @@ function ResultPageContent() {
       console.error("Error updating task completion:", err);
 
       // Revert on error
-      setPlanData((prevData: any) => {
+      setPlanData((prevData: PreparationPlan | null) => {
         if (!prevData) return prevData;
 
-        const updatedSteps = [...prevData.steps];
-        if (updatedSteps[stepIndex] && updatedSteps[stepIndex].tasks[taskIndex]) {
-          updatedSteps[stepIndex].tasks[taskIndex].completed = currentCompleted;
+        const updatedSteps = [...(prevData.steps || [])];
+        if (updatedSteps[stepIndex] && updatedSteps[stepIndex].tasks && updatedSteps[stepIndex].tasks![taskIndex]) {
+          updatedSteps[stepIndex].tasks![taskIndex].completed = currentCompleted;
         }
 
         return { ...prevData, steps: updatedSteps };
@@ -136,19 +158,19 @@ function ResultPageContent() {
     navigator.clipboard.writeText(planText);
   };
 
-  const formatPlanAsText = (plan: any) => {
+  const formatPlanAsText = (plan: PreparationPlan) => {
     let text = `Interview Preparation Plan\n`;
     text += `Role: ${plan.jobTitle}\n`;
     text += `Company: ${plan.company || "N/A"}\n`;
     text += `Interview Date: ${plan.interviewDate || "TBD"}\n\n`;
 
-    plan.steps.forEach((step: any, index: number) => {
+    (plan.steps || []).forEach((step: Step, index: number) => {
       text += `\n${index + 1}. ${step.title}\n`;
-      text += `   ${step.description}\n`;
-      text += `   Timeframe: ${step.timeframe}\n\n`;
-      step.tasks?.forEach((task: any, taskIndex: number) => {
+      text += `   ${step.description || ""}\n`;
+      text += `   Timeframe: ${step.timeframe || ""}\n\n`;
+      step.tasks?.forEach((task: Task, taskIndex: number) => {
         text += `   ${taskIndex + 1}) ${task.task}\n`;
-        text += `      Time: ${task.estimatedTime} | Priority: ${task.priority}\n`;
+        text += `      Time: ${task.estimatedTime || ""} | Priority: ${task.priority || ""}\n`;
         if (task.resources) {
           text += `      Resources: ${task.resources}\n`;
         }
@@ -203,7 +225,7 @@ function ResultPageContent() {
     );
   }
 
-  if (!planData || !planData.steps || planData.steps.length === 0) {
+  if (!planData || !(planData.steps && planData.steps.length > 0)) {
     return (
       <PrepPlanLayout title="Preparation Plan">
         <CardContent className="space-y-4 py-8">
@@ -211,7 +233,7 @@ function ResultPageContent() {
             <XCircle className="w-16 h-16 text-muted-foreground mx-auto" />
             <h2 className="text-xl font-semibold">No Plan Generated</h2>
             <p className="text-muted-foreground">
-              We couldn't generate a plan with the provided information.
+              We couldn&apos;t generate a plan with the provided information.
             </p>
             <Button onClick={handleRegenerate}>
               Try Generating Again
@@ -253,7 +275,7 @@ function ResultPageContent() {
         <div className="space-y-6 mt-8">
           <h3 className="text-xl font-semibold">Preparation Steps</h3>
 
-          {planData.steps.map((step: any, index: number) => (
+          {(planData.steps || []).map((step: Step, index: number) => (
             <div key={index} className="border rounded-lg p-6 space-y-4">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold">
@@ -271,7 +293,7 @@ function ResultPageContent() {
               {/* Tasks */}
               {step.tasks && step.tasks.length > 0 && (
                 <div className="ml-11 space-y-3 mt-4">
-                  {step.tasks.map((task: any, taskIndex: number) => {
+                  {step.tasks?.map((task: Task, taskIndex: number) => {
                     const isCompleted = task.completed || false;
                     return (
                       <div
