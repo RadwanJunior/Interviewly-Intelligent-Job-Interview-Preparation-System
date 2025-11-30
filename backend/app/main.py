@@ -116,7 +116,13 @@ async def serve_frontend(full_path: str):
     if not frontend_dir.exists() or not index_file.exists():
         raise HTTPException(status_code=404, detail="Frontend assets not found")
 
-    target_file = frontend_dir / full_path
+    normalized_path = full_path.rstrip("/") or full_path
+    target_file = frontend_dir / normalized_path
+
+    # Handle exported .html files (e.g., /Feedback -> Feedback.html)
+    html_target = frontend_dir / f"{normalized_path}.html"
+    if html_target.is_file():
+        return FileResponse(html_target)
 
     if target_file.is_file():
         return FileResponse(target_file)
