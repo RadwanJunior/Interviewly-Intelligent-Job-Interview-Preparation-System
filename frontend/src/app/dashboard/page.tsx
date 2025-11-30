@@ -123,9 +123,11 @@ const Dashboard = () => {
       console.log("✅ Dashboard data fetched successfully");
       setStats(statsResponse);
       setInterviewHistory(historyResponse || []);
-      setAllPlans(allPlansResponse || []);
+      const plans = Array.isArray(allPlansResponse) ? allPlansResponse : [];
+      setAllPlans(plans);
 
-      const activePlanFromList = (allPlansResponse || []).find((plan) => plan.status === "active") || null;
+      const activePlanFromList =
+        plans.find((plan) => plan.status === "active") || null;
 
       if (activePlanFromList) {
         setActivePlan(activePlanFromList);
