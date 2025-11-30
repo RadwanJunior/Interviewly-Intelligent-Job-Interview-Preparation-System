@@ -6,11 +6,20 @@
 
 import axios, { AxiosError, AxiosRequestConfig } from "axios";
 
-const rawApiUrl = process.env.NEXT_PUBLIC_API_URL;
-// Prefer relative `/api` when NEXT_PUBLIC_API_URL is not set to avoid localhost cross-origin issues
-const API_URL =
-  `${(rawApiUrl || "").replace(/\/$/, "")}/api`.replace(/^\/api\/?$/, "/api") ||
-  "/api";
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+
+// When running the Next dev server on 3000, default to the FastAPI dev server on 8000
+const inferLocalApiBase = () => {
+  if (typeof window === "undefined") return "";
+  const { hostname, port } = window.location;
+  if ((hostname === "localhost" || hostname === "127.0.0.1") && port === "3000") {
+    return "http://localhost:8000";
+  }
+  return "";
+};
+
+const apiBase = rawApiUrl || inferLocalApiBase();
+const API_URL = apiBase ? `${apiBase}/api` : "/api";
 
 // Create axios instance with default config
 export const api = axios.create({
