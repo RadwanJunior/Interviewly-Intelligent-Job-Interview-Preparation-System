@@ -80,7 +80,6 @@ This file provides a concise summary of the tests under `backend/tests/`.
   - `test_get_interview_history_completed`: formats interviews and enriches with job details.
   - `test_get_interview_history_error`: propagates supabase error.
   - `test_get_dashboard_stats`: computes totals, average scores, completedThisMonth.
-  - `test_get_active_plan_found` / `test_get_active_plan_none`: active plan retrieval.
   - Preparation plan create/update/ownership flows and error handling.
 - Mocks: `mock_supabase` MagicMock injected; test uses `service.get_interview_history` override in one test to focus on stats calculation.
 

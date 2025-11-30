@@ -110,37 +110,6 @@ def test_get_dashboard_stats_exception(service):
     result = service.get_dashboard_stats("user_id")
     assert result["error"] == "boom"
 
-def test_get_active_plan_found(service, mock_supabase):
-    mock_supabase.get_active_preparation_plan.return_value = {
-        "id": "plan1",
-        "job_title": "Engineer",
-        "company": "Acme",
-        "interview_date": "2025-10-20",
-        "readiness_level": "High",
-        "steps": ["Step1"],
-        "completed_steps": 1
-    }
-    result = service.get_active_plan("user_id")
-    assert result["id"] == "plan1"
-    assert result["jobTitle"] == "Engineer"
-    assert result["company"] == "Acme"
-    assert result["completedSteps"] == 1
-
-def test_get_active_plan_none(service, mock_supabase):
-    mock_supabase.get_active_preparation_plan.return_value = None
-    result = service.get_active_plan("user_id")
-    assert result is None
-
-def test_get_active_plan_error(service, mock_supabase):
-    mock_supabase.get_active_preparation_plan.return_value = {"error": "db"}
-    result = service.get_active_plan("user_id")
-    assert result["error"] == "db"
-
-def test_get_active_plan_exception(service, mock_supabase):
-    mock_supabase.get_active_preparation_plan.side_effect = Exception("boom")
-    result = service.get_active_plan("user_id")
-    assert result["error"] == "boom"
-
 def test_create_preparation_plan_success(service, mock_supabase):
     mock_supabase.update_preparation_plan_status_by_user.return_value = None
     mock_supabase.create_preparation_plan.return_value = {"id": "plan2"}

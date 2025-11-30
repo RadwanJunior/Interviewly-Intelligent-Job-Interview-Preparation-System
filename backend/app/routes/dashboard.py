@@ -3,7 +3,7 @@
 # Handles statistics, interview history, and preparation plans for users.
 # =============================
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -69,23 +69,6 @@ async def get_interview_history(current_user: dict = Depends(supabase_service.ge
         raise HTTPException(status_code=500, detail=history["error"])
         
     return history
-
-@router.get("/active-plan")
-async def get_active_plan(response: Response, current_user: dict = Depends(supabase_service.get_current_user)):
-    """Get active preparation plan"""
-    if not current_user or not getattr(current_user, "id", None):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
-    plan = dashboard_service.get_active_plan(current_user.id)
-
-    if plan is None:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {"message": "No active plan found"}
-
-    if isinstance(plan, dict) and "error" in plan:
-        raise HTTPException(status_code=500, detail=plan["error"])
-
-    return plan
 
 @router.get("/plans")
 async def get_all_plans(current_user: dict = Depends(supabase_service.get_current_user)):
