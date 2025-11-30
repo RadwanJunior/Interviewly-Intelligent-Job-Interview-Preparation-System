@@ -96,7 +96,9 @@ async def get_all_plans(current_user: dict = Depends(supabase_service.get_curren
     plans = dashboard_service.get_all_user_plans(current_user.id)
 
     if isinstance(plans, dict) and "error" in plans:
-        raise HTTPException(status_code=500, detail=plans["error"])
+        # Log the error server-side; return only a generic error message to client
+        logging.error(f"Error returned when fetching all user plans for user {current_user.id}: {plans['error']}")
+        raise HTTPException(status_code=500, detail="An internal error occurred while retrieving your preparation plans.")
 
     return plans
 
