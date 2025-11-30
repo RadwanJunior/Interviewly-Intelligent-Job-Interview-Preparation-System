@@ -90,10 +90,8 @@ class RAGService:
                 }
             else:
                 logging.warning(f"[RAG] No subscribers listening on interviewly:request-rag")
-                # Mark as failed if no n8n workflow is listening
-                await supabase_service.update_interview_status(interview_id, RAGStatus.FAILED.value)
                 return {
-                    "status": "error",
+                    "status": "not_available",
                     "message": "RAG workflow not available",
                     "interview_id": interview_id
                 }
@@ -165,7 +163,7 @@ class RAGService:
                 
                 if elapsed >= timeout:
                     logging.warning(f"[RAG] Enhancement timeout after {elapsed}s")
-                    await supabase_service.update_interview_status(interview_id, RAGStatus.TIMEOUT.value)
+                    # Do not mark the interview as timed out here; let the caller decide how to fall back
                     return {
                         "status": "timeout",
                         "message": f"Enhancement timed out after {timeout}s",
