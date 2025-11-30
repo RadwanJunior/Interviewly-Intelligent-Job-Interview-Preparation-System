@@ -302,4 +302,4 @@ class DashboardService:
 
         except Exception as e:
             logging.error(f"❌ Error updating preparation plan: {str(e)}", exc_info=True)
-            return {"error": str(e)}
+            return {"error": "Internal server error"}
