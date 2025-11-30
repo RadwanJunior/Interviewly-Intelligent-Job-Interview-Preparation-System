@@ -22,7 +22,7 @@ class RAGStatus(str, Enum):
 
 class RAGService:
     def __init__(self):
-        self.DEFAULT_TIMEOUT = 120  # 2 minutes for RAG enhancement
+        self.DEFAULT_TIMEOUT = 60  # 1 minute for RAG enhancement
     
     
     async def request_enhancement(

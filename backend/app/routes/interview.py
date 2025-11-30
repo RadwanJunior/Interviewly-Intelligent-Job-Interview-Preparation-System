@@ -42,7 +42,7 @@ async def generate_questions_task(
         # Wait for RAG enhancement with a 2-minute timeout
         rag_result = await rag_service.wait_for_enhancement(
             interview_id=session_id,
-            timeout=120
+            timeout=60
         )
         
         enhanced_prompt = None

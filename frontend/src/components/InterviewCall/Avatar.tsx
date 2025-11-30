@@ -10,7 +10,7 @@ import { lipsyncManager } from "@/lib/lipsync";
 
 export function Avatar({ animation, ...props }: any) {
   const group = useRef<THREE.Group>(null!);
-  const { scene } = useGLTF("/models/lisa.glb");
+  const { scene } = useGLTF("/models/lisa2.glb");
   const { animations } = useGLTF("/models/animations.glb");
   const { actions } = useAnimations(animations, group);
 
@@ -95,5 +95,5 @@ export function Avatar({ animation, ...props }: any) {
   );
 }
 
-useGLTF.preload("/models/lisa.glb");
+useGLTF.preload("/models/lisa2.glb");
 useGLTF.preload("/models/animations.glb");
