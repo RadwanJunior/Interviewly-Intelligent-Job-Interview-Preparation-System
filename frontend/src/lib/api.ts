@@ -389,6 +389,15 @@ export async function fetchActivePlan() {
 }
 
 /**
+ * Fetch all preparation plans for the current user.
+ * @returns API response data (array of plans)
+ */
+export async function fetchAllPlans() {
+  const response = await api.get("/dashboard/plans");
+  return response.data;
+}
+
+/**
  * Create a new preparation plan for the dashboard.
  * @param planData - Preparation plan data object
  * @returns API response data
@@ -411,6 +420,71 @@ export async function updatePreparationPlan(
   const response = await api.put(
     `/dashboard/preparation-plan/${planId}`,
     updateData
+  );
+  return response.data;
+}
+
+/**
+ * Trigger AI generation of preparation plan steps.
+ * @param planId - Preparation plan ID
+ * @returns API response data
+ */
+export async function triggerPlanGeneration(planId: string) {
+  const response = await api.post(`/dashboard/preparation-plan/${planId}/generate`);
+  return response.data;
+}
+
+/**
+ * Get the status of a preparation plan generation.
+ * @param planId - Preparation plan ID
+ * @returns API response data with status
+ */
+export async function getPlanStatus(planId: string) {
+  const response = await api.get(`/dashboard/preparation-plan/${planId}/status`);
+  return response.data;
+}
+
+/**
+ * Get a preparation plan by ID with all details including generated steps.
+ * @param planId - Preparation plan ID
+ * @returns API response data
+ */
+export async function getPreparationPlan(planId: string) {
+  const response = await api.get(`/dashboard/preparation-plan/${planId}`);
+  return response.data;
+}
+
+/**
+ * Delete a preparation plan by ID.
+ * @param planId - Preparation plan ID
+ * @returns API response data
+ */
+export async function deletePreparationPlan(planId: string) {
+  const response = await api.delete(`/dashboard/preparation-plan/${planId}`);
+  return response.data;
+}
+
+/**
+ * Update the completion status of a specific task in a preparation plan.
+ * @param planId - Preparation plan ID
+ * @param stepIndex - Index of the step containing the task
+ * @param taskIndex - Index of the task within the step
+ * @param completed - Whether the task is completed
+ * @returns API response data
+ */
+export async function updateTaskCompletion(
+  planId: string,
+  stepIndex: number,
+  taskIndex: number,
+  completed: boolean
+) {
+  const response = await api.patch(
+    `/dashboard/preparation-plan/${planId}/task-completion`,
+    {
+      stepIndex,
+      taskIndex,
+      completed,
+    }
   );
   return response.data;
 }
