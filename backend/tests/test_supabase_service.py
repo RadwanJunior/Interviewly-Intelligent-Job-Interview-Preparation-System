@@ -289,10 +289,6 @@ def test_update_interview_and_preparation_plan(service, mock_client):
     u = service.update_interview('i1', {'score': 10})
     assert isinstance(u, dict) or u is None
 
-    mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(data=[{'id': 'p1'}])
-    ap = service.get_active_preparation_plan('u1')
-    assert ap is None or isinstance(ap, dict)
-
     mock_client.table.return_value.insert.return_value.execute.return_value = MagicMock(data=[{'id': 'p2'}])
     cp = service.create_preparation_plan({'job_title': 't'})
     assert cp is None or isinstance(cp, dict)
@@ -447,7 +443,6 @@ def test_table_methods_return_nested_error(method_name, args):
         ("get_job_description_details", ("jid",)),
         ("get_interview_feedback", ("iid",)),
         ("update_interview", ("iid", {"score": 1})),
-        ("get_active_preparation_plan", ("uid",)),
         ("create_preparation_plan", ({"steps": []},)),
         ("update_preparation_plan", ("pid", {"steps": []})),
         ("update_preparation_plan_status_by_user", ("uid", "inactive")),

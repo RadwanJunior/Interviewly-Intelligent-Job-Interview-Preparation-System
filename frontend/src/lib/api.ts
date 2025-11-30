@@ -366,29 +366,6 @@ export async function fetchInterviewHistory() {
 }
 
 /**
- * Fetch the active preparation plan for the current user.
- * @returns API response data or null if not found
- */
-export async function fetchActivePlan() {
-  try {
-    const response = await api.get("/dashboard/active-plan");
-
-    // 404 means no active plan (not an error)
-    if (response.status === 404) {
-      return null;
-    }
-
-    return response.data;
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
-      return null;
-    }
-    console.error("Error fetching active plan:", error);
-    return null;
-  }
-}
-
-/**
  * Fetch all preparation plans for the current user.
  * @returns API response data (array of plans)
  */

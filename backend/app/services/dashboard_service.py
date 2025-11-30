@@ -134,48 +134,6 @@ class DashboardService:
             logging.error(f"❌ Error getting dashboard stats: {str(e)}", exc_info=True)
             return {"error": str(e)}
 
-    def get_active_plan(self, user_id: str) -> dict:
-        """
-        Get the user's active preparation plan, if any.
-
-        Args:
-            user_id (str): The user's unique identifier.
-
-        Returns:
-            dict or None: Active plan details, or None if not found, or error dict.
-        """
-        try:
-            logging.info(f"📊 Fetching active plan for user: {user_id}")
-            
-            plan = self.supabase_service.get_active_preparation_plan(user_id)
-
-            if isinstance(plan, dict) and "error" in plan:
-                return plan
-
-            if plan:
-                # Map interview_plans table fields back to frontend format
-                result = {
-                    "id": plan["id"],
-                    "jobTitle": plan.get("role"),  # role → jobTitle
-                    "company": plan.get("company"),
-                    "interviewDate": plan.get("interview_date"),
-                    "focusAreas": plan.get("focus_areas", []),
-                    "researchNotes": plan.get("job_description"),  # job_description → researchNotes
-                    "resumeNotes": plan.get("resume_notes"),
-                    "otherNotes": plan.get("other_notes"),
-                    "steps": json.loads(plan.get("steps", "[]")) if isinstance(plan.get("steps"), str) else plan.get("steps", []),
-                    "status": plan.get("status", "pending")
-                }
-                logging.info(f"✅ Found active plan: {plan['id']}")
-                return result
-            
-            logging.info(f"📭 No active plan found for user {user_id}")
-            return None
-
-        except Exception as e:
-            logging.error(f"❌ Error getting active plan: {str(e)}", exc_info=True)
-            return {"error": str(e)}
-
     def get_all_user_plans(self, user_id: str) -> list:
         """
         Get all preparation plans for a user, sorted by most recent.

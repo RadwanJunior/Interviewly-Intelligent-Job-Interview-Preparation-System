@@ -617,18 +617,6 @@ class SupabaseService:
             print(f"Error updating interview: {str(e)}")
             return {"error": str(e)}
 
-    def get_active_preparation_plan(self, user_id: str):
-        """Get active preparation plan for a user"""
-        try:
-            response = self.client.table("interview_plans").select(
-                "*"
-            ).eq("user_id", user_id).eq("status", "active").order("created_at", desc=True).limit(1).execute()
-
-            return response.data[0] if hasattr(response, "data") and response.data else None
-        except Exception as e:
-            print(f"Error getting active plan: {str(e)}")
-            return {"error": str(e)}
-
     def get_all_user_plans(self, user_id: str):
         """Get all preparation plans for a user, sorted by most recent"""
         try:

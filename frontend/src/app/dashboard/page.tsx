@@ -21,7 +21,6 @@ import { Progress } from "@/components/ui/progress";
 import {
   fetchDashboardStats,
   fetchInterviewHistory,
-  fetchActivePlan,
   fetchAllPlans,
   deletePreparationPlan,
 } from "@/lib/api";
@@ -115,24 +114,29 @@ const Dashboard = () => {
     setError(null);
 
     try {
-      const [statsResponse, historyResponse, planResponse, allPlansResponse] = await Promise.all([
+      const [statsResponse, historyResponse, allPlansResponse] = await Promise.all([
         fetchDashboardStats(),
         fetchInterviewHistory(),
-        fetchActivePlan(),
         fetchAllPlans(),
       ]);
 
       console.log("✅ Dashboard data fetched successfully");
       setStats(statsResponse);
       setInterviewHistory(historyResponse || []);
-      setAllPlans(allPlansResponse || []);
+      const plans = Array.isArray(allPlansResponse) ? allPlansResponse : [];
+      setAllPlans(plans);
 
-      if (planResponse) {
-        setActivePlan(planResponse);
+      const activePlanFromList =
+        plans.find((plan) => plan.status === "active") || null;
+
+      if (activePlanFromList) {
+        setActivePlan(activePlanFromList);
       } else {
         const savedPlan = localStorage.getItem("interviewPlan");
         if (savedPlan) {
           setActivePlan(JSON.parse(savedPlan));
+        } else {
+          setActivePlan(null);
         }
       }
 
