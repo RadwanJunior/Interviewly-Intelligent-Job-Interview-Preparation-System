@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Head from "next/head";
 import {
@@ -447,7 +447,9 @@ const FeedbackContent = () => {
           const response = await getFeedback(sessionId!);
 
           if (response.status === "success" && response.feedback) {
-            const transformedData = transformApiDataToUiFormat(response.feedback);
+            const transformedData = transformApiDataToUiFormat(
+              response.feedback
+            );
             setFeedback(transformedData);
             setLoading(false);
 
@@ -469,7 +471,9 @@ const FeedbackContent = () => {
           if (pollCount < MAX_POLLS) {
             setTimeout(() => poll(), 3000);
           } else {
-            throw new Error("Feedback generation did not start. Please try again.");
+            throw new Error(
+              "Feedback generation did not start. Please try again."
+            );
           }
         }
       } catch (err) {
@@ -626,7 +630,8 @@ ${feedback.overallFeedback}
               <Clock className="h-4 w-4" />
               <AlertTitle>This may take 1-2 minutes</AlertTitle>
               <AlertDescription>
-                We&apos;re analyzing your interview audio and generating personalized feedback. Please don&apos;t close this page.
+                We&apos;re analyzing your interview audio and generating
+                personalized feedback. Please don&apos;t close this page.
               </AlertDescription>
             </Alert>
           </CardContent>
@@ -652,14 +657,12 @@ ${feedback.overallFeedback}
               <Button
                 onClick={() => window.location.reload()}
                 variant="outline"
-                className="flex-1"
-              >
+                className="flex-1">
                 Retry
               </Button>
               <Button
                 onClick={() => router.push("/dashboard")}
-                className="flex-1"
-              >
+                className="flex-1">
                 Go to Dashboard
               </Button>
             </div>
@@ -705,8 +708,7 @@ ${feedback.overallFeedback}
               <div
                 className={`text-4xl font-bold ${getScoreColor(
                   feedback.overallScore
-                )}`}
-              >
+                )}`}>
                 {feedback.overallScore}%
               </div>
             </CardHeader>
@@ -792,16 +794,15 @@ ${feedback.overallFeedback}
             <AlertTitle>Missed Opportunities</AlertTitle>
             <AlertDescription>
               <p className="mb-2">
-                You didn&apos;t mention these keywords that might have strengthened
-                your answers:
+                You didn&apos;t mention these keywords that might have
+                strengthened your answers:
               </p>
               <div className="flex flex-wrap gap-2 mt-1">
                 {feedback.keywordsMissed.map((keyword, i) => (
                   <Badge
                     key={i}
                     variant="outline"
-                    className="border-amber-300 text-amber-700"
-                  >
+                    className="border-amber-300 text-amber-700">
                     {keyword}
                   </Badge>
                 ))}
@@ -824,8 +825,7 @@ ${feedback.overallFeedback}
               <Button
                 variant="outline"
                 onClick={copyFeedback}
-                className="gap-2"
-              >
+                className="gap-2">
                 {copied ? (
                   <Check className="h-4 w-4" />
                 ) : (
@@ -890,8 +890,7 @@ ${feedback.overallFeedback}
           <div className="flex justify-between">
             <Button
               variant="outline"
-              onClick={() => router.push(`interview?sessionId=${sessionId}`)}
-            >
+              onClick={() => router.push(`interview?sessionId=${sessionId}`)}>
               Back to Interview
             </Button>
             <Button onClick={handleRetry}>Try Another Interview</Button>
