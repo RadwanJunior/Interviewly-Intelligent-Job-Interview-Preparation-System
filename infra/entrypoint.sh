@@ -7,7 +7,7 @@ N8N_PORT="${N8N_PORT:-5678}"
 
 # Start n8n in background
 echo "Starting n8n on port ${N8N_PORT}..."
-N8N_PORT="${N8N_PORT}" n8n start &
+N8N_PORT="${N8N_PORT}" npx n8n start &
 N8N_PID=$!
 
 # Start uvicorn (FastAPI)
