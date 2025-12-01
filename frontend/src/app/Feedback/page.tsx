@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Head from "next/head";
 import {
@@ -86,7 +87,8 @@ const Feedback = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("sessionId");
-  const interviewType = searchParams.get("type");
+  // Remove unused variable
+  // const interviewType = searchParams.get("type");
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
 
@@ -412,20 +414,16 @@ const Feedback = () => {
     }
   }, [sessionId, loading, pollingCount]);
 
-  // Enhanced polling logic with better UX
-  useEffect(() => {
-    if (!sessionId || !user || authLoading) return;
-
-    let pollInterval: NodeJS.Timeout;
+  // ✅ Fix: Memoize checkFeedbackStatus to include toast in dependencies
+  const checkFeedbackStatus = useCallback(async () => {
     let pollCount = 0;
-    const MAX_POLLS = 60; // 60 * 3 seconds = 3 minutes max wait
+    const MAX_POLLS = 60;
 
-    const checkFeedbackStatus = async () => {
+    const poll = async (): Promise<void> => {
       try {
         pollCount++;
 
-        // First check the status
-        const statusResponse = await getFeedbackStatus(sessionId);
+        const statusResponse = await getFeedbackStatus(sessionId!);
 
         console.log(`Poll ${pollCount}: Status =`, statusResponse.status);
 
@@ -435,9 +433,8 @@ const Feedback = () => {
             `Analyzing your interview performance... (${pollCount}/${MAX_POLLS})`
           );
 
-          // Continue polling
           if (pollCount < MAX_POLLS) {
-            pollInterval = setTimeout(checkFeedbackStatus, 3000);
+            setTimeout(() => poll(), 3000);
           } else {
             throw new Error(
               "Feedback generation is taking longer than expected. Please refresh the page."
@@ -447,13 +444,10 @@ const Feedback = () => {
           setFeedbackStatus("completed");
           setStatusMessage("Feedback ready! Loading...");
 
-          // Fetch the actual feedback
-          const response = await getFeedback(sessionId);
+          const response = await getFeedback(sessionId!);
 
           if (response.status === "success" && response.feedback) {
-            const transformedData = transformApiDataToUiFormat(
-              response.feedback
-            );
+            const transformedData = transformApiDataToUiFormat(response.feedback);
             setFeedback(transformedData);
             setLoading(false);
 
@@ -472,13 +466,10 @@ const Feedback = () => {
           setFeedbackStatus("processing");
           setStatusMessage("Starting feedback generation...");
 
-          // Continue polling - backend might still be initializing
           if (pollCount < MAX_POLLS) {
-            pollInterval = setTimeout(checkFeedbackStatus, 3000);
+            setTimeout(() => poll(), 3000);
           } else {
-            throw new Error(
-              "Feedback generation did not start. Please try again."
-            );
+            throw new Error("Feedback generation did not start. Please try again.");
           }
         }
       } catch (err) {
@@ -488,20 +479,18 @@ const Feedback = () => {
         );
         setFeedbackStatus("error");
         setLoading(false);
-        clearTimeout(pollInterval);
       }
     };
 
-    // Start polling immediately
+    poll();
+  }, [sessionId, toast]); // ✅ Include toast dependency
+
+  // Enhanced polling logic with better UX
+  useEffect(() => {
+    if (!sessionId || !user || authLoading) return;
+
     checkFeedbackStatus();
-
-    // Cleanup function
-    return () => {
-      if (pollInterval) {
-        clearTimeout(pollInterval);
-      }
-    };
-  }, [sessionId, user, authLoading]);
+  }, [sessionId, user, authLoading, checkFeedbackStatus]); // ✅ Include checkFeedbackStatus
 
   // Calculate the color for the score
   const getScoreColor = (score: number) => {
@@ -637,8 +626,7 @@ ${feedback.overallFeedback}
               <Clock className="h-4 w-4" />
               <AlertTitle>This may take 1-2 minutes</AlertTitle>
               <AlertDescription>
-                We're analyzing your interview audio and generating personalized
-                feedback. Please don't close this page.
+                We&apos;re analyzing your interview audio and generating personalized feedback. Please don&apos;t close this page.
               </AlertDescription>
             </Alert>
           </CardContent>
@@ -664,12 +652,14 @@ ${feedback.overallFeedback}
               <Button
                 onClick={() => window.location.reload()}
                 variant="outline"
-                className="flex-1">
+                className="flex-1"
+              >
                 Retry
               </Button>
               <Button
                 onClick={() => router.push("/dashboard")}
-                className="flex-1">
+                className="flex-1"
+              >
                 Go to Dashboard
               </Button>
             </div>
@@ -715,7 +705,8 @@ ${feedback.overallFeedback}
               <div
                 className={`text-4xl font-bold ${getScoreColor(
                   feedback.overallScore
-                )}`}>
+                )}`}
+              >
                 {feedback.overallScore}%
               </div>
             </CardHeader>
@@ -809,7 +800,8 @@ ${feedback.overallFeedback}
                   <Badge
                     key={i}
                     variant="outline"
-                    className="border-amber-300 text-amber-700">
+                    className="border-amber-300 text-amber-700"
+                  >
                     {keyword}
                   </Badge>
                 ))}
@@ -832,7 +824,8 @@ ${feedback.overallFeedback}
               <Button
                 variant="outline"
                 onClick={copyFeedback}
-                className="gap-2">
+                className="gap-2"
+              >
                 {copied ? (
                   <Check className="h-4 w-4" />
                 ) : (
@@ -897,7 +890,8 @@ ${feedback.overallFeedback}
           <div className="flex justify-between">
             <Button
               variant="outline"
-              onClick={() => router.push(`interview?sessionId=${sessionId}`)}>
+              onClick={() => router.push(`interview?sessionId=${sessionId}`)}
+            >
               Back to Interview
             </Button>
             <Button onClick={handleRetry}>Try Another Interview</Button>
