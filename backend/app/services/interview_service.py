@@ -24,17 +24,17 @@ MODEL = "gemini-2.0-flash"
 PROMPT_TEMPLATE = """You are an expert HR interviewer and career coach with a knack for asking insightful, human-sounding questions. Based on the candidate's resume, job details, and company context, generate a **concise and structured** list of **10-12** interview questions designed for a **30-45 minute** interview. Ensure the questions sound natural and engaging, as if you were speaking directly to the candidate. Also that each question is complete, clear, and written in a single sentence without any placeholders, bracketed text, or multiple parts.
 When generating technical questions, do not use generic phrases such as "based on their skills" or "depending on their experience." Instead, incorporate specific details from the resume and job description—such as programming languages, frameworks, or project examples—to create tailored questions.
 The interview should be structured as follows:
-- **Behavioral & General Fit Questions (3-4 questions, 10-15 minutes)-First**  
+- **Behavioral & General Fit Questions (2 questions, 10-15 minutes)-First**  
   - Start with “Tell me about yourself” and other core behavioral questions.  
   - Assess teamwork, leadership, problem-solving, and career motivation.  
   - Ensure relevance to company culture and work environment.  
 
-- **Technical Questions (4-5 questions, 15-20 minutes)-second**  
+- **Technical Questions (3 questions, 15-20 minutes)-second**  
   - Cover key technical skills related to the job description.  
   - Avoid redundant questions; prioritize depth over breadth.  
   - If the job is highly technical, include at least one coding or debugging question.  
 
-- **Situational & Case-Based Questions (3-4 questions, 10-15 minutes)-last**  
+- **Situational & Case-Based Questions (2 questions, 10-15 minutes)-last**  
   - Focus on real-world scenarios and decision-making.  
   - Use hypothetical challenges related to the role and industry.  
   - Ensure practical application of skills.  
