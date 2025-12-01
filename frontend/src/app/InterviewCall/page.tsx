@@ -308,7 +308,7 @@ const InterviewCallContent = () => {
       return;
     }
 
-    const ws = new WebSocket(`${wsBase}/interview_call/ws/${sessionId}`);
+    const ws = new WebSocket(`${wsBase}/api/interview_call/ws/${sessionId}`);
     wsRef.current = ws;
     ws.binaryType = "blob"; // Important: ensure we receive ArrayBuffers
     ws.onopen = () =>
