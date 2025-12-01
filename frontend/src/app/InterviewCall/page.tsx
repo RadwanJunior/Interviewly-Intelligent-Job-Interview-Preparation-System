@@ -264,6 +264,37 @@ const InterviewCallContent = () => {
     }
   }, [isInterviewActive, startVAD]);
 
+  const getWebSocketBase = () => {
+    // Prefer explicit websocket env var
+    const envWs = process.env.NEXT_PUBLIC_WS_URL?.replace(/\/$/, "");
+    if (envWs) return envWs;
+
+    // Derive from API URL if provided (http -> ws, https -> wss)
+    const envApi = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+    if (envApi) {
+      try {
+        const apiUrl = new URL(envApi);
+        const wsProtocol = apiUrl.protocol === "https:" ? "wss:" : "ws:";
+        return `${wsProtocol}//${apiUrl.host}`;
+      } catch (err) {
+        console.warn("Invalid NEXT_PUBLIC_API_URL for websocket:", err);
+      }
+    }
+
+    // Fallback to current origin; in local dev swap 3000 -> 8000 to reach FastAPI
+    if (typeof window !== "undefined") {
+      const { hostname, port, protocol } = window.location;
+      const wsProtocol = protocol === "https:" ? "wss:" : "ws:";
+      const targetHost =
+        (hostname === "localhost" || hostname === "127.0.0.1") && port === "3000"
+          ? `${hostname}:8000`
+          : window.location.host;
+      return `${wsProtocol}//${targetHost}`;
+    }
+
+    return "";
+  };
+
   // WebSocket setup
   useEffect(() => {
     if (!sessionId) {
@@ -271,9 +302,13 @@ const InterviewCallContent = () => {
       return;
     }
     setStatus("Connecting...");
-    const ws = new WebSocket(
-      `ws://localhost:8000/interview_call/ws/${sessionId}`
-    );
+    const wsBase = getWebSocketBase();
+    if (!wsBase) {
+      setStatus("Error: WebSocket URL not configured.");
+      return;
+    }
+
+    const ws = new WebSocket(`${wsBase}/interview_call/ws/${sessionId}`);
     wsRef.current = ws;
     ws.binaryType = "blob"; // Important: ensure we receive ArrayBuffers
     ws.onopen = () =>
