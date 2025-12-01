@@ -1,6 +1,6 @@
 // src/app/interview/page.tsx
 "use client";
-import { useState, useRef, useEffect, Suspense } from "react";
+import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Head from "next/head";
 import { useToast } from "@/hooks/use-toast";
@@ -27,7 +27,7 @@ const AUTO_RECORD_DELAY = 30;
 /**
  * Interview Component - Handles the mock interview session flow
  */
-const Interview = () => {
+const InterviewContent = () => {
   // Get session ID from URL query parameters
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("sessionId");
@@ -153,63 +153,33 @@ const Interview = () => {
     fetchQuestions();
   }, [sessionId]);
 
-  // Auto-recording countdown effect
-  useEffect(() => {
-    if (isRecording) {
-      setShowingCountdown(false);
-      return;
-    }
+  // Stop recording function
+  const stopRecording = useCallback(() => {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream
+        .getTracks()
+        .forEach((track) => track.stop());
+      setIsRecording(false);
 
-    if (recordings[currentQuestion]?.url) {
-      setHasCurrentQuestionBeenAnswered(true);
-      setShowingCountdown(false);
-    } else {
-      setHasCurrentQuestionBeenAnswered(false);
-      setAutoRecordCountdown(AUTO_RECORD_DELAY);
-      setShowingCountdown(true);
-
-      if (autoRecordTimerRef.current) {
-        clearInterval(autoRecordTimerRef.current);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
       }
+      recordingSecondsRef.current = 0;
 
-      autoRecordTimerRef.current = window.setInterval(() => {
-        setAutoRecordCountdown((prev) => {
-          const newCount = prev - 1;
-          if (newCount <= 0) {
-            clearInterval(autoRecordTimerRef.current!);
-            setShowingCountdown(false);
-
-            if (
-              !isRecording &&
-              !recordings[currentQuestion]?.url &&
-              activeCall
-            ) {
-              startRecording();
-            }
-            return 0;
-          }
-          return newCount;
-        });
-      }, 1000);
+      toast({
+        title: "Answer Recorded",
+        description: "Your answer has been successfully recorded.",
+      });
     }
-
-    return () => {
-      if (autoRecordTimerRef.current) {
-        clearInterval(autoRecordTimerRef.current);
-      }
-    };
-  }, [currentQuestion, recordings, isRecording, activeCall]);
-
-  // Calculate progress percentage
-  const progress =
-    questions.length > 0 ? ((currentQuestion + 1) / questions.length) * 100 : 0;
-
-  // Calculate time remaining
-  const timeRemaining = MAX_RECORDING_TIME - recordingTime;
-  const timeRemainingPercentage = (timeRemaining / MAX_RECORDING_TIME) * 100;
+  }, [toast]);
 
   // Start recording function
-  const startRecording = async () => {
+  const startRecording = useCallback(async () => {
     if (
       mediaRecorderRef.current &&
       mediaRecorderRef.current.state !== "inactive"
@@ -324,14 +294,16 @@ const Interview = () => {
           type: currentQuestionMimeType, // Use the dynamically chosen MIME type
         });
         const audioUrl = URL.createObjectURL(audioBlob);
-        const newRecordings = [...recordings];
-        // Store mimeType with the recording object
-        newRecordings[currentQuestion] = {
-          blob: audioBlob,
-          url: audioUrl,
-          mimeType: currentQuestionMimeType,
-        };
-        setRecordings(newRecordings);
+        setRecordings((prev) => {
+          const updated = [...prev];
+          // Store mimeType with the recording object
+          updated[currentQuestion] = {
+            blob: audioBlob,
+            url: audioUrl,
+            mimeType: currentQuestionMimeType,
+          };
+          return updated;
+        });
         setHasCurrentQuestionBeenAnswered(true);
         setRecordingTime(0);
       };
@@ -359,32 +331,62 @@ const Interview = () => {
         variant: "destructive",
       });
     }
-  };
+  }, [currentQuestion, stopRecording, toast]);
 
-  // Stop recording function
-  const stopRecording = () => {
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state !== "inactive"
-    ) {
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream
-        .getTracks()
-        .forEach((track) => track.stop());
-      setIsRecording(false);
-
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      recordingSecondsRef.current = 0;
-
-      toast({
-        title: "Answer Recorded",
-        description: "Your answer has been successfully recorded.",
-      });
+  // Auto-recording countdown effect
+  useEffect(() => {
+    if (isRecording) {
+      setShowingCountdown(false);
+      return;
     }
-  };
+
+    if (recordings[currentQuestion]?.url) {
+      setHasCurrentQuestionBeenAnswered(true);
+      setShowingCountdown(false);
+    } else {
+      setHasCurrentQuestionBeenAnswered(false);
+      setAutoRecordCountdown(AUTO_RECORD_DELAY);
+      setShowingCountdown(true);
+
+      if (autoRecordTimerRef.current) {
+        clearInterval(autoRecordTimerRef.current);
+      }
+
+      autoRecordTimerRef.current = window.setInterval(() => {
+        setAutoRecordCountdown((prev) => {
+          const newCount = prev - 1;
+          if (newCount <= 0) {
+            clearInterval(autoRecordTimerRef.current!);
+            setShowingCountdown(false);
+
+            if (
+              !isRecording &&
+              !recordings[currentQuestion]?.url &&
+              activeCall
+            ) {
+              startRecording();
+            }
+            return 0;
+          }
+          return newCount;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (autoRecordTimerRef.current) {
+        clearInterval(autoRecordTimerRef.current);
+      }
+    };
+  }, [currentQuestion, recordings, isRecording, activeCall, startRecording]);
+
+  // Calculate progress percentage
+  const progress =
+    questions.length > 0 ? ((currentQuestion + 1) / questions.length) * 100 : 0;
+
+  // Calculate time remaining
+  const timeRemaining = MAX_RECORDING_TIME - recordingTime;
+  const timeRemainingPercentage = (timeRemaining / MAX_RECORDING_TIME) * 100;
 
   // Handle next button click
   const handleNext = async () => {
@@ -598,5 +600,11 @@ const Interview = () => {
     </Suspense>
   );
 };
+
+const Interview = () => (
+  <Suspense fallback={<div className="p-6">Loading interview...</div>}>
+    <InterviewContent />
+  </Suspense>
+);
 
 export default Interview;

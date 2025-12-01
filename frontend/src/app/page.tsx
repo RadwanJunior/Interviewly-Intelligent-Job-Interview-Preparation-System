@@ -44,12 +44,12 @@ const Index = () => {
   ];
 
   const howItWorksSteps = [
-    {
-      number: "01",
-      title: "Upload Your Documents",
-      description:
-        "Submit your resume and the job description you're applying for.",
-    },
+      {
+        number: "01",
+        title: "Upload Your Documents",
+        description:
+          "Submit your resume and the job description you&apos;re applying for.",
+      },
     {
       number: "02",
       title: "Receive Tailored Questions",

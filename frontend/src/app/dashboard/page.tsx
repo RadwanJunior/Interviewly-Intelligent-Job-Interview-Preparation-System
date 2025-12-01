@@ -12,6 +12,7 @@ import {
   BookOpen,
   AlertCircle,
   RefreshCcw,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +21,8 @@ import { Progress } from "@/components/ui/progress";
 import {
   fetchDashboardStats,
   fetchInterviewHistory,
-  fetchActivePlan,
+  fetchAllPlans,
+  deletePreparationPlan,
 } from "@/lib/api";
 import Navbar from "@/components/Navbar";
 import { InterviewCard } from "@/components/dashboard/InterviewCard";
@@ -47,20 +49,37 @@ interface DashboardStats {
   completedThisMonth: number;
 }
 
+interface Task {
+  task: string;
+  completed?: boolean;
+  priority?: "High" | "Medium" | "Low" | string;
+  estimatedTime?: string;
+  resources?: string;
+}
+
+interface Step {
+  title: string;
+  description?: string;
+  timeframe?: string;
+  tasks?: Task[];
+}
+
 interface PreparationPlan {
   id: string;
   jobTitle: string;
-  company: string;
-  interviewDate: string;
-  readinessLevel: number;
-  steps: any[];
-  completedSteps: number;
+  company?: string;
+  interviewDate?: string;
+  readinessLevel?: number;
+  steps?: Step[];
+  completedSteps?: number;
+  status?: string;
 }
 
 const Dashboard = () => {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [activePlan, setActivePlan] = useState<PreparationPlan | null>(null);
+  const [allPlans, setAllPlans] = useState<PreparationPlan[]>([]);
   const [interviewHistory, setInterviewHistory] = useState<
     InterviewHistoryItem[]
   >([]);
@@ -95,22 +114,29 @@ const Dashboard = () => {
     setError(null);
 
     try {
-      const [statsResponse, historyResponse, planResponse] = await Promise.all([
+      const [statsResponse, historyResponse, allPlansResponse] = await Promise.all([
         fetchDashboardStats(),
         fetchInterviewHistory(),
-        fetchActivePlan(),
+        fetchAllPlans(),
       ]);
 
       console.log("✅ Dashboard data fetched successfully");
       setStats(statsResponse);
       setInterviewHistory(historyResponse || []);
+      const plans = Array.isArray(allPlansResponse) ? allPlansResponse : [];
+      setAllPlans(plans);
 
-      if (planResponse) {
-        setActivePlan(planResponse);
+      const activePlanFromList =
+        plans.find((plan) => plan.status === "active") || null;
+
+      if (activePlanFromList) {
+        setActivePlan(activePlanFromList);
       } else {
         const savedPlan = localStorage.getItem("interviewPlan");
         if (savedPlan) {
           setActivePlan(JSON.parse(savedPlan));
+        } else {
+          setActivePlan(null);
         }
       }
 
@@ -165,6 +191,25 @@ const Dashboard = () => {
   const handleRefresh = () => {
     hasFetchedData.current = false;
     fetchDashboardData();
+  };
+
+  // Handle delete plan
+  const handleDeletePlan = async (planId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click navigation
+
+    if (!confirm("Are you sure you want to delete this preparation plan? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      await deletePreparationPlan(planId);
+      // Remove from local state immediately
+      setAllPlans((prev) => prev.filter((p) => p.id !== planId));
+      console.log("✅ Plan deleted successfully");
+    } catch (err) {
+      console.error("❌ Error deleting plan:", err);
+      alert("Failed to delete plan. Please try again.");
+    }
   };
 
   // ✅ Show loading while checking auth
@@ -258,7 +303,7 @@ const Dashboard = () => {
                     </p>
                     <p className="text-sm text-gray-500">
                       Interview:{" "}
-                      {new Date(activePlan.interviewDate).toLocaleDateString()}
+                      {activePlan.interviewDate ? new Date(activePlan.interviewDate).toLocaleDateString() : "TBD"}
                     </p>
                   </div>
                   <div className="text-right">
@@ -378,6 +423,64 @@ const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Previous Preparation Plans */}
+          {allPlans.filter((plan) => plan.status === "ready").length > 0 && (
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <BookOpen className="h-5 w-5 mr-2" />
+                  Previous Preparation Plans
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {allPlans
+                    .filter((plan) => plan.status === "ready")
+                    .map((plan) => (
+                      <div
+                        key={plan.id}
+                        className="p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                        onClick={() => router.push(`/Plan/result?planId=${plan.id}`)}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-lg">{plan.jobTitle}</h3>
+                            {plan.company && (
+                              <p className="text-gray-600 dark:text-gray-400">{plan.company}</p>
+                            )}
+                            <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
+                              {plan.interviewDate && (
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  {new Date(plan.interviewDate).toLocaleDateString()}
+                                </span>
+                              )}
+                              <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                                Completed
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <Button variant="outline" size="sm">
+                              View Plan
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={(e) => handleDeletePlan(plan.id, e)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Interview History */}
           <Card>

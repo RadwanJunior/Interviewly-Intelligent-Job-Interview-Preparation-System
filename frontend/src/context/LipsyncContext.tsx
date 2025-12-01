@@ -1,11 +1,5 @@
 "use client";
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useRef,
-  useEffect,
-} from "react";
+import React, { createContext, useContext, useRef, useEffect } from "react";
 import { Lipsync } from "wawa-lipsync";
 
 // FIX: The context type now just provides the manager instance.
@@ -25,9 +19,6 @@ export const LipsyncProvider = ({
 }) => {
   const lipsyncManagerRef = useRef<Lipsync | null>(null);
 
-  // We use state just to let consumers know when the ref is populated.
-  const [isInitialized, setIsInitialized] = useState(false);
-
   useEffect(() => {
     if (!lipsyncManagerRef.current) {
       console.log("Initializing lipsync manager for the first time...");
@@ -37,7 +28,6 @@ export const LipsyncProvider = ({
           historySize: 4,
         });
         lipsyncManagerRef.current = manager;
-        setIsInitialized(true); // Signal that the manager is ready
         console.log("Lipsync manager created and stored in ref.");
       } catch (error) {
         console.error("Failed to initialize lipsync manager:", error);
@@ -47,12 +37,14 @@ export const LipsyncProvider = ({
     // Cleanup function to close the audio context when the app unmounts
     return () => {
       if (lipsyncManagerRef.current) {
-        const manager = lipsyncManagerRef.current as any; // Access private property
+        const manager = lipsyncManagerRef.current as unknown as {
+          audioContext?: AudioContext;
+        };
         if (manager.audioContext && manager.audioContext.state !== "closed") {
           console.log("Closing AudioContext on cleanup.");
-          manager.audioContext
-            .close()
-            .catch((e: any) => console.warn("Error closing AudioContext:", e));
+          manager.audioContext.close().catch((error: unknown) => {
+            console.warn("Error closing AudioContext:", error);
+          });
         }
       }
     };

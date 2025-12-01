@@ -134,42 +134,43 @@ class DashboardService:
             logging.error(f"❌ Error getting dashboard stats: {str(e)}", exc_info=True)
             return {"error": str(e)}
 
-    def get_active_plan(self, user_id: str) -> dict:
+    def get_all_user_plans(self, user_id: str) -> list:
         """
-        Get the user's active preparation plan, if any.
+        Get all preparation plans for a user, sorted by most recent.
 
         Args:
             user_id (str): The user's unique identifier.
 
         Returns:
-            dict or None: Active plan details, or None if not found, or error dict.
+            list: List of preparation plans or error dict.
         """
         try:
-            logging.info(f"📊 Fetching active plan for user: {user_id}")
-            
-            plan = self.supabase_service.get_active_preparation_plan(user_id)
+            logging.info(f"📚 Fetching all plans for user: {user_id}")
 
-            if isinstance(plan, dict) and "error" in plan:
-                return plan
+            plans = self.supabase_service.get_all_user_plans(user_id)
 
-            if plan:
-                result = {
+            if isinstance(plans, dict) and "error" in plans:
+                return plans
+
+            # Map each plan to frontend format
+            formatted_plans = []
+            for plan in plans:
+                formatted_plan = {
                     "id": plan["id"],
-                    "jobTitle": plan["job_title"],
-                    "company": plan["company"],
-                    "interviewDate": plan["interview_date"],
-                    "readinessLevel": plan["readiness_level"],
-                    "steps": plan.get("steps", []),
-                    "completedSteps": plan.get("completed_steps", 0)
+                    "jobTitle": plan.get("role"),
+                    "company": plan.get("company"),
+                    "interviewDate": plan.get("interview_date"),
+                    "status": plan.get("status", "pending"),
+                    "createdAt": plan.get("created_at"),
+                    "hasSteps": bool(plan.get("steps") and plan.get("steps") != "[]")
                 }
-                logging.info(f"✅ Found active plan: {plan['id']}")
-                return result
-            
-            logging.info(f"📭 No active plan found for user {user_id}")
-            return None
+                formatted_plans.append(formatted_plan)
+
+            logging.info(f"✅ Found {len(formatted_plans)} plans for user {user_id}")
+            return formatted_plans
 
         except Exception as e:
-            logging.error(f"❌ Error getting active plan: {str(e)}", exc_info=True)
+            logging.error(f"❌ Error getting all plans: {str(e)}", exc_info=True)
             return {"error": str(e)}
 
     def create_preparation_plan(self, user_id: str, plan_data: dict) -> dict:
@@ -187,13 +188,17 @@ class DashboardService:
             # Mark any existing active plans as inactive
             self.supabase_service.update_preparation_plan_status_by_user(user_id, PLAN_STATUS_INACTIVE)
 
-            # Create new plan record
+            # Create new plan record - map to interview_plans table schema
             plan_record = {
                 "user_id": user_id,
-                "job_title": plan_data.get("jobTitle"),
+                "role": plan_data.get("jobTitle"),  # jobTitle → role
                 "company": plan_data.get("company"),
                 "interview_date": plan_data.get("interviewDate"),
-                "steps": json.dumps(plan_data.get("steps", [])),
+                "focus_areas": plan_data.get("focusAreas", []),  # Array of strings
+                "job_description": plan_data.get("researchNotes", ""),  # researchNotes → job_description
+                "resume_notes": plan_data.get("resumeNotes"),  # New field
+                "other_notes": plan_data.get("otherNotes"),
+                "steps": json.dumps(plan_data.get("steps", [])),  # New field
                 "status": PLAN_STATUS_ACTIVE,
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }
@@ -255,4 +260,4 @@ class DashboardService:
 
         except Exception as e:
             logging.error(f"❌ Error updating preparation plan: {str(e)}", exc_info=True)
-            return {"error": str(e)}
+            return {"error": "Internal server error"}

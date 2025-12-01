@@ -6,7 +6,6 @@
 
 "use client";
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { WorkflowStage, WorkflowContextType } from "./types";
 import {
   initialStages,

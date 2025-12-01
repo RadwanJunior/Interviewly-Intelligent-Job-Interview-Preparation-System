@@ -18,6 +18,12 @@ https://interviewly.atlassian.net/jira/software/projects/SCRUM/boards/1?atlOrigi
 # Phase 1 Presentation
 https://interviewly-presentation.vercel.app/ 
 
+# Phase 2 QA Presentation
+https://docs.google.com/presentation/d/1H6q_JTTzC93UaV9KOfngak_hCKaa-sDoiTBDYLPFos4/edit?slide=id.g397fa34b3a3_0_177#slide=id.g397fa34b3a3_0_177 
+
+# Phase 2 Final Presentation
+https://docs.google.com/presentation/d/16EjtOPLmB_1ust_-E5ZVgE7ROPROz4fxNhJriK_dodI/edit?slide=id.g3aa9b1a7dfe_0_0#slide=id.g3aa9b1a7dfe_0_0 
+
 ## Team members and their roles
 
 * Adham Radwan: aradw009@uottawa.ca | 300224504

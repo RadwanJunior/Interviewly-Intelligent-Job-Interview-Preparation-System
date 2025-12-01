@@ -1,6 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState } from "react";
-// import { supabase } from "/backend/app/services/supabase_service"; 
+import { createPreparationPlan } from "@/lib/api";
 
 type Stage = { id: string; title: string; isCompleted?: boolean };
 
@@ -22,7 +22,8 @@ type PrepPlanContextType = {
   prevStage: () => void;
   data: PrepData;
   updateData: (patch: Partial<PrepData>) => void;
-  // savePlan: () => Promise<void>; 
+  savePlan: () => Promise<{ success: boolean; planId?: string; error?: string }>;
+  isSaving: boolean;
 };
 
 const defaultStages: Stage[] = [
@@ -36,16 +37,17 @@ const PrepPlanContext = createContext<PrepPlanContextType | undefined>(undefined
 export const PrepPlanProvider = ({ children }: { children: React.ReactNode }) => {
   const [stages] = useState<Stage[]>(defaultStages);
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // ✅ Hardcoded test data here
+  // Initialize with empty data - user will input their own
   const [data, setData] = useState<PrepData>({
-    role: "Software Engineer Intern",
-    company: "OpenAI",
-    date: "2025-10-25",
-    focusAreas: ["System Design", "Behavioral", "LeetCode"],
-    researchNotes: "OpenAI focuses on AI safety, GPT models, and deployment ethics.",
-    resumeNotes: "Highlight Python, ML projects, and hackathons.",
-    otherNotes: "Ask about mentorship programs and tech stack.",
+    role: "",
+    company: "",
+    date: "",
+    focusAreas: [],
+    researchNotes: "",
+    resumeNotes: "",
+    otherNotes: "",
   });
 
   const goToStage = (i: number) => {
@@ -58,15 +60,41 @@ export const PrepPlanProvider = ({ children }: { children: React.ReactNode }) =>
 
   const updateData = (patch: Partial<PrepData>) => setData((d) => ({ ...d, ...patch }));
 
-  // // Save responses to Supabase
-  // const savePlan = async () => {
-  //   const { error } = await supabase.from("prep_plans").insert([data]);
-  //   if (error) {
-  //     console.error("❌ Error saving plan:", error);
-  //   } else {
-  //     console.log("✅ Plan saved successfully:", data);
-  //   }
-  // };
+  /**
+   * Save the preparation plan data to Supabase
+   * Maps the context data to the backend API format
+   */
+  const savePlan = async (): Promise<{ success: boolean; planId?: string; error?: string }> => {
+    setIsSaving(true);
+    try {
+      console.log("💾 Saving preparation plan:", data);
+
+      // Map context data to backend API format
+      const planPayload = {
+        jobTitle: data.role || "",
+        company: data.company || "",
+        interviewDate: data.date || "",
+        steps: [], // Will be populated later when we generate the plan
+        focusAreas: data.focusAreas || [],
+        researchNotes: data.researchNotes || "",
+        resumeNotes: data.resumeNotes || "",
+        otherNotes: data.otherNotes || "",
+      };
+
+      const result = await createPreparationPlan(planPayload);
+
+      console.log("✅ Plan saved successfully:", result);
+      return { success: true, planId: result.id };
+    } catch (error) {
+      console.error("❌ Error saving plan:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to save plan"
+      };
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <PrepPlanContext.Provider
@@ -78,7 +106,8 @@ export const PrepPlanProvider = ({ children }: { children: React.ReactNode }) =>
         prevStage,
         data,
         updateData,
-        // savePlan, 
+        savePlan,
+        isSaving,
       }}
     >
       {children}

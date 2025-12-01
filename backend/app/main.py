@@ -1,13 +1,29 @@
-# FastAPI main application entry point
-# Imports core FastAPI modules, middleware, and route modules
-from fastapi import FastAPI, WebSocket
-from fastapi.middleware.cors import CORSMiddleware
-from app.routes import auth, resume, interview, audio, dashboard, job_description, interview_call, conversation, live_feedback
-import os
-import uvicorn
-from app.services.redis_service import initialize_redis, setup_rag_listeners, redis_client
-from contextlib import asynccontextmanager
+from pathlib import Path
 import logging
+import os
+from contextlib import asynccontextmanager
+
+import uvicorn
+from fastapi import APIRouter, FastAPI, WebSocket, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+
+from app.routes import (
+    auth,
+    resume,
+    interview,
+    audio,
+    dashboard,
+    job_description,
+    interview_call,
+    conversation,
+    live_feedback,
+)
+from app.services.redis_service import (
+    initialize_redis,
+    setup_rag_listeners,
+    redis_client,
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -36,11 +52,7 @@ async def lifespan(app: FastAPI):
     logging.info("Application shutdown complete")
 
 # Initialize FastAPI app
-app = FastAPI(
-    title="Interviewly API",
-    version="1.0.0",
-    lifespan=lifespan  # Now lifespan is defined above
-)
+app = FastAPI(title="Interviewly API", version="1.0.0", lifespan=lifespan)
 
 # Get frontend URL from environment or use default for local development
 FRONTEND_URL = os.getenv("FRONTEND_URL") or "http://localhost:3000"
@@ -55,21 +67,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register API route modules
-app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(resume.resume_router, prefix="/resumes" ,tags=["resumes"])
-app.include_router(job_description.router, prefix="/job_description", tags=["job_description"])
-app.include_router(interview.router, prefix="/interview", tags=["interview"])
-app.include_router(audio.router, prefix="/audio", tags=["audio"])
-app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
-app.include_router(interview_call.router, prefix="/interview_call", tags=["interview_call"])
-app.include_router(conversation.router, prefix="/conversation", tags=["conversation"])
-app.include_router(live_feedback.router, prefix="/live_feedback", tags=["live_feedback"])
+api_router = APIRouter(prefix="/api")
+api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
+api_router.include_router(resume.resume_router, prefix="/resumes", tags=["resumes"])
+api_router.include_router(job_description.router, prefix="/job_description", tags=["job_description"])
+api_router.include_router(interview.router, prefix="/interview", tags=["interview"])
+api_router.include_router(audio.router, prefix="/audio", tags=["audio"])
+api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+api_router.include_router(interview_call.router, prefix="/interview_call", tags=["interview_call"])
+api_router.include_router(conversation.router, prefix="/conversation", tags=["conversation"])
+api_router.include_router(live_feedback.router, prefix="/live_feedback", tags=["live_feedback"])
 
-# Health check endpoint. When running lets user know that backend is operational
-@app.get("/")
-def read_root():
-    return {"message": "AI Mock Interview Backend is running!"}
+app.include_router(api_router)
+
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 @app.get("/health/redis")
 async def redis_health_check():
@@ -91,6 +105,33 @@ async def reset_redis_circuit_breaker():
         return {"message": "Circuit breaker reset successfully", "success": True}
     else:
         return {"message": "Failed to reset circuit breaker", "success": False}
+
+# Serve static frontend if bundled (Next.js export) with SPA-style fallback
+frontend_dir = Path(__file__).resolve().parent.parent / "frontend-static"
+index_file = frontend_dir / "index.html"
+
+
+@app.get("/{full_path:path}")
+async def serve_frontend(full_path: str):
+    if not frontend_dir.exists() or not index_file.exists():
+        raise HTTPException(status_code=404, detail="Frontend assets not found")
+
+    normalized_path = full_path.rstrip("/") or full_path
+    target_file = frontend_dir / normalized_path
+
+    # Handle exported .html files (e.g., /Feedback -> Feedback.html)
+    html_target = frontend_dir / f"{normalized_path}.html"
+    if html_target.is_file():
+        return FileResponse(html_target)
+
+    if target_file.is_file():
+        return FileResponse(target_file)
+
+    nested_index = target_file / "index.html"
+    if nested_index.is_file():
+        return FileResponse(nested_index)
+
+    return FileResponse(index_file)
 
 # Run the app with Uvicorn if executed directly
 if __name__ == "__main__":

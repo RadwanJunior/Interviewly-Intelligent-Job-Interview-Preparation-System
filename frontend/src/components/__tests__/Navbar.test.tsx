@@ -130,7 +130,7 @@ describe("Navbar Component", () => {
       render(<Navbar />);
 
       // Mobile menu should not be visible initially
-      const mobileFeatures = screen.queryByRole("button", {
+      screen.queryByRole("button", {
         name: /features/i,
         hidden: true,
       });

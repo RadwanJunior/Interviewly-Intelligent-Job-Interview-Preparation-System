@@ -617,22 +617,22 @@ class SupabaseService:
             print(f"Error updating interview: {str(e)}")
             return {"error": str(e)}
 
-    def get_active_preparation_plan(self, user_id: str):
-        """Get active preparation plan for a user"""
+    def get_all_user_plans(self, user_id: str):
+        """Get all preparation plans for a user, sorted by most recent"""
         try:
-            response = self.client.table("preparation_plans").select(
+            response = self.client.table("interview_plans").select(
                 "*"
-            ).eq("user_id", user_id).eq("status", "active").order("created_at", desc=True).limit(1).execute()
-            
-            return response.data[0] if hasattr(response, "data") and response.data else None
+            ).eq("user_id", user_id).order("created_at", desc=True).execute()
+
+            return response.data if hasattr(response, "data") and response.data else []
         except Exception as e:
-            print(f"Error getting active plan: {str(e)}")
+            print(f"Error getting all plans: {str(e)}")
             return {"error": str(e)}
 
     def create_preparation_plan(self, plan_data: dict):
         """Create a new preparation plan"""
         try:
-            response = self.client.table("preparation_plans").insert(plan_data).execute()
+            response = self.client.table("interview_plans").insert(plan_data).execute()
             return response.data[0] if hasattr(response, "data") and response.data else None
         except Exception as e:
             print(f"Error creating preparation plan: {str(e)}")
@@ -641,7 +641,7 @@ class SupabaseService:
     def update_preparation_plan(self, plan_id: str, update_data: dict):
         """Update a preparation plan"""
         try:
-            response = self.client.table("preparation_plans").update(update_data).eq("id", plan_id).execute()
+            response = self.client.table("interview_plans").update(update_data).eq("id", plan_id).execute()
             return response.data[0] if hasattr(response, "data") and response.data else None
         except Exception as e:
             print(f"Error updating preparation plan: {str(e)}")
@@ -650,10 +650,10 @@ class SupabaseService:
     def check_plan_ownership(self, plan_id: str, user_id: str) -> bool:
         """Check if a plan belongs to a user"""
         try:
-            response = self.client.table("preparation_plans").select(
+            response = self.client.table("interview_plans").select(
                 "id"
             ).eq("id", plan_id).eq("user_id", user_id).execute()
-            
+
             return hasattr(response, "data") and len(response.data) > 0
         except Exception as e:
             print(f"Error checking plan ownership: {str(e)}")
@@ -662,11 +662,11 @@ class SupabaseService:
     def update_preparation_plan_status_by_user(self, user_id: str, status: str):
         """Update status of all preparation plans for a user"""
         try:
-            response = self.client.table("preparation_plans").update({
+            response = self.client.table("interview_plans").update({
                 "status": status,
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("user_id", user_id).eq("status", "active").execute()
-            
+
             return response.data if hasattr(response, "data") and response.data else {"message": "No records updated"}
         except Exception as e:
             print(f"Error updating preparation plan status: {str(e)}")

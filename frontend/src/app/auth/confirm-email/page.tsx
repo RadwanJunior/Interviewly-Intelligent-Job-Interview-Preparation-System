@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -12,7 +12,7 @@ export default function ConfirmEmail() {
   const [checking, setChecking] = useState(false);
 
   // Optionally, poll to see if the email is confirmed
-  const checkEmailConfirmation = async () => {
+  const checkEmailConfirmation = useCallback(async () => {
     setChecking(true);
     try {
       const session = await refreshToken();
@@ -28,13 +28,13 @@ export default function ConfirmEmail() {
     } finally {
       setChecking(false);
     }
-  };
+  }, [router, toast]);
 
   // Optionally, poll every 10 seconds
   useEffect(() => {
     const interval = setInterval(checkEmailConfirmation, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [checkEmailConfirmation]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-6">

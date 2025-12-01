@@ -4,9 +4,22 @@
  * Uses Axios for HTTP requests and handles cookies/tokens as needed.
  */
 
-import axios, { AxiosError } from "axios";
+import axios, { AxiosError, AxiosRequestConfig } from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+
+// When running the Next dev server on 3000, default to the FastAPI dev server on 8000
+const inferLocalApiBase = () => {
+  if (typeof window === "undefined") return "";
+  const { hostname, port } = window.location;
+  if ((hostname === "localhost" || hostname === "127.0.0.1") && port === "3000") {
+    return "http://localhost:8000";
+  }
+  return "";
+};
+
+const apiBase = rawApiUrl || inferLocalApiBase();
+const API_URL = apiBase ? `${apiBase}/api` : "/api";
 
 // Create axios instance with default config
 export const api = axios.create({
@@ -19,12 +32,13 @@ export const api = axios.create({
 
 // refresh token handling state
 let isRefreshing = false;
-let failedQueue: Array<{
-  resolve: (value?: unknown) => void;
-  reject: (reason?: any) => void;
-}> = [];
+type FailedRequest = {
+  resolve: (value?: string | null) => void;
+  reject: (reason?: unknown) => void;
+};
+let failedQueue: FailedRequest[] = [];
 
-const processQueue = (error: any, token: string | null = null) => {
+const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error);
@@ -35,11 +49,13 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+type RetryableRequest = AxiosRequestConfig & { _retry?: boolean };
+
 // Add response interceptor to handle 401 errors
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as any;
+    const originalRequest = error.config as RetryableRequest;
 
     // Don't retry refresh token requests
     if (originalRequest?.url?.includes("/auth/refresh")) {
@@ -114,9 +130,19 @@ export const refreshToken = async () => {
   }
 };
 
-export const signup = async (email: string, password: string) => {
+export const signup = async (
+  firstName: string,
+  lastName: string,
+  email: string,
+  password: string
+) => {
   try {
-    const response = await api.post("/auth/signup", { email, password });
+    const response = await api.post("/auth/signup", {
+      firstName,
+      lastName,
+      email,
+      password,
+    });
     return response.data;
   } catch (error) {
     console.error("Signup error:", error);
@@ -340,26 +366,12 @@ export async function fetchInterviewHistory() {
 }
 
 /**
- * Fetch the active preparation plan for the current user.
- * @returns API response data or null if not found
+ * Fetch all preparation plans for the current user.
+ * @returns API response data (array of plans)
  */
-export async function fetchActivePlan() {
-  try {
-    const response = await api.get("/dashboard/active-plan");
-
-    // 404 means no active plan (not an error)
-    if (response.status === 404) {
-      return null;
-    }
-
-    return response.data;
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
-      return null;
-    }
-    console.error("Error fetching active plan:", error);
-    return null;
-  }
+export async function fetchAllPlans() {
+  const response = await api.get("/dashboard/plans");
+  return response.data;
 }
 
 /**
@@ -367,7 +379,7 @@ export async function fetchActivePlan() {
  * @param planData - Preparation plan data object
  * @returns API response data
  */
-export async function createPreparationPlan(planData) {
+export async function createPreparationPlan(planData: Record<string, unknown>) {
   const response = await api.post("/dashboard/preparation-plan", planData);
   return response.data;
 }
@@ -378,10 +390,78 @@ export async function createPreparationPlan(planData) {
  * @param updateData - Data to update
  * @returns API response data
  */
-export async function updatePreparationPlan(planId, updateData) {
+export async function updatePreparationPlan(
+  planId: string,
+  updateData: Record<string, unknown>
+) {
   const response = await api.put(
     `/dashboard/preparation-plan/${planId}`,
     updateData
+  );
+  return response.data;
+}
+
+/**
+ * Trigger AI generation of preparation plan steps.
+ * @param planId - Preparation plan ID
+ * @returns API response data
+ */
+export async function triggerPlanGeneration(planId: string) {
+  const response = await api.post(`/dashboard/preparation-plan/${planId}/generate`);
+  return response.data;
+}
+
+/**
+ * Get the status of a preparation plan generation.
+ * @param planId - Preparation plan ID
+ * @returns API response data with status
+ */
+export async function getPlanStatus(planId: string) {
+  const response = await api.get(`/dashboard/preparation-plan/${planId}/status`);
+  return response.data;
+}
+
+/**
+ * Get a preparation plan by ID with all details including generated steps.
+ * @param planId - Preparation plan ID
+ * @returns API response data
+ */
+export async function getPreparationPlan(planId: string) {
+  const response = await api.get(`/dashboard/preparation-plan/${planId}`);
+  return response.data;
+}
+
+/**
+ * Delete a preparation plan by ID.
+ * @param planId - Preparation plan ID
+ * @returns API response data
+ */
+export async function deletePreparationPlan(planId: string) {
+  const response = await api.delete(`/dashboard/preparation-plan/${planId}`);
+  return response.data;
+}
+
+/**
+ * Update the completion status of a specific task in a preparation plan.
+ * @param planId - Preparation plan ID
+ * @param stepIndex - Index of the step containing the task
+ * @param taskIndex - Index of the task within the step
+ * @param completed - Whether the task is completed
+ * @returns API response data
+ */
+export async function updateTaskCompletion(
+  planId: string,
+  stepIndex: number,
+  taskIndex: number,
+  completed: boolean
+) {
+  const response = await api.patch(
+    `/dashboard/preparation-plan/${planId}/task-completion`,
+    {
+      stepIndex,
+      taskIndex,
+      completed,
+    }
   );
   return response.data;
 }

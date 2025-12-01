@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Head from "next/head";
 import {
@@ -83,7 +83,7 @@ const INITIAL_FEEDBACK: FormattedFeedback = {
   overallFeedback: "",
 };
 
-const Feedback = () => {
+const FeedbackContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("sessionId");
@@ -792,7 +792,7 @@ ${feedback.overallFeedback}
             <AlertTitle>Missed Opportunities</AlertTitle>
             <AlertDescription>
               <p className="mb-2">
-                You didn't mention these keywords that might have strengthened
+                You didn&apos;t mention these keywords that might have strengthened
                 your answers:
               </p>
               <div className="flex flex-wrap gap-2 mt-1">
@@ -902,4 +902,10 @@ ${feedback.overallFeedback}
   );
 };
 
-export default Feedback;
+const FeedbackPage = () => (
+  <Suspense fallback={<div className="p-8">Loading feedback...</div>}>
+    <FeedbackContent />
+  </Suspense>
+);
+
+export default FeedbackPage;
