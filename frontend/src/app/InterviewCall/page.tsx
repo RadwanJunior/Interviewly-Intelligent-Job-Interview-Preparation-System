@@ -277,14 +277,7 @@ const InterviewCallContent = () => {
       setStatus("Ready. Press mic and introduce yourself to start.");
 
     ws.onmessage = (event) => {
-      console.log("WebSocket message received:", {
-        dataType: typeof event.data,
-        isArrayBuffer: event.data instanceof ArrayBuffer,
-        isBlob: event.data instanceof Blob,
-        byteLength: event.data.byteLength || "N/A",
-      });
-      // The browser's default binaryType is 'blob'.
-      // The backend is sending a complete WAV file, which arrives as a single Blob.
+      // Handle binary audio
       if (event.data instanceof Blob) {
         console.log("Received audio blob from WebSocket:", event.data);
         setAudioQueue((prev) => [...prev, event.data]);

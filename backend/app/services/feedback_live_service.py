@@ -430,40 +430,42 @@ class FeedbackLiveService:
 
     async def _extract_question_answer_pairs(self, conversation_turns: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Extracts valid question-answer pairs from a list of conversation turns.
-        An AI turn with text is a question. A subsequent User turn with audio is the answer.
+        Extracts valid question-answer pairs from conversation turns.
+        Both AI questions and user answers are audio-only.
         """
         qa_pairs = []
+        sorted_turns = sorted(conversation_turns, key=lambda x: x.get('turn_index', 0))
+        
+        logging.info(f"Processing {len(sorted_turns)} turns for Q&A extraction")
+        
         i = 0
-        while i < len(conversation_turns):
-            turn = conversation_turns[i]
+        while i < len(sorted_turns):
+            turn = sorted_turns[i]
             
-            # Find a question: An AI turn that has text content.
-            if turn.get('speaker') == 'ai' and turn.get('text_content', '').strip():
-                question = turn.get('text_content')
+            logging.info(f"Turn {i}: speaker={turn.get('speaker')}, index={turn.get('turn_index')}, has_audio={bool(turn.get('audio_url'))}")
+            
+            # AI turn with audio = question
+            if turn.get('speaker') == 'ai' and turn.get('audio_url'):
                 
-                # Now, look ahead for the user's answer.
-                j = i + 1
-                while j < len(conversation_turns):
-                    next_turn = conversation_turns[j]
+                # Look for next turn (user answer)
+                if i + 1 < len(sorted_turns):
+                    next_turn = sorted_turns[i + 1]
                     
-                    # The answer is the first subsequent user turn that has an audio URL.
+                    # User turn with audio = answer
                     if next_turn.get('speaker') == 'user' and next_turn.get('audio_url'):
                         qa_pairs.append({
-                            "question": question,
+                            "question": f"Question {len(qa_pairs) + 1}",  # Generic label
+                            "question_turn": turn,
+                            "answer": "",  # No text needed
                             "answer_turn": next_turn
                         })
-                        i = j # Move the main cursor past this found answer
-                        break # Stop searching for an answer and look for the next question
-                    
-                    # If we find another AI question before a user answer, the user didn't answer.
-                    elif next_turn.get('speaker') == 'ai' and next_turn.get('text_content', '').strip():
-                        i = j - 1 # Move cursor to just before the new question
-                        break
-                    
-                    j += 1
-            i += 1
-            
+                        logging.info(f"✓ Created Q&A pair {len(qa_pairs)}: AI audio turn {turn.get('turn_index')} + User audio turn {next_turn.get('turn_index')}")
+                        i += 2
+                        continue
+        
+        i += 1
+    
+        logging.info(f"Extracted {len(qa_pairs)} Q&A pairs total")
         return qa_pairs
 
     async def _upload_audio_to_gemini(self, audio_url: str, display_name: str, interview_id: str) -> str:
@@ -752,15 +754,15 @@ class FeedbackLiveService:
     #                     "completed_at": completed_at_dt.isoformat(),
     #                     "duration": duration_str,
     #                 }
-                    
+                
     #                 if score is not None:
     #                     update_payload["score"] = score
-                    
+                
     #                 update_result = supabase_service.update_interview(interview_id, update_payload)
     #                 if hasattr(update_result, "__await__"):
     #                     await update_result
     #                 logging.info(f"Updated interview status to completed for {interview_id}")
-                    
+                
     #                 feedback_status[interview_id] = {"status": "completed"}
     #                 return {"status": "success", "message": "Feedback generated successfully"}
                 
@@ -861,32 +863,43 @@ class FeedbackLiveService:
         A question is an AI turn with text. An answer is the next user turn with audio.
         """
         qa_pairs = []
+        
+        # Sort turns by turn_index to ensure correct order
+        sorted_turns = sorted(conversation_turns, key=lambda x: x.get('turn_index', 0))
+        
+        logging.info(f"Processing {len(sorted_turns)} turns for Q&A extraction")
+        
         i = 0
-        while i < len(conversation_turns):
-            turn = conversation_turns[i]
+        while i < len(sorted_turns):
+            turn = sorted_turns[i]
+            
+            # Log each turn for debugging
+            logging.info(f"Turn {i}: speaker={turn.get('speaker')}, index={turn.get('turn_index')}, has_audio={bool(turn.get('audio_url'))}")
             
             # Step A: Find a valid question (an AI turn with actual text)
-            if turn.get('speaker') == 'ai' and turn.get('text_content', '').strip():
-                question = turn.get('text_content')
+            if turn.get('speaker') == 'ai' and turn.get('audio_url'):
                 
-                # Step B: Look ahead for the corresponding user answer
-                j = i + 1
-                while j < len(conversation_turns):
-                    next_turn = conversation_turns[j]
+                # Step B: Look for the NEXT turn that is a user response
+                if i + 1 < len(sorted_turns):
+                    next_turn = sorted_turns[i + 1]
                     
-                    # A valid answer is a user turn with an audio file
+                    # Check if next turn is user with audio
                     if next_turn.get('speaker') == 'user' and next_turn.get('audio_url'):
-                        qa_pairs.append({"question": question, "answer_turn": next_turn})
-                        i = j # Move the main cursor past the answer we found
-                        break # Stop searching for this answer and find the next question
-                    
-                    # If we hit another AI question before finding a user answer, the user skipped.
-                    elif next_turn.get('speaker') == 'ai' and next_turn.get('text_content', '').strip():
-                        i = j - 1 # Move cursor to right before this new question
-                        break
-                    
-                    j += 1
+                        qa_pairs.append({
+                            "question": f"Question {len(qa_pairs) + 1}",  # Generic label
+                            "question_turn": turn,
+                            "answer": "",  # No text needed
+                            "answer_turn": next_turn
+                        })
+                        logging.info(f"✓ Created Q&A pair {len(qa_pairs)}: AI audio turn {turn.get('turn_index')} + User audio turn {next_turn.get('turn_index')}")
+                        i += 2  # Skip both turns since we paired them
+                        continue
+                    else:
+                        logging.warning(f"AI turn {turn.get('turn_index')} has text but next turn is not a valid user response")
+            
             i += 1
+        
+        logging.info(f"Extracted {len(qa_pairs)} Q&A pairs total")
         return qa_pairs
 
     async def _prepare_audio_for_gemini(self, qa_pairs: List[Dict[str, Any]], interview_id: str) -> List[Dict[str, Any]]:
