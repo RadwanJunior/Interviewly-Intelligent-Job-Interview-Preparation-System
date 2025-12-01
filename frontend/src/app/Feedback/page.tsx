@@ -1,5 +1,6 @@
 "use client";
-import { Suspense, useState, useEffect } from "react";
+
+import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Head from "next/head";
 import {
@@ -12,6 +13,7 @@ import {
   Copy,
   Check,
   Clock,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { getFeedback, getFeedbackStatus } from "@/lib/api";
-import { useAuth } from "@/context/AuthContext"; // ✅ Correct import
+import { useAuth } from "@/context/AuthContext";
 
 // Update the ApiFeedback interface to handle both structures
 interface ApiFeedback {
@@ -85,7 +87,8 @@ const FeedbackContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("sessionId");
-  const interviewType = searchParams.get("type");
+  // Remove unused variable
+  // const interviewType = searchParams.get("type");
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
 
@@ -94,6 +97,12 @@ const FeedbackContent = () => {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [pollingCount, setPollingCount] = useState(0);
+  const [feedbackStatus, setFeedbackStatus] = useState<
+    "checking" | "processing" | "completed" | "error"
+  >("checking");
+  const [statusMessage, setStatusMessage] = useState(
+    "Checking feedback status..."
+  );
 
   // Transform API data to UI format
   const transformApiDataToUiFormat = (
@@ -405,6 +414,88 @@ const FeedbackContent = () => {
     }
   }, [sessionId, loading, pollingCount]);
 
+  // ✅ Fix: Memoize checkFeedbackStatus to include toast in dependencies
+  const checkFeedbackStatus = useCallback(async () => {
+    let pollCount = 0;
+    const MAX_POLLS = 60;
+
+    const poll = async (): Promise<void> => {
+      try {
+        pollCount++;
+
+        const statusResponse = await getFeedbackStatus(sessionId!);
+
+        console.log(`Poll ${pollCount}: Status =`, statusResponse.status);
+
+        if (statusResponse.status === "processing") {
+          setFeedbackStatus("processing");
+          setStatusMessage(
+            `Analyzing your interview performance... (${pollCount}/${MAX_POLLS})`
+          );
+
+          if (pollCount < MAX_POLLS) {
+            setTimeout(() => poll(), 3000);
+          } else {
+            throw new Error(
+              "Feedback generation is taking longer than expected. Please refresh the page."
+            );
+          }
+        } else if (statusResponse.status === "completed") {
+          setFeedbackStatus("completed");
+          setStatusMessage("Feedback ready! Loading...");
+
+          const response = await getFeedback(sessionId!);
+
+          if (response.status === "success" && response.feedback) {
+            const transformedData = transformApiDataToUiFormat(
+              response.feedback
+            );
+            setFeedback(transformedData);
+            setLoading(false);
+
+            toast({
+              title: "Feedback Ready",
+              description: "Your interview analysis is complete!",
+            });
+          } else {
+            throw new Error("Invalid feedback data received");
+          }
+        } else if (statusResponse.status === "error") {
+          throw new Error(
+            statusResponse.message || "Error generating feedback"
+          );
+        } else if (statusResponse.status === "not_started") {
+          setFeedbackStatus("processing");
+          setStatusMessage("Starting feedback generation...");
+
+          if (pollCount < MAX_POLLS) {
+            setTimeout(() => poll(), 3000);
+          } else {
+            throw new Error(
+              "Feedback generation did not start. Please try again."
+            );
+          }
+        }
+      } catch (err) {
+        console.error("Feedback polling error:", err);
+        setError(
+          err instanceof Error ? err.message : "Failed to load feedback"
+        );
+        setFeedbackStatus("error");
+        setLoading(false);
+      }
+    };
+
+    poll();
+  }, [sessionId, toast]); // ✅ Include toast dependency
+
+  // Enhanced polling logic with better UX
+  useEffect(() => {
+    if (!sessionId || !user || authLoading) return;
+
+    checkFeedbackStatus();
+  }, [sessionId, user, authLoading, checkFeedbackStatus]); // ✅ Include checkFeedbackStatus
+
   // Calculate the color for the score
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-500";
@@ -476,7 +567,7 @@ ${feedback.overallFeedback}
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-gray-50 to-white">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
           <p className="mt-4 text-lg">Checking authentication...</p>
         </div>
       </div>
@@ -491,24 +582,60 @@ ${feedback.overallFeedback}
 
   console.log("✅ User authenticated, rendering feedback page");
 
-  // Loading state - show different message when actively polling
+  // Enhanced loading state with progress indicator
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-gray-50 to-white">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-lg">
-            {pollingCount > 0
-              ? `Generating your feedback... (${pollingCount}/30)`
-              : "Loading your feedback..."}
-          </p>
-          {pollingCount > 0 && (
-            <div className="flex items-center justify-center mt-2 text-sm text-gray-500">
-              <Clock className="h-4 w-4 mr-2" />
-              This may take a minute or two
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-gray-50 to-white p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              Generating Your Feedback
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-center">
+              <p className="text-gray-600 mb-4">{statusMessage}</p>
+
+              {feedbackStatus === "processing" && (
+                <div className="space-y-3">
+                  <Progress value={(pollingCount / 60) * 100} className="h-2" />
+
+                  <div className="grid grid-cols-1 gap-2 text-sm text-left">
+                    <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-md">
+                      <CheckCircle2 className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                      <span>Recording saved</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-md">
+                      <Loader2 className="h-4 w-4 text-blue-500 animate-spin flex-shrink-0" />
+                      <span>Analyzing responses...</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-3 bg-gray-100 rounded-md">
+                      <Clock className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                      <span>Generating insights</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {feedbackStatus === "checking" && (
+                <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Connecting to feedback service...
+                </div>
+              )}
             </div>
-          )}
-        </div>
+
+            <Alert>
+              <Clock className="h-4 w-4" />
+              <AlertTitle>This may take 1-2 minutes</AlertTitle>
+              <AlertDescription>
+                We&apos;re analyzing your interview audio and generating
+                personalized feedback. Please don&apos;t close this page.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -516,24 +643,31 @@ ${feedback.overallFeedback}
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-gray-50 to-white">
-        <div className="text-center max-w-md">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto" />
-          <h2 className="mt-4 text-2xl font-bold">Error Loading Feedback</h2>
-          <p className="mt-2">{error}</p>
-          <Button
-            onClick={() => {
-              // Check interview type and redirect accordingly
-              const returnUrl =
-                interviewType === "live" || interviewType === "call"
-                  ? `/InterviewCall?sessionId=${sessionId}`
-                  : `/interview?sessionId=${sessionId}`;
-              router.push(returnUrl);
-            }}
-            className="mt-6">
-            Return to Interview
-          </Button>
-        </div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-gray-50 to-white p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-6 w-6" />
+              Error Loading Feedback
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => window.location.reload()}
+                variant="outline"
+                className="flex-1">
+                Retry
+              </Button>
+              <Button
+                onClick={() => router.push("/dashboard")}
+                className="flex-1">
+                Go to Dashboard
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -660,8 +794,8 @@ ${feedback.overallFeedback}
             <AlertTitle>Missed Opportunities</AlertTitle>
             <AlertDescription>
               <p className="mb-2">
-                You didn&apos;t mention these keywords that might have strengthened
-                your answers:
+                You didn&apos;t mention these keywords that might have
+                strengthened your answers:
               </p>
               <div className="flex flex-wrap gap-2 mt-1">
                 {feedback.keywordsMissed.map((keyword, i) => (

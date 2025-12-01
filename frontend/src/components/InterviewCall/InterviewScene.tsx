@@ -19,6 +19,9 @@ export const InterviewScene = () => {
   }, []);
 
   const handleCanvasCreated = ({ gl }: { gl: THREE.WebGLRenderer }) => {
+    // Make canvas background transparent
+    gl.setClearColor(0x000000, 0);
+
     gl.domElement.addEventListener("webglcontextlost", (event) => {
       event.preventDefault();
       console.error("WEBGL CONTEXT LOST");
@@ -33,7 +36,9 @@ export const InterviewScene = () => {
         height: "100%",
         position: "relative",
         minHeight: "400px",
-        background: "#111",
+        backgroundImage: "url('/images/office-background.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
       }}>
       {isContextLost ? (
         <div
@@ -69,12 +74,14 @@ export const InterviewScene = () => {
       ) : (
         <Canvas
           shadows
-          camera={{ position: [0, 0, 1.5], fov: 35 }}
+          camera={{ position: [0, 0, 1.3], fov: 30 }}
           frameloop="always"
           dpr={[1, 1.5]}
-          onCreated={handleCanvasCreated}>
+          onCreated={handleCanvasCreated}
+          gl={{ alpha: true }} // Make canvas transparent
+        >
           <Environment preset="sunset" />
-          <group position={[0, -1.5, 0]}>
+          <group position={[-0.05, -1.56, 0]}>
             <Avatar animation={currentHash || "Idle"} />
           </group>
           <OrbitControls enabled={false} />

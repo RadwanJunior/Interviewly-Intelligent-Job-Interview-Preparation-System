@@ -14,7 +14,7 @@ type AvatarProps = ThreeElements["group"] & {
 
 export function Avatar({ animation = "Idle", ...props }: AvatarProps) {
   const group = useRef<THREE.Group>(null!);
-  const { scene } = useGLTF("/models/lisa.glb");
+  const { scene } = useGLTF("/models/lisa2.glb");
   const { animations } = useGLTF("/models/animations.glb");
   const { actions } = useAnimations(animations, group);
 
@@ -100,5 +100,5 @@ export function Avatar({ animation = "Idle", ...props }: AvatarProps) {
   );
 }
 
-useGLTF.preload("/models/lisa.glb");
+useGLTF.preload("/models/lisa2.glb");
 useGLTF.preload("/models/animations.glb");
