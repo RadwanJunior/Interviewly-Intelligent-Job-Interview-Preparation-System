@@ -10,7 +10,7 @@ import { lipsyncManager, resumeLipsyncAudio } from "@/lib/lipsync";
 import dynamic from "next/dynamic";
 import { useVAD } from "@/lib/useVAD";
 import { UserVideo } from "@/components/InterviewCall/UserVideo";
-import { triggerLiveFeedbackGeneration } from "@/lib/api";
+import { endInterviewSession } from "@/lib/api";
 
 const ClientOnlyInterviewScene = dynamic(
   () =>
@@ -66,6 +66,7 @@ const InterviewCallContent = () => {
   const [currentTranscription, setCurrentTranscription] = useState<string>("");
   const [forcedEndCount, setForcedEndCount] = useState(0);
   const [showInstructions, setShowInstructions] = useState(true);
+  const [isEnding, setIsEnding] = useState(false); // New state for ending interview
 
   // Refs
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
@@ -286,7 +287,8 @@ const InterviewCallContent = () => {
       const { hostname, port, protocol } = window.location;
       const wsProtocol = protocol === "https:" ? "wss:" : "ws:";
       const targetHost =
-        (hostname === "localhost" || hostname === "127.0.0.1") && port === "3000"
+        (hostname === "localhost" || hostname === "127.0.0.1") &&
+        port === "3000"
           ? `${hostname}:8000`
           : window.location.host;
       return `${wsProtocol}//${targetHost}`;
@@ -425,106 +427,108 @@ const InterviewCallContent = () => {
     }
   }, [audioQueue, isGeminiSpeaking, isInterviewActive, startVAD, stopVAD]);
 
+  // Update the finishInterview function
   const finishInterview = async () => {
-    if (!isInterviewActive) {
-      router.push(`/Feedback?sessionId=${sessionId}&type=live`);
+    if (!sessionId) {
+      console.error("❌ No sessionId available");
       return;
     }
 
-    // Send final audio end and close WebSocket
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      console.log("Interview ending, sending final USER_AUDIO_END");
-      wsRef.current.send(
-        JSON.stringify({
-          type: "USER_AUDIO_END",
-          transcription: currentTranscription,
-          final: true,
-        })
-      );
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-
-    setIsInterviewActive(false);
-    stopVAD();
-
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {
-        // Speech recognition might already be stopped
-        console.warn("Speech recognition stop error:", e);
-      }
-    }
-
-    if (userSilenceTimer) {
-      clearTimeout(userSilenceTimer);
-    }
-
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.close();
-    }
-
-    setStatus("Triggering feedback generation...");
+    console.log("🔴 FINISHING INTERVIEW - sessionId:", sessionId);
 
     try {
-      // Trigger feedback generation
-      const result = await triggerLiveFeedbackGeneration(sessionId as string);
+      setIsEnding(true);
 
-      if (
-        result.status === "success" ||
-        result.status === "already_processing" ||
-        result.status === "exists"
-      ) {
-        toast({
-          title: "Interview Completed",
-          description: "Redirecting to feedback page...",
-          duration: 3000,
-        });
-
-        // Redirect immediately to feedback page with live interview type - let it handle the polling
-        router.push(`/Feedback?sessionId=${sessionId}&type=live`);
-      } else {
-        toast({
-          title: "Error",
-          description:
-            result.message || "There was an issue processing your interview.",
-          variant: "destructive",
-          duration: 5000,
-        });
+      // --- CLEANUP (Stop VAD, Audio, WebSocket) ---
+      stopVAD();
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          console.warn("Speech recognition stop error:", e);
+        }
       }
-    } catch (error) {
-      console.error("Failed to trigger feedback generation:", error);
+
+      if (userSilenceTimer) clearTimeout(userSilenceTimer);
+
+      if (isInterviewActive && wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(
+          JSON.stringify({
+            type: "USER_AUDIO_END",
+            transcription: currentTranscription,
+            final: true,
+          })
+        );
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current.src = "";
+      }
+
+      setIsInterviewActive(false);
+
+      // --- API CALL VIA api.ts (Handles Auth & Refresh) ---
+      console.log("🔴 Calling endInterviewSession via api.ts...");
+
+      // This will automatically handle 401s by refreshing the token and retrying
+      const endResult = await endInterviewSession(sessionId);
+
+      console.log("✅ Interview Ended Successfully:", endResult);
+
       toast({
-        title: "Error",
-        description: "Failed to generate feedback. Please try again.",
-        variant: "destructive",
-        duration: 5000,
+        title: "Interview Completed",
+        description: "Generating your feedback...",
+        duration: 3000,
       });
+
+      console.log("🔴 Navigating to feedback page...");
+      router.push(`/Feedback?sessionId=${sessionId}`);
+    } catch (error) {
+      console.error("❌ Error in finishInterview:", error);
+
+      toast({
+        title: "Interview Ended",
+        description: "Redirecting to feedback page...",
+        // Don't use destructive variant if it's just a navigation fallback
+        duration: 3000,
+      });
+
+      router.push(`/Feedback?sessionId=${sessionId}`);
+    } finally {
+      setIsEnding(false);
     }
   };
 
-  // Update the main button's onClick handler
+  // Add this function right after finishInterview:
   const handleMainButtonClick = async () => {
-    // IMPORTANT: Resume AudioContext on the first user gesture
-    await resumeLipsyncAudio();
-
     if (isInterviewActive) {
-      finishInterview();
+      // End the interview
+      await finishInterview();
     } else {
+      // Start the interview
       setIsInterviewActive(true);
+      setShowInstructions(false);
       startVAD();
-      setShowInstructions(false); // Hide instructions when interview starts
+      setStatus("Listening... Start speaking.");
 
-      // Show toast reminder
+      // Resume lipsync audio
+      resumeLipsyncAudio();
+
       toast({
         title: "Interview Started",
-        description: "Begin by introducing yourself with a complete sentence.",
-        duration: 5000,
+        description: "You can now speak to the interviewer",
       });
     }
   };
 
-  // New function for reconnection logic
+  // Reconnect logic
   const attemptReconnect = () => {
     const MAX_RECONNECT_ATTEMPTS = 3; // Maximum number of reconnection attempts
     if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
@@ -538,6 +542,7 @@ const InterviewCallContent = () => {
     }
   };
 
+  // Before unload handler to send final USER_AUDIO_END
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
