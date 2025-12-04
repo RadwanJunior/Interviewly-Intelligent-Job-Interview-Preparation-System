@@ -24,7 +24,7 @@ https://docs.google.com/presentation/d/1H6q_JTTzC93UaV9KOfngak_hCKaa-sDoiTBDYLPF
 # Phase 2 Final Presentation
 https://docs.google.com/presentation/d/16EjtOPLmB_1ust_-E5ZVgE7ROPROz4fxNhJriK_dodI/edit?slide=id.g3aa9b1a7dfe_0_0#slide=id.g3aa9b1a7dfe_0_0 
 
-## Team members and their roles
+## Team members
 
 * Adham Radwan: aradw009@uottawa.ca | 300224504
 * Marwan Mashaly: mmash102@uottawa.ca | 300228296
