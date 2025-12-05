@@ -66,7 +66,6 @@ const InterviewCallContent = () => {
   const [currentTranscription, setCurrentTranscription] = useState<string>("");
   const [forcedEndCount, setForcedEndCount] = useState(0);
   const [showInstructions, setShowInstructions] = useState(true);
-  const [isEnding, setIsEnding] = useState(false); // New state for ending interview
 
   // Refs
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
@@ -437,8 +436,6 @@ const InterviewCallContent = () => {
     console.log("🔴 FINISHING INTERVIEW - sessionId:", sessionId);
 
     try {
-      setIsEnding(true);
-
       // --- CLEANUP (Stop VAD, Audio, WebSocket) ---
       stopVAD();
       if (recognitionRef.current) {
@@ -501,8 +498,6 @@ const InterviewCallContent = () => {
       });
 
       router.push(`/Feedback?sessionId=${sessionId}`);
-    } finally {
-      setIsEnding(false);
     }
   };
 
