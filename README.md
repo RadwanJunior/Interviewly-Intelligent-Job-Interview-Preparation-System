@@ -27,7 +27,7 @@ https://docs.google.com/presentation/d/16EjtOPLmB_1ust_-E5ZVgE7ROPROz4fxNhJriK_d
 # Deployed Website
 https://suspicious-delcine-interviewly-05d835f6.koyeb.app/
 
-## Team members and their roles
+## Team members
 
 * Adham Radwan: aradw009@uottawa.ca | 300224504
 * Marwan Mashaly: mmash102@uottawa.ca | 300228296
