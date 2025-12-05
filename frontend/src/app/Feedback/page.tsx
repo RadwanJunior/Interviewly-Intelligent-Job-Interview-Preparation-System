@@ -355,65 +355,8 @@ const FeedbackContent = () => {
     };
   };
 
-  // Fetch feedback data when component loads
-  useEffect(() => {
-    const fetchFeedback = async () => {
-      if (!sessionId) {
-        setError("No interview session ID provided");
-        setLoading(false);
-        return;
-      }
-
-      try {
-        // Check feedback status first
-        const statusResponse = await getFeedbackStatus(sessionId);
-
-        if (statusResponse.status === "processing") {
-          // If still processing and under 30 attempts, continue polling
-          if (pollingCount < 30) {
-            console.log("Feedback still processing, will check again soon...");
-            setTimeout(() => {
-              setPollingCount((prev) => prev + 1);
-            }, 3000); // Poll every 3 seconds
-            return;
-          } else {
-            throw new Error(
-              "Feedback generation is taking longer than expected"
-            );
-          }
-        } else if (statusResponse.status === "error") {
-          throw new Error(
-            statusResponse.message || "Error generating feedback"
-          );
-        } else if (statusResponse.status === "not_started") {
-          throw new Error("Feedback generation has not started yet");
-        }
-
-        // If status is completed or success, fetch the feedback data
-        const response = await getFeedback(sessionId);
-
-        if (response.status === "success" && response.feedback) {
-          const transformedData = transformApiDataToUiFormat(response.feedback);
-          setFeedback(transformedData);
-          setLoading(false);
-        } else {
-          throw new Error("Invalid feedback data received");
-        }
-      } catch (err) {
-        console.error("Failed to fetch feedback:", err);
-        setError(
-          err instanceof Error ? err.message : "Failed to load feedback data"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (loading || pollingCount > 0) {
-      fetchFeedback();
-    }
-  }, [sessionId, loading, pollingCount]);
-
+  // REMOVED: The conflicting useEffect that was throwing "Feedback generation has not started yet"
+  
   // ✅ Fix: Memoize checkFeedbackStatus to include toast in dependencies
   const checkFeedbackStatus = useCallback(async () => {
     let pollCount = 0;
@@ -422,6 +365,7 @@ const FeedbackContent = () => {
     const poll = async (): Promise<void> => {
       try {
         pollCount++;
+        setPollingCount(pollCount); // ✨ Update UI progress bar
 
         const statusResponse = await getFeedbackStatus(sessionId!);
 
@@ -440,7 +384,21 @@ const FeedbackContent = () => {
               "Feedback generation is taking longer than expected. Please refresh the page."
             );
           }
-        } else if (statusResponse.status === "completed") {
+        }
+        // ✨ HANDLE "not_started" GRACEFULLY ✨
+        else if (statusResponse.status === "not_started") {
+          console.log("Backend initializing feedback task...");
+          setFeedbackStatus("processing");
+          setStatusMessage("Initializing feedback generation...");
+
+          // Retry just like we do for "processing"
+          if (pollCount < MAX_POLLS) {
+            setTimeout(() => poll(), 3000);
+          } else {
+            throw new Error("Feedback generation failed to start.");
+          }
+        }
+        else if (statusResponse.status === "completed") {
           setFeedbackStatus("completed");
           setStatusMessage("Feedback ready! Loading...");
 
@@ -464,17 +422,6 @@ const FeedbackContent = () => {
           throw new Error(
             statusResponse.message || "Error generating feedback"
           );
-        } else if (statusResponse.status === "not_started") {
-          setFeedbackStatus("processing");
-          setStatusMessage("Starting feedback generation...");
-
-          if (pollCount < MAX_POLLS) {
-            setTimeout(() => poll(), 3000);
-          } else {
-            throw new Error(
-              "Feedback generation did not start. Please try again."
-            );
-          }
         }
       } catch (err) {
         console.error("Feedback polling error:", err);
@@ -487,7 +434,7 @@ const FeedbackContent = () => {
     };
 
     poll();
-  }, [sessionId, toast]); // ✅ Include toast dependency
+  }, [sessionId, toast]); 
 
   // Enhanced polling logic with better UX
   useEffect(() => {

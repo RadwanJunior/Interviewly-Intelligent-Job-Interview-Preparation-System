@@ -1,4 +1,4 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException
 from app.services.supabase_service import supabase_service
 from google import genai
 from google.genai import types
@@ -14,6 +14,7 @@ from websockets.exceptions import ConnectionClosed
 from app.services.conversation_service import ConversationService
 import time
 import httpx  # Add this import
+from datetime import datetime, timezone
 
 # --- LOGGING AND CONSTANTS ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -474,3 +475,59 @@ Enhanced Context:
         
         await upload_queue.stop()
         logging.info(f"[{interview_id}] Closed.")
+
+
+@router.post("/end/{interview_id}")
+async def end_interview(
+    interview_id: str,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(supabase_service.get_current_user)
+):
+    """
+    Ends the interview call and triggers feedback generation in the background.
+    """
+    try:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        
+        user_id = current_user.id
+        
+        logging.info(f"[{interview_id}] Ending interview for user {user_id}")
+        
+        # Update interview status to completed
+        update_payload = {
+            "status": "completed",
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+        }
+        
+        # FIX: Added 'await' here  
+        update_result = await supabase_service.update_interview(interview_id, update_payload)
+        
+        if "error" in update_result:
+            logging.error(f"[{interview_id}] Failed to update interview status: {update_result['error']}")
+            raise HTTPException(status_code=500, detail="Failed to update interview status")
+        
+        logging.info(f"[{interview_id}] ✓ Interview marked as completed")
+        
+        # Import the service instance, not the method directly
+        from app.services.feedback_live_service import feedback_live_service
+        
+        logging.info(f"[{interview_id}] Queuing feedback generation task...")
+        background_tasks.add_task(
+            feedback_live_service.generate_live_feedback,
+            interview_id,
+            user_id
+        )
+        logging.info(f"[{interview_id}] ✓ Feedback generation task queued successfully")
+        
+        return {
+            "status": "success",
+            "message": "Interview ended. Generating feedback...",
+            "interview_id": interview_id
+        }
+         
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"[{interview_id}] Error ending interview: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
