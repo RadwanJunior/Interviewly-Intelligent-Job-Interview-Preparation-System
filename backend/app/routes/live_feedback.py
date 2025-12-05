@@ -53,8 +53,7 @@ async def trigger_live_feedback_generation(
         }
         
     except Exception as e:
-        logging.error(f"Error triggering live feedback generation: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An internal error has occurred")
 
 @router.get("/status/{interview_id}")
 async def get_feedback_status(
@@ -104,10 +103,9 @@ async def get_feedback_status(
         }
         
     except Exception as e:
-        logging.error(f"[{interview_id}] Error checking feedback status: {str(e)}", exc_info=True)
         return {
             "status": "error",
-            "message": str(e)
+            "message": "An internal error has occurred."
         }
 
 @router.get("/feedback/{interview_id}")
@@ -173,5 +171,4 @@ async def get_live_feedback(
             }
             
     except Exception as e:
-        logging.error(f"Error retrieving feedback: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="internal error has occurred")
