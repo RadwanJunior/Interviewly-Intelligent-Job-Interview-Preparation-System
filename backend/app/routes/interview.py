@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from app.services.interview_service import InterviewService
 # Import Supabase service to interact with the database and storage.
 from app.services.supabase_service import supabase_service
-# from app.services.rag_service import rag_service, RAGStatus  # COMMENTED OUT - Bypass RAG
+from app.services.rag_service import rag_service, RAGStatus  # COMMENTED OUT - Bypass RAG
 # provides support for writing non blocking code using the async and await syntax
 import asyncio
 import logging
@@ -39,32 +39,28 @@ async def generate_questions_task(
     try:
         logging.info(f"[Interview] Starting question generation task for interview {session_id}")
         
-        # COMMENTED OUT - Wait for RAG enhancement with a 2-minute timeout
-        # rag_result = await rag_service.wait_for_enhancement(
-        #     interview_id=session_id,
-        #     timeout=60
-        # )
+        #Wait for RAG enhancement with a 2-minute timeout
+        rag_result = await rag_service.wait_for_enhancement(
+            interview_id=session_id,
+            timeout=60
+        )
         
-        # COMMENTED OUT - RAG enhancement logic
-        # enhanced_prompt = None
-        # if rag_result.get("status") == "success":
-        #     enhanced_prompt = rag_result.get("enhanced_prompt")
-        #     logging.info(f"[Interview] RAG enhancement successful. Using enhanced prompt for interview {session_id}")
-        # else:
-        #     logging.warning(
-        #         f"[Interview] RAG enhancement failed or timed out: {rag_result.get('status')}. "
-        #         f"Falling back to standard questions."
-        #     )
-        #     await supabase_service.update_interview_status(session_id, "processing")
-
-        # BYPASS RAG - Go directly to question generation without enhanced prompt
+        # RAG enhancement logic
         enhanced_prompt = None
-        await supabase_service.update_interview_status(session_id, "processing")
+        if rag_result.get("status") == "success":
+            enhanced_prompt = rag_result.get("enhanced_prompt")
+            logging.info(f"[Interview] RAG enhancement successful. Using enhanced prompt for interview {session_id}")
+        else:
+            logging.warning(
+                f"[Interview] RAG enhancement failed or timed out: {rag_result.get('status')}. "
+                f"Falling back to standard questions."
+            )
+            await supabase_service.update_interview_status(session_id, "processing")
 
         # Generate questions using the interview service
         questions_list = interview_service.generate_questions(
             resume_text, job_title, job_description, company_name, location,
-            enhanced_prompt=enhanced_prompt  # None when bypassing RAG
+            enhanced_prompt=enhanced_prompt
         )
         
         if not questions_list:
@@ -162,7 +158,7 @@ async def create_interview_session(
             job_description_id=request_data.job_description_id, 
             questions=[],
             ctype=request_data.type,
-            status="processing"  # Start at "processing" instead of "pending"
+            status="pending" 
         )
         
         if "error" in interview_session_response or not interview_session_response.data:
@@ -171,19 +167,19 @@ async def create_interview_session(
         interview_session = interview_session_response.data[0]
         session_id = interview_session["id"]
 
-        # COMMENTED OUT - Initiate RAG enhancement (non-blocking)
-        # await rag_service.request_enhancement(
-        #     interview_id=session_id,
-        #     resume=resume_text,
-        #     job_description=job_description,
-        #     company=company_name,
-        #     job_title=job_title
-        # )
+        #Initiate RAG enhancement (non-blocking)
+        await rag_service.request_enhancement(
+            interview_id=session_id,
+            resume=resume_text,
+            job_description=job_description,
+            company=company_name,
+            job_title=job_title
+        )
         
-        # COMMENTED OUT - Update status to "enhancing" to inform the user
-        # await supabase_service.update_interview_status(session_id, "enhancing")
+        # Update status to "enhancing" to inform the user
+        await supabase_service.update_interview_status(session_id, "enhancing")
         
-        # Schedule the background task to generate questions directly (no RAG)
+        # Schedule the background task to generate questions
         background_tasks.add_task(
             generate_questions_task,
             session_id,
@@ -220,19 +216,17 @@ async def get_questions(session_id: str):
 async def get_enhanced_questions(session_id: str):
     """
     Get questions for an interview session.
-    NOTE: RAG enhancement is currently disabled, returns standard questions.
     """
     questions_response = supabase_service.get_interview_question_table(session_id)
     if "error" in questions_response or not questions_response.data:
         raise HTTPException(status_code=404, detail="Questions not found")
     
-    # COMMENTED OUT - Check RAG enhancement status
-    # rag_status = await rag_service.get_enhancement_status(session_id)
+    rag_status = await rag_service.get_enhancement_status(session_id)
     
     return {
         "questions": questions_response.data,
-        "enhanced": False,  # RAG disabled
-        "rag_status": "disabled",
+        "enhanced": rag_status.get("enhanced_prompt_available", False),
+        "rag_status": rag_status.get("status", "unknown"),
         "total_count": len(questions_response.data)
     }
 
@@ -246,10 +240,12 @@ def _get_status_message(status: str, reason: str = None) -> str:
 
     messages = {
         "pending": "Interview preparation not started",
-        "processing": "Generating your interview questions...",
-        "ready": "Your interview is ready!",
+        "enhancing": "Enhancing your interview questions...",
+        "processing": "Processing and generating questions...",
+        "ready": "Your personalized interview is ready!",
         "completed": "Interview session completed",
         "failed": "Question generation failed. Please try again later.",
+        "timeout": "Enhancement timed out, preparing standard questions...",
         "quota_exceeded": "Service temporarily unavailable due to high demand.",
         "cancelled": "Interview preparation was cancelled"
     }

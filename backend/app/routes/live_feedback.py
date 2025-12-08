@@ -53,42 +53,60 @@ async def trigger_live_feedback_generation(
         }
         
     except Exception as e:
-        logging.error(f"Error triggering live feedback generation: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An internal error has occurred")
 
 @router.get("/status/{interview_id}")
-async def check_live_feedback_status(
+async def get_feedback_status(
     interview_id: str,
-    request: Request
+    current_user: dict = Depends(supabase_service.get_current_user)
 ):
-    """Check the status of live feedback generation."""
+    """Get the current status of feedback generation for an interview"""
     try:
-        # Authenticate the user
-        user = supabase_service.get_current_user(request)
-        if not user or "error" in user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-            
-        # Check in-memory status first
-        if interview_id in feedback_status:
-            return feedback_status[interview_id]
-            
-        # If not in memory, check if feedback exists in database
-        feedback = supabase_service.get_feedback(interview_id)
-        if feedback:
+        logging.info(f"[{interview_id}] Checking feedback status")
+        
+        # Check database for existing feedback
+        feedback_result = supabase_service.get_feedback(interview_id)
+        
+        if feedback_result and feedback_result.get("data"):
+            logging.info(f"[{interview_id}] Feedback found in database")
             return {
                 "status": "completed",
-                "message": "Feedback has been generated"
+                "message": "Feedback is ready"
             }
-            
-        # If no status information is found
+        
+        # Check if interview exists and its status
+        interview_result = supabase_service.get_interview_session(interview_id)
+        if not interview_result or not interview_result.get("data"):
+            logging.warning(f"[{interview_id}] Interview not found")
+            return {
+                "status": "not_started",
+                "message": "Interview not found"
+            }
+        
+        interview_data = interview_result.get("data")[0]
+        interview_status = interview_data.get("status")
+        completed_at = interview_data.get("completed_at")
+        
+        logging.info(f"[{interview_id}] Interview status: {interview_status}, completed_at: {completed_at}")
+        
+        if interview_status == "completed" and completed_at:
+            # Interview is completed, feedback should be processing or will be soon
+            return {
+                "status": "processing",
+                "message": "Generating feedback..."
+            }
+        
+        # Interview not completed yet
         return {
             "status": "not_started",
-            "message": "Feedback generation has not been started"
+            "message": "Interview has not been completed yet"
         }
         
     except Exception as e:
-        logging.error(f"Error checking feedback status: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return {
+            "status": "error",
+            "message": "An internal error has occurred."
+        }
 
 @router.get("/feedback/{interview_id}")
 async def get_live_feedback(
@@ -153,5 +171,4 @@ async def get_live_feedback(
             }
             
     except Exception as e:
-        logging.error(f"Error retrieving feedback: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="internal error has occurred")

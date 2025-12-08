@@ -12,7 +12,10 @@ const rawApiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 const inferLocalApiBase = () => {
   if (typeof window === "undefined") return "";
   const { hostname, port } = window.location;
-  if ((hostname === "localhost" || hostname === "127.0.0.1") && port === "3000") {
+  if (
+    (hostname === "localhost" || hostname === "127.0.0.1") &&
+    port === "3000"
+  ) {
     return "http://localhost:8000";
   }
   return "";
@@ -407,7 +410,9 @@ export async function updatePreparationPlan(
  * @returns API response data
  */
 export async function triggerPlanGeneration(planId: string) {
-  const response = await api.post(`/dashboard/preparation-plan/${planId}/generate`);
+  const response = await api.post(
+    `/dashboard/preparation-plan/${planId}/generate`
+  );
   return response.data;
 }
 
@@ -417,7 +422,9 @@ export async function triggerPlanGeneration(planId: string) {
  * @returns API response data with status
  */
 export async function getPlanStatus(planId: string) {
-  const response = await api.get(`/dashboard/preparation-plan/${planId}/status`);
+  const response = await api.get(
+    `/dashboard/preparation-plan/${planId}/status`
+  );
   return response.data;
 }
 
@@ -501,4 +508,16 @@ export async function clearFeedbackStatus(interview_id: string) {
     console.error(`DEBUG API: clearFeedbackStatus error:`, error);
     throw error;
   }
+}
+
+/**
+ * End the interview session and trigger feedback generation.
+ * Uses the centralized API instance to handle auth/refresh tokens automatically.
+ * @param interview_id - Interview session ID
+ * @returns API response data
+ */
+export async function endInterviewSession(interview_id: string) {
+  console.log(`DEBUG API: endInterviewSession called for ${interview_id}`);
+  const response = await api.post(`/interview_call/end/${interview_id}`);
+  return response.data;
 }
