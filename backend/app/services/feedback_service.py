@@ -24,7 +24,7 @@ if _gemini_api_key:
         client = genai.Client(api_key=_gemini_api_key)
     except Exception as exc:  # pragma: no cover - logged for operator visibility
         print(f"Warning: unable to initialize Gemini client ({exc}).")
-MODEL = "gemini-2.0-flash"
+MODEL = "gemini-2.5-flash"
 
 PROMPT_TEMPLATE = """
 You are an expert interviewer and feedback analyst. Your task is to provide comprehensive and actionable feedback for a candidate's mock interview performance.

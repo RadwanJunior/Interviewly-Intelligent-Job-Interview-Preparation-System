@@ -10,9 +10,8 @@ def get_gemini_client():
     """Initializes and returns the Gemini client."""
     return genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-# Define the model to use for generating interview questions. In this case the gemini-2.0-flash model.
 # This model is optimized for generating high speed, high quality, cost effective text completions.
-MODEL = "gemini-2.0-flash"
+MODEL = "gemini-2.5-flash"
 
 # Define the prompt template for generating interview questions.
 # The prompt acheives a variety of goals:
