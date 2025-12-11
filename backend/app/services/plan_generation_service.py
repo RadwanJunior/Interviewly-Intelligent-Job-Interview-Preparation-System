@@ -13,7 +13,7 @@ def get_gemini_client():
     return genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 # Define the model to use for generating preparation plans
-MODEL = "gemini-2.0-flash"
+MODEL = "gemini-2.5-flash"
 
 # Define the prompt template for generating interview preparation plans
 PROMPT_TEMPLATE = """You are an expert career coach and interview preparation specialist. Based on the candidate's information and interview details, generate a **comprehensive, personalized interview preparation plan**.
